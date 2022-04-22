@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en-gb">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Archimedes Live!</title>
+    <style>
+      body {
+        font-family: arial;
+        margin: 0;
+        padding: none;
+        background-color: #333;
+        color: #fff;
+      }
+
+      h1, h2, h3, textarea { font-family: riscos-system}
+
+      @font-face {
+        font-family: "riscos-system";
+        src: url("System.Fixed.woff2") format("woff2");
+      }
+
+      #logo {
+        display: inline-block;
+        margin: 5px 1em;
+      }
+
+      .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
+      div.emscripten { text-align: center; }      
+      div.emscripten_border { border: 1px solid black; }
+      /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
+
+      canvas:focus { outline: none }
+  
+      .spinner {
+        height: 30px;
+        width: 30px;
+        margin: 0;
+        margin-top: 20px;
+        margin-left: 20px;
+        display: inline-block;
+        vertical-align: top;
+
+        -webkit-animation: rotation .8s linear infinite;
+        -moz-animation: rotation .8s linear infinite;
+        -o-animation: rotation .8s linear infinite;
+        animation: rotation 0.8s linear infinite;
+
+        border-left: 5px solid rgb(235, 235, 235);
+        border-right: 5px solid rgb(235, 235, 235);
+        border-bottom: 5px solid rgb(235, 235, 235);
+        border-top: 5px solid rgb(120, 120, 120);
+        
+        border-radius: 100%;
+        background-color: rgb(189, 215, 46);
+      }
+
+      @keyframes rotation {
+        from {transform: rotate(0deg);}
+        to {transform: rotate(360deg);}
+      }
+
+      #status {
+        display: inline-block;
+        vertical-align: top;
+        margin-top: 30px;
+        margin-left: 20px;
+        font-weight: bold;
+        color: rgb(120, 120, 120);
+      }
+
+      #progress {
+        height: 20px;
+        width: 300px;
+      }
+
+      #controls {
+        display: inline-block;
+        float: right;
+        vertical-align: top;
+        margin-top: 30px;
+        margin-right: 20px;
+      }
+
+      .modal {
+        background-color: rgba(0,0,0,.4);
+        display: none;
+        height: 100%;
+        left: 0;
+        overflow: auto;
+        position: fixed;
+        top: 0;
+        width: 100%;
+        z-index: 1; 
+      }
+      .modal-content {
+        background-color: #666;
+        border: 1px solid black;
+        margin: 15% auto;
+        padding: 20px;
+        max-width: 600px;
+      }
+      .modal-close { 
+        display: block;
+        float: right;
+      }
+      #share-url { width: 100% }
+      #logo img { height: 2ex; margin-right: 4px}
+      h1 { font-size: 30pt}
+      a, a:visited { color:aqua}
+      textarea:focus { outline: none }
+
+      #main { 
+        display: flex;
+        flex-direction: row; 
+        width: 100%;
+        justify-content: space-around;
+        -background-color: darkgreen;
+        align-items: center;
+      }
+
+      #editor-container {
+        display: none;
+        -background-color: blue;
+        margin: 1em;
+      }
+
+      #display-container {
+        -background-color: red;
+      }
+
+      #editor { 
+        width: 45vw;
+        background-color: black;
+        color: white;
+        border: 1px solid #aaa;
+        padding: 10px;
+        box-sizing: border-box;
+        height: 300px;
+      }
+
+      @media screen and (max-width: 400px) {
+        h1 { font-size: 20pt; margin: 0 .5em}
+        #logo { 
+          margin: 0;
+          width: 100%;
+          display: block; 
+          text-align: center; 
+          -background-color: red;
+        }
+        body { background-color: green;}
+        #main { flex-direction: column;}
+        #canvas { width: 100% }
+        #editor-container { margin: 0; }
+
+        #editor { 
+          width: 100%;
+          height: 20vh;
+        }
+        
+        #editor:focus { height: 90vh; }
+      }
+
+
+    </style>
+  </head>
+  <body onclick="if(!event.target.hasAttribute('allowfocus'))document.getElementById('canvas').focus()">
+
+    <div id="logo"><h1><img src="images/logo.svg" alt="A">rchimedes Live!</h1></div>
+   
+    <div class="spinner" id='spinner'></div>
+    <div class="emscripten" id="status">Downloading...</div>
+
+<span id='controls'>
+  <a href="#" onclick="showEditor()">Open BASIC editor</a> |
+  <select id="discs" onchange="loadDisc(this.selectedOptions[0].value)" allowfocus>
+    <option value="">Load Floppy...</option>
+  </select>
+ | 
+  <a href="#" onclick="document.getElementById('about-box').style.display='block'">About</a>
+
+  <!--
+  <span><input type="checkbox" id="resize">Resize canvas</span>
+  <span><input type="checkbox" id="pointerLock" checked>Lock/hide mouse pointer &nbsp;&nbsp;&nbsp;</span>
+  <span><input type="button" value="Fullscreen" onclick="Module.requestFullscreen(document.getElementById('pointerLock').checked, 
+                                                                            document.getElementById('resize').checked)">
+  </span>
+-->
+</span>
+
+  
+    <div class="emscripten">
+      <progress value="0" max="100" id="progress" hidden=1></progress>
+    </div>
+
+    <div id="main">
+      <div id="editor-container"><!-- BBC BASIC Editor-->
+        <p>
+          <button onclick="runProgram()">Run (ctrl-enter)</button> 
+          <button onclick="showShareBox()">Share</button>
+        </p>
+        <textarea id="editor" allowfocus onkeydown="if(event.keyCode==13&&event.ctrlKey)runProgram()">10 PRINT "Hello Archimedes!"
+20 </textarea>
+        <p>
+          <span id="char-count">0 characters</span> | 
+          <a href="http://www.riscos.com/support/developers/basicv/index.htm">BBC BASIC V Guide</a> |
+          <a href="http://www.riscos.com/support/developers/bbcbasic/index.html">BBC BASIC V Reference Manual</a>
+        </p>
+      </div>
+      <div id="display-container" onclick="tryCapture()">
+        <canvas id="canvas" class="emscripten" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+      </div>
+    </div>
+
+    <div class="modal" id="share-box" onclick="closeModal('share-box', event)">
+      <div class="modal-content">
+        <h2>Share your Archimedes program</h2>
+        <input id="share-url" readonly allowfocus>
+
+        <p><button onclick="copyProgAsURL()">Copy URL</button>
+        <button onclick="tweetProg()">Tweet to @ARM2bot</button></p>
+      </div>
+    </div>
+
+    <div class="modal" id="about-box" onclick="closeModal('about-box', event)"> 
+      <div id="about" class="modal-content">
+        <h2>About Archimedes Live!</h2>
+        <p>Archimedes Live is a project by <a href="https://twitter.com/pdjstone">Paul Stone</a> which allows 
+          anyone to try out an emulated <a href="https://en.wikipedia.org/wiki/Acorn_Archimedes">Acorn Archimedes</a> 
+          computer in their web browser. The Archimedes, first released in 1987, was the Acorn's 32-bit successor 
+          to the BBC Micro. Acorn also created the ARM2 processor at the heart of the Archimedes - the ancestor 
+          of the ARM chips that power billions of smartphones, computers and other devices around the world today.</p>
+        <p>The emulator itself is a <a href="https://github.com/pdjstone/arculator-wasm">WebAssembly port</a> of
+           Sarah Walker's excellent <a href="http://b-em.bbcmicro.com/arculator/">Arculator</a> Archimedes 
+           emulator</a>.</p>
+        <p>Thanks to <a href="https://twitter.com/mattgodbolt">Matt Godbolt</a> for creating 
+          <a href="https://bbc.godbolt.org/">jsbeeb</a> and demonstrating how awesome a web-based emulator could be. 
+          Thanks also to <a href="https://twitter.com/DominicPajak">Dominic Pajak</a>, creator of the famous 
+          <a href="https://www.bbcmicrobot.com/">BBC Micro Bot</a>, and <a href="https://bbcmic.ro">Owlet BBC BASIC
+             Editor</a> which have allowed people to code, share and remix thousands of wonderfully creative BBC 
+             BASIC programs.</p>
+        <p>The RISC OS "System" font used on this site was converted by <a href="https://github.com/marutan/riscos-free-fonts">Peter Howkins</a>.</p>
+        <p>Archimedes Live is a work in progress, with many bugfixes, improvements and new features still to come. 
+          Thanks to the <a href="https://stardot.org.uk/forums/">StarDot forum</a> community for help with testing, 
+          and for providing tips, help and other expertise on everything Acorn related.</p> 
+        <p>This project is open-source. You can contribute on <a href="https://github.com/pdjstone/archimedes-live">GitHub</a>
+        with code and helpful bug reports.</p>
+        <p><a href="https://twitter.com/ArcLiveWeb?ref_src=twsrc%5Etfw" class="twitter-follow-button" data-show-count="false">Follow @ArcLiveWeb</a><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
+      </div>
+    </div>
+    <!--<textarea id="output" rows="8"></textarea>-->
+    <script async type='text/javascript' src="jsunzip.js"></script>
+    <script async type='text/javascript' src="ui.js"></script>
+    <script async type="text/javascript" src="arculator.js"></script>
+  </body>
+</html>
+
+
