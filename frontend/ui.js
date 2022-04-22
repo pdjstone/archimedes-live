@@ -224,6 +224,10 @@ function arc_do_reset() {
   ccall('arc_do_reset', null, []);
 }
 
+function arc_load_config_and_reset(configName) {
+  ccall('arc_load_config_and_reset', null, ['string'], [configName]);
+}
+
 function sdl_enable_mouse_capture() {
   ccall('sdl_enable_mouse_capture', null, []);
 }
@@ -420,8 +424,20 @@ async function loadMachineConfig() {
   putConfigFile(machineConfig);
   await putCmosFile(machineConfig);
   await loadRoms(machineConfig);
-  FS.mkdir('/hostfs');
+  try {
+    FS.mkdir('/hostfs');
+  } catch (e) {
+    console.log('hostfs dir already exists');
+  }
+  
   console.log('machine config loaded');
+  return machineConfig;
+}
+
+async function changeMachine(presetName) {
+  machinePreset = presetName;
+  let config = await loadMachineConfig();
+  arc_load_config_and_reset(config.getMachineType());
 }
 
 function sleep(ms) {
@@ -432,7 +448,21 @@ function putConfigFile(machineConfig) {
   let configName = machineConfig.getMachineType();
   let configFileData = machineConfig.getConfigFile();
   console.log('creating machine config file at /configs/' + configName + '.cfg');
-  FS.mkdir('/configs');
+  try {
+    let path = '/configs/' + configName + '.cfg';
+    FS.stat(path);
+    FS.unlink(path);
+    console.log('removed existing config file at ' + path);
+  } catch (e) {
+    
+  }
+  
+  try {
+    FS.mkdir('/configs');
+  } catch(e) {
+    console.log('dir /configs already exists?');
+  }
+  
   FS.createDataFile('/configs', configName + '.cfg', configFileData, true, true);
   //console.log(configFileData);
 }
@@ -595,6 +625,13 @@ async function putUrlAtPath(url, path) {
   let data = new Uint8Array(buf);
   mkdirsForFile(path);
   console.log(`putting URL ${url} at FS path ${path}`);
+  try {
+    FS.stat(path);
+    console.log('Remove existing file ' + path);
+    FS.unlink(path);
+  } catch (e) {
+    
+  }
   FS.createDataFile(dirName(path), baseName(path), data, true, true);
 }
 
