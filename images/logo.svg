@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   version="1.1"
+   x="0"
+   y="0"
+   width="220"
+   height="237"
+   viewBox="0 0 220 237"
+   id="svg886"
+   sodipodi:docname="Archimedes_Computer_Logo_Recreation_cropped.svg"
+   inkscape:version="1.1.2 (1:1.1+202202050950+0a00cf5339)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs890" />
+  <sodipodi:namedview
+     id="namedview888"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     showgrid="false"
+     inkscape:zoom="2.2496567"
+     inkscape:cx="113.79514"
+     inkscape:cy="134.90947"
+     inkscape:window-width="1860"
+     inkscape:window-height="1016"
+     inkscape:window-x="60"
+     inkscape:window-y="27"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg886" />
+  <g
+     id="g1348">
+    <path
+       d="M 0.35173485,-0.0554336 H 219.89118 V 236.94457 H 0.35173485 Z"
+       fill="#019ade"
+       id="path877"
+       style="stroke-width:0.468449" />
+    <path
+       d="M 0.35173485,236.94457 184.25973,-0.0554336 h 19.773 l -0.023,237.0000036 z"
+       fill="#ffffff"
+       id="path879"
+       sodipodi:nodetypes="ccccc" />
+    <path
+       d="M 187.16873,110.77257 V 24.406566 l -60.104,77.455004 c 21.02,-4.503004 42.092,-1.403 60.104,8.911 z"
+       fill="#f6564a"
+       id="path881" />
+    <path
+       d="m 187.16873,236.94457 v -105.769 c -22.053,-16.635 -51.244,-19.058 -78.135,-6.079 l -86.790995,111.848 z"
+       fill="#f2ce2e"
+       id="path883" />
+  </g>
+</svg>
