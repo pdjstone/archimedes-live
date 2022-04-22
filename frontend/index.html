@@ -200,7 +200,7 @@
           <button onclick="runProgram()">Run (ctrl-enter)</button> 
           <button onclick="showShareBox()">Share</button>
         </p>
-        <textarea id="editor" allowfocus onkeydown="if(event.keyCode==13&&event.ctrlKey)runProgram()">10 PRINT "Hello Archimedes!"
+        <textarea id="editor" allowfocus autocomplete="off" spellcheck="false" onkeydown="if(event.keyCode==13&&event.ctrlKey)runProgram()">10 PRINT "Hello Archimedes!"
 20 </textarea>
         <p>
           <span id="char-count">0 characters</span> | 
@@ -228,7 +228,7 @@
         <h2>About Archimedes Live!</h2>
         <p>Archimedes Live is a project by <a href="https://twitter.com/pdjstone">Paul Stone</a> which allows 
           anyone to try out an emulated <a href="https://en.wikipedia.org/wiki/Acorn_Archimedes">Acorn Archimedes</a> 
-          computer in their web browser. The Archimedes, first released in 1987, was the Acorn's 32-bit successor 
+          computer in their web browser. The Archimedes, first released in 1987, was Acorn's 32-bit successor 
           to the BBC Micro. Acorn also created the ARM2 processor at the heart of the Archimedes - the ancestor 
           of the ARM chips that power billions of smartphones, computers and other devices around the world today.</p>
         <p>The emulator itself is a <a href="https://github.com/pdjstone/arculator-wasm">WebAssembly port</a> of
@@ -251,6 +251,7 @@
     </div>
     <!--<textarea id="output" rows="8"></textarea>-->
     <script async type='text/javascript' src="jsunzip.js"></script>
+    <script async type='text/javascript' src="cmos.js"></script>
     <script async type='text/javascript' src="ui.js"></script>
     <script async type="text/javascript" src="arculator.js"></script>
   </body>

@@ -76,11 +76,15 @@ var Module = {
 
 };
 
+let queryString = '';
+if (location.hash)
+  queryString = '?' + location.hash.substr(1);
 
-let searchParams = new URLSearchParams(location.search);
+let searchParams = new URLSearchParams(queryString);
 let machinePreset = 'a3000';
-
+let autoboot = false;
 let fps = 0;
+
 if (searchParams.has('fixedfps')) {
   fps = searchParams.get('fixedfps');
   if (fps != null) {
@@ -106,17 +110,15 @@ if (searchParams.has('autoboot')) {
   Module.preRun.push(function() {
     let autoboot = searchParams.get('autoboot');
     console.log('UI: preRun - create !boot:' + autoboot);
-    FS.createDataFile('/hostfs', '!boot,feb', autoboot, true, true);
+    putDataAtPath(autoboot, '/hostfs/!boot,feb');
   }); 
-  machineConfig = 'A3010_autoboot';
+  autoboot = true;
 } else if (searchParams.has('basic')) {
   let prog = searchParams.get('basic');
-  
-  
+
   Module.preRun.push(function() {
-    ENV.SDL_EMSCRIPTEN_KEYBOARD_ELEMENT ="#canvas";
     console.log('UI: preRun - create !boot and prog');
-    FS.createDataFile('/hostfs', '!boot,ffe', wrapProg(prog), true, true);
+    putDataAtPath(wrapProg(prog), '/hostfs/!boot,ffe');
   });
   Module.postRun.push(function() {
     //ccall('arc_fast_forward', null, ['number'], [6000]);
@@ -124,10 +126,12 @@ if (searchParams.has('autoboot')) {
   showEditor();
   document.getElementById('editor').value = prog;
   updateCharCount();
-  machineConfig = 'A3010_autoboot';
+  autoboot = true;
 }
 
-var preload
+Module.preRun.push(function() {
+  ENV.SDL_EMSCRIPTEN_KEYBOARD_ELEMENT ="#canvas";
+});
 
 Module.arguments = [fps.toString()];
 if (machinePreset) {
@@ -316,8 +320,7 @@ function wrapProg(prog) {
 
 function runProgram() {
   let prog = document.getElementById('editor').value;
-  FS.unlink('/hostfs/!boot,ffe');
-  FS.createDataFile('/hostfs', '!boot,ffe', wrapProg(prog), true, true);
+  putDataAtPath(wrapProg(prog), '/hostfs/!boot,ffe');
   rerunProg();
 }
 
@@ -422,7 +425,7 @@ async function loadMachineConfig() {
   }
   let machineConfig = builder.build();
   putConfigFile(machineConfig);
-  await putCmosFile(machineConfig);
+  putCmosFile(machineConfig);
   await loadRoms(machineConfig);
   try {
     FS.mkdir('/hostfs');
@@ -445,7 +448,7 @@ function sleep(ms) {
 }
 
 function putConfigFile(machineConfig) {
-  let configName = machineConfig.getMachineType();
+  let configName = machineConfig.configName;
   let configFileData = machineConfig.getConfigFile();
   console.log('creating machine config file at /configs/' + configName + '.cfg');
   try {
@@ -467,10 +470,19 @@ function putConfigFile(machineConfig) {
   //console.log(configFileData);
 }
 
-async function putCmosFile(machineConfig) {
-  let cmosPath = machineConfig.getDefaultCmosPath();
-  let cmosUrl = 'emu/' + cmosPath;
-  await putUrlAtPath(cmosUrl, cmosPath);
+function putCmosFile(machineConfig) {
+  let cmosPath = machineConfig.getMachineCmosPath();
+  let cmosName = machineConfig.getCmosName();
+  let cmosData = atob(DEFAULT_CMOS[cmosName]);
+  if (autoboot) { 
+    if (CMOS_BOOT_HOSTFS.hasOwnProperty(cmosName)) {
+      console.log('using autoboot CMOS for ' +cmosName);
+      cmosData = atob(CMOS_BOOT_HOSTFS[cmosName]);
+    }  else {
+      console.warn("No autoboot CMOS for " + cmosName);
+    }
+  }
+  putDataAtPath(cmosData, cmosPath);
 }
 
 const CPU_ARM2 = 0;
@@ -487,7 +499,6 @@ const MEMC_MEMC1 = 0;
 const MEMC_MEMC1A_8 = 1;
 const MEMC_MEMC1A_12 = 2;
 const MEMC_MEMC1A_16 = 3;
-
 
 const FDC_WD1770 = 0;
 const FDC_82C711 = 1;
@@ -543,9 +554,12 @@ class MachineConfigBuilder {
     disc: ''
   }
 
-  constructor(machine) {
+  constructor(machine, configName) {
     if (machine)
-      this.params['machine'] = machine
+      this.params['machine'] = machine;
+    if (!configName)
+      configName = machine;
+    this.configName = configName;  
   }
 
   memory(memSize) {
@@ -587,7 +601,7 @@ class MachineConfigBuilder {
   }
 
   build() {
-    return new MachineConfig(this.params);
+    return new MachineConfig(this.configName, this.params);
   }
 }
 
@@ -618,13 +632,8 @@ function dirName(path) {
   return '/';
 }
 
-async function putUrlAtPath(url, path) {
-  // TODO: check if file already exists
-  let response = await fetch(url, {mode:'cors'});
-  let buf = await response.arrayBuffer();
-  let data = new Uint8Array(buf);
+function putDataAtPath(data, path) {
   mkdirsForFile(path);
-  console.log(`putting URL ${url} at FS path ${path}`);
   try {
     FS.stat(path);
     console.log('Remove existing file ' + path);
@@ -633,6 +642,14 @@ async function putUrlAtPath(url, path) {
     
   }
   FS.createDataFile(dirName(path), baseName(path), data, true, true);
+}
+
+async function putUrlAtPath(url, path) {
+  let response = await fetch(url, {mode:'cors'});
+  let buf = await response.arrayBuffer();
+  let data = new Uint8Array(buf);
+  console.log(`putting URL ${url} at FS path ${path}`);
+  putDataAtPath(data, path);
 }
 
 async function loadRoms(machineConfig) {
@@ -644,7 +661,8 @@ async function loadRoms(machineConfig) {
 
 
 class MachineConfig {
-  constructor(params) {
+  constructor(configName, params) {
+    this.configName = configName;
     this.configParams = params;
   }
 
@@ -674,7 +692,7 @@ class MachineConfig {
 
   getMachineCmosPath() {
     let cmos = this.getCmosName();
-    return `cmos/${configName}.${cmos}.cmos.bin`;
+    return `cmos/${this.configName}.${cmos}.cmos.bin`;
   }
 
   getDefaultCmosPath() {
@@ -769,3 +787,12 @@ rom_list = [
   'riscos200_a500/ROM200.A500Build',
   'riscos310/ROM310',
 ];
+
+
+function arrayBufferToBase64(buffer) {
+  var binary = '';
+  var bytes = [].slice.call(new Uint8Array(buffer));
+  bytes.forEach((b) => binary += String.fromCharCode(b));
+  return window.btoa(binary);
+};
+
