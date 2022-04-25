@@ -232,6 +232,10 @@ function arc_load_config_and_reset(configName) {
   ccall('arc_load_config_and_reset', null, ['string'], [configName]);
 }
 
+function arc_set_sound_filter(filter) {
+  ccall('arc_set_sound_filter', null, ['number'], [filter]);
+}
+
 function sdl_enable_mouse_capture() {
   ccall('sdl_enable_mouse_capture', null, []);
 }
