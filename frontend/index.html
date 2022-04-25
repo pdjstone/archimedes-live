@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="icon" href="images/arclive.png">
     <title>Archimedes Live!</title>
     <style>
       body {
@@ -21,9 +22,22 @@
         src: url("System.Fixed.woff2") format("woff2");
       }
 
+      header {
+        display: flex;
+        flex: 2;
+        background-color: purple;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      #logo h1 { margin: 5px}
       #logo {
-        display: inline-block;
-        margin: 5px 1em;
+        white-space: nowrap;
+        margin: 3px 1em;
+      }
+      #controls {
+       background-color:darkblue;
+       margin: 1em;
       }
 
       .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
@@ -34,26 +48,23 @@
       canvas:focus { outline: none }
   
       .spinner {
-        height: 30px;
-        width: 30px;
+        height: 20px;
+        width: 20px;
         margin: 0;
         margin-top: 20px;
         margin-left: 20px;
         display: inline-block;
         vertical-align: top;
 
-        -webkit-animation: rotation .8s linear infinite;
-        -moz-animation: rotation .8s linear infinite;
-        -o-animation: rotation .8s linear infinite;
         animation: rotation 0.8s linear infinite;
 
-        border-left: 5px solid rgb(235, 235, 235);
-        border-right: 5px solid rgb(235, 235, 235);
-        border-bottom: 5px solid rgb(235, 235, 235);
-        border-top: 5px solid rgb(120, 120, 120);
+        border-left: 3px solid rgb(235, 235, 235);
+        border-right: 3px solid rgb(235, 235, 235);
+        border-bottom: 3px solid rgb(235, 235, 235);
+        border-top: 3px solid rgb(120, 120, 120);
         
         border-radius: 100%;
-        background-color: rgb(189, 215, 46);
+        background-color: aqua;
       }
 
       @keyframes rotation {
@@ -75,13 +86,6 @@
         width: 300px;
       }
 
-      #controls {
-        display: inline-block;
-        float: right;
-        vertical-align: top;
-        margin-top: 30px;
-        margin-right: 20px;
-      }
 
       .modal {
         background-color: rgba(0,0,0,.4);
@@ -93,11 +97,12 @@
         top: 0;
         width: 100%;
         z-index: 1; 
+        vertical-align:middle;
       }
       .modal-content {
         background-color: #666;
         border: 1px solid black;
-        margin: 15% auto;
+        margin:  auto;
         padding: 20px;
         max-width: 600px;
       }
@@ -111,6 +116,7 @@
       a, a:visited { color:aqua}
       textarea:focus { outline: none }
 
+      
       #main { 
         display: flex;
         flex-direction: row; 
@@ -122,8 +128,10 @@
 
       #editor-container {
         display: none;
+        flex:2;
         -background-color: blue;
         margin: 1em;
+        max-width: 80ch;
       }
 
       #display-container {
@@ -131,63 +139,75 @@
       }
 
       #editor { 
-        width: 45vw;
+        width: 100%;
         background-color: black;
         color: white;
         border: 1px solid #aaa;
         padding: 10px;
         box-sizing: border-box;
-        height: 300px;
+        height: 30em;
       }
 
-      @media screen and (max-width: 400px) {
+      .editor-info { font-size: 85% }
+
+      @media screen and (max-width: 600px) {
         h1 { font-size: 20pt; margin: 0 .5em}
+        
+        header { flex-direction:  column;}
+
+
         #logo { 
-          margin: 0;
+          margin: 2px;
           width: 100%;
           display: block; 
           text-align: center; 
           -background-color: red;
         }
-        body { background-color: green;}
-        #main { flex-direction: column;}
-        #canvas { width: 100% }
-        #editor-container { margin: 0; }
 
         #editor { 
           width: 100%;
           height: 20vh;
         }
-        
-        #editor:focus { height: 90vh; }
+      
+        body { -background-color: green;}
+        #main { flex-direction: column;}
+        #canvas { width: 100% }
+        #editor-container { 
+          margin: 0; 
+          width: 100%;
+          max-width: 100%;        }
       }
 
+      @media screen and (max-width: 600px) and (max-height: 600px) {
+        #editor:focus { height: 90vh; }
+      }
 
     </style>
   </head>
   <body onclick="if(!event.target.hasAttribute('allowfocus'))document.getElementById('canvas').focus()">
 
-    <div id="logo"><h1><img src="images/logo.svg" alt="A">rchimedes Live!</h1></div>
+    <header>
+      <div id="logo"><h1><img src="images/logo.svg" alt="A">rchimedes Live!</h1></div>
+
+      <span id='controls'>
+        <a href="#" onclick="showEditor()">Open BASIC editor</a>
+
+        <select id="discs" onchange="loadDisc(this.selectedOptions[0].value)" allowfocus>
+          <option value="">Load Floppy...</option>
+        </select>
+       | 
+        <a href="#" onclick="document.getElementById('about-box').style.display='flex'">About</a>
+      
+      
+      </span>
+
+      
+    </header>
+   
    
     <div class="spinner" id='spinner'></div>
     <div class="emscripten" id="status">Downloading...</div>
 
-<span id='controls'>
-  <a href="#" onclick="showEditor()">Open BASIC editor</a> |
-  <select id="discs" onchange="loadDisc(this.selectedOptions[0].value)" allowfocus>
-    <option value="">Load Floppy...</option>
-  </select>
- | 
-  <a href="#" onclick="document.getElementById('about-box').style.display='block'">About</a>
-
-  <!--
-  <span><input type="checkbox" id="resize">Resize canvas</span>
-  <span><input type="checkbox" id="pointerLock" checked>Lock/hide mouse pointer &nbsp;&nbsp;&nbsp;</span>
-  <span><input type="button" value="Fullscreen" onclick="Module.requestFullscreen(document.getElementById('pointerLock').checked, 
-                                                                            document.getElementById('resize').checked)">
-  </span>
--->
-</span>
 
   
     <div class="emscripten">
@@ -202,7 +222,7 @@
         </p>
         <textarea id="editor" allowfocus autocomplete="off" spellcheck="false" onkeydown="if(event.keyCode==13&&event.ctrlKey)runProgram()">10 PRINT "Hello Archimedes!"
 20 </textarea>
-        <p>
+        <p class="editor-info">
           <span id="char-count">0 characters</span> | 
           <a href="http://www.riscos.com/support/developers/basicv/index.htm">BBC BASIC V Guide</a> |
           <a href="http://www.riscos.com/support/developers/bbcbasic/index.html">BBC BASIC V Reference Manual</a>

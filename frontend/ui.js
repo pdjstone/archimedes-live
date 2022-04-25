@@ -356,8 +356,12 @@ function getBasicShareUrl() {
 }
 
 function showShareBox() {
-  document.getElementById('share-box').style.display = 'block';
+  document.getElementById('share-box').style.display = 'flex';
   document.getElementById('share-url').value = getBasicShareUrl();
+  setTimeout(() => {
+    document.getElementById('share-url').select();
+    document.getElementById('share-url').focus();
+  }, 5);
 }
 
 function tweetProg() {
@@ -709,7 +713,7 @@ class MachineConfig {
     let romUrls = {};
     for (let path of rom_list) {
       if (path.startsWith(romSet + '/')) {
-        romUrls['roms/'+path] = 'emu/roms/' + path;
+        romUrls['roms/'+path] = 'https://files-archi.medes.live/roms/' + path;
         break;
       }
     }
@@ -717,7 +721,7 @@ class MachineConfig {
       console.warn("Did not find ROM path for " + romSet);
     }
     if (this.configParams['support_rom'])
-      romUrls['roms/arcrom_ext'] = 'emu/roms/arcrom_ext';
+      romUrls['roms/arcrom_ext'] = 'https://files-archi.medes.live/roms/arcrom_ext';
     return romUrls;
   }
 
