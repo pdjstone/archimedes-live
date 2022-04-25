@@ -136,7 +136,7 @@ function JSUnzip() {
             var localFileNameLength = this.getInt(relativeOffsetOfLocalHeader + 26, 2);
             var localExtraFieldLength = this.getInt(relativeOffsetOfLocalHeader + 28, 2);
             var localFileContent = relativeOffsetOfLocalHeader + 30 + localFileNameLength + localExtraFieldLength;
-
+            
             this.files[fileName] = 
             {
                 'fileComment' : fileComment,
@@ -147,10 +147,45 @@ function JSUnzip() {
                 'lastModifiedDate' : lastModifiedDate
             };
 
+            if (localExtraFieldLength > 0 && this.hasOwnProperty('extraFieldParsers')) {
+               let extraFieldStartOffset = relativeOffsetOfLocalHeader + 30 + localFileNameLength;
+               let extraFields = this.parseExtraFields(extraFieldStartOffset, localExtraFieldLength);
+               this.files[fileName]['extraFields'] = extraFields;
+            }
+
             fileOffset += 46 + fileNameLength + extraFieldLength + fileCommentLength;
         }
         return { 'status' : true };
-    };     
+    };
+
+    this.parseExtraFields = function(extraFieldStartOffset, extraFieldTotalLength) {
+      let extraOffset = 0;
+      let extraFields = {};
+
+      // extraFieldTotalLength is total length of all extra fields
+      // Iterate through each extra field and parse if known
+      while (extraOffset < extraFieldTotalLength) {
+         let extraFieldType = this.getInt(extraFieldStartOffset + extraOffset, 2);
+         let extraFieldLen = this.getInt(extraFieldStartOffset + extraOffset + 2, 2);
+         let extraMeta = null;
+         if (this.extraFieldParsers.hasOwnProperty(extraFieldType)) {
+            extraMeta = this.extraFieldParsers[extraFieldType].call(this, extraFieldStartOffset + extraOffset, extraFieldLen);
+         } 
+         extraFields[extraFieldType] = extraMeta;
+         if (extraMeta && extraMeta.hasOwnProperty('len') && extraMeta.len > 0) {
+            extraOffset += extraMeta.len + 4; 
+         } else {
+            extraOffset += extraFieldLen;
+         }
+      }
+      return extraFields;
+    };
+
+    this.registerExtension = function(extraFieldType, parserFn) {
+      if (!this.hasOwnProperty('extraFieldParsers'))
+         this.extraFieldParsers = {};
+      this.extraFieldParsers[extraFieldType] = parserFn;
+    };
     
     // Reads the data and returns a Uint8Array of the results. This is the fastest method.
     // To read the data as a string, use read()

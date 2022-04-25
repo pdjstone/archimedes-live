@@ -154,10 +154,71 @@ window.onerror = function(event) {
 
 let currentDiscFile = null;
 
+const ZIP_EXT_ACORN = 0x4341; // 'AC' - SparkFS / Acorn
+const ZIP_ID_ARC0 = 0x30435241; // 'ARC0'
+
+function parseRiscOsZipField(offset, len) {
+  // See https://www.davidpilling.com/wiki/index.php/SparkFS "A Comment on Zip files"
+  if (len == 24) len = 20;
+  let id2 = this.getInt(offset + 4, 4);
+  if (id2 != ZIP_ID_ARC0)
+    return null;
+  this.isRiscOs = true;
+  return {
+    len: len,
+    loadAddr: this.getInt(offset + 8, 4) >>> 0,
+    execAddr: this.getInt(offset + 12, 4) >>> 0,
+    attr: this.getInt(offset + 16, 4) >>> 0
+  };
+}
+
+function getHostFSPathForZipEntry(fileName, fileMeta, dstPath = '/') {
+  let hostFsPath = dstPath + fileName;
+  if (fileMeta.hasOwnProperty('extraFields') && 
+      fileMeta['extraFields'].hasOwnProperty(ZIP_EXT_ACORN)) {
+      
+        let riscOsMeta = fileMeta['extraFields'][ZIP_EXT_ACORN];
+        let loadAddr = riscOsMeta['loadAddr'];
+        let execAddr = riscOsMeta['execAddr'];
+        
+        // See http://www.riscos.com/support/developers/prm/fileswitch.html
+        if (loadAddr >>> 20 == 0xfff) {
+          let fileType = loadAddr >>> 8 & 0xfff;
+          hostFsPath = dstPath + fileName + ',' + fileType.toString(16)
+        } else {
+          hostFsPath = dstPath + fileName + ',' + loadAddr.toString(16) + '-' + execAddr.toString(16);
+        }
+     }
+     return hostFsPath;
+}
 
 // Disc image extensions that Arculator handles (see loaders struct in disc.c)
 let validDiscExts = ['.ssd','.dsd','.adf','.adl', '.fdi', '.apd', '.hfe'];
 
+// Unpack an archive file to HostFS
+async function loadArchive(url, dstPath='/') {
+    let response = await fetch(url, {mode:'cors'});
+    let buf = await response.arrayBuffer();
+    let data = new Uint8Array(buf);
+    var preamble = new TextDecoder().decode(data.slice(0, 2));
+    if (preamble == 'PK') {
+      console.log("Extracting ZIP file to find disc image");
+      let zip = new JSUnzip();
+      zip.registerExtension(ZIP_EXT_ACORN, parseRiscOsZipField);
+      zip.open(data);
+      for (const fileName in zip.files) {
+        let hostFsPath = getHostFSPathForZipEntry(fileName, zip.files[fileName]);
+        let result = zip.readBinary(fileName);
+        if (!result.status) {
+          console.error("failed to extract file: " + result.error)
+        } else {
+          putDataAtPath(result.data, '/hostfs' + hostFsPath);
+        }
+      }
+    } else {
+      console.error('unknown archive filetype - not zip?');
+    }
+}
 
 async function loadDisc(url, insert=true) {
     if (url == "") return;
