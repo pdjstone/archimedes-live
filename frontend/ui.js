@@ -184,9 +184,9 @@ function getHostFSPathForZipEntry(fileName, fileMeta, dstPath = '/') {
         // See http://www.riscos.com/support/developers/prm/fileswitch.html
         if (loadAddr >>> 20 == 0xfff) {
           let fileType = loadAddr >>> 8 & 0xfff;
-          hostFsPath = dstPath + fileName + ',' + fileType.toString(16)
+          hostFsPath = dstPath + fileName + ',' + fileType.toString(16).padStart(3, '0');
         } else {
-          hostFsPath = dstPath + fileName + ',' + loadAddr.toString(16) + '-' + execAddr.toString(16);
+          hostFsPath = dstPath + fileName + ',' + loadAddr.toString(16).padStart(8,'0') + '-' + execAddr.toString(16).padStart(8,'0');
         }
      }
      return hostFsPath;
@@ -210,7 +210,7 @@ async function loadArchive(url, dstPath='/') {
         let hostFsPath = getHostFSPathForZipEntry(fileName, zip.files[fileName]);
         let result = zip.readBinary(fileName);
         if (!result.status) {
-          console.error("failed to extract file: " + result.error)
+          console.error("failed to extract file: " + fileName, result);
         } else {
           putDataAtPath(result.data, '/hostfs' + hostFsPath);
         }
