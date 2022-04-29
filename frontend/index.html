@@ -38,7 +38,15 @@
       #controls {
        background-color:darkblue;
        margin: 1em;
+       display: flex
       }
+
+      #controls a { 
+        display: block;
+        text-decoration: none; 
+        border: 1px solid white; 
+        margin: 2px; 
+        padding: 5px }
 
       .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
       div.emscripten { text-align: center; }      
@@ -150,6 +158,42 @@
 
       .editor-info { font-size: 85% }
 
+      .dropdown-button::after { content: '\0025bc'; }
+
+
+      ul#machine-list {
+        list-style: none; 
+        background-color: darkblue;
+        margin: 0;
+      }
+
+      ul#machine-list li {
+        display: block;
+        padding: 5px;
+        background-color: #333;
+        margin: 2px;
+        cursor: pointer;
+      }
+
+      ul#machine-list li:hover {
+        background-color: #555;
+      }
+
+      ul#machine-list li.selected {
+        background-color: #66a;
+      }
+
+      #picker-cols {
+        justify-content: space-between;
+        background-color: darkgreen;
+      }
+
+      #machine-preview {
+        flex: 2;
+        padding: .5em;
+        width: 35ch;
+      }
+      
       @media screen and (max-width: 600px) {
         h1 { font-size: 20pt; margin: 0 .5em}
         
@@ -189,14 +233,16 @@
     <header>
       <div id="logo"><h1><img src="images/logo.svg" alt="A">rchimedes Live!</h1></div>
 
-      <span id='controls'>
+      <div id='controls'>
         <a href="#" onclick="showEditor()">Open BASIC editor</a>
+
+        <a href="#" onclick="showModal('machine-picker')" class="dropdown-button">Choose Machine</a>
 
         <select id="discs" onchange="loadDisc(this.selectedOptions[0].value)" allowfocus>
           <option value="">Load Floppy...</option>
         </select>
-       | 
-        <a href="#" onclick="document.getElementById('about-box').style.display='flex'">About</a>
+       
+        <a href="#" onclick="showModal('about-box')">About</a>
       
       
       </span>
@@ -233,13 +279,53 @@
       </div>
     </div>
 
+    <div class="modal" id="machine-picker"  onclick="closeModal('machine-picker', event)">
+      <div class="modal-content">
+        <h2>Choose an Archimedes to Emulate!</h2>
+
+        <div id="picker-cols" style="display: flex">
+         
+            <ul id="machine-list" onclick="previewMachine(event)">
+              <li>A3000 (RISC OS 2)</li>
+              <li>A3000 (RISC OS 3)</li>
+              <li>A3010</li>
+              <li>A5000</li>
+            </ul>
+          
+          <div id="machine-preview">
+              <h3>Archimedes A310</h3>
+              <ul>
+             
+                <li>CPU: <span class="cpu">ARM2 @ 8 MHz</span></li>
+                <li>OS: <span class="os">RISC OS 2.01</span></li>
+                <li>Memory: <span class="memory">1 MB</span></li>
+                <li>Release Date: <span class="release-date">July 1987</span></li>
+                <li>Launch Price: <span class="price">£875</span></li>
+              </ul>
+               
+
+
+              </p>
+              <button onclick="bootSelected()">Boot Machine</button>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+
     <div class="modal" id="share-box" onclick="closeModal('share-box', event)">
       <div class="modal-content">
         <h2>Share your Archimedes program</h2>
+        <p>Let other people run and remix your program by sharing a link to this page. Or tweet your
+          program at @ARM2bot and it will reply with a short video showing your program running.
+        </p>
         <input id="share-url" readonly allowfocus>
 
         <p><button onclick="copyProgAsURL()">Copy URL</button>
         <button onclick="tweetProg()">Tweet to @ARM2bot</button></p>
+        <p id="bot-speed-warning">@ARM2bot emulates an Archimedes with an 8Mhz ARM2 processor.
+           Your program may run slower than it does here. </p>
+
       </div>
     </div>
 

@@ -2,6 +2,11 @@ var statusElement = document.getElementById('status');
 var progressElement = document.getElementById('progress');
 var spinnerElement = document.getElementById('spinner');
 
+const ROM_BASE_PROD = 'https://files-archi.medes.live/roms/';
+const ROM_BASE_TEST = 'emu/roms/';
+
+const ROM_BASE = ROM_BASE_TEST;
+
 var Module = {
   noInitialRun: true,
   onRuntimeInitialized: function() {
@@ -410,7 +415,7 @@ function setClipboard(text) {
 }
 
 function closeModal(id, event = null) {
-  if (event && (event.target.classList.contains('modal')  || event.target.classList.contains('modal-content')))
+  if (!event || event && (event.target.classList.contains('modal')  || event.target.classList.contains('modal-content')))
     document.getElementById(id).style.display = 'none';
 
 }
@@ -421,7 +426,7 @@ function getBasicShareUrl() {
 }
 
 function showShareBox() {
-  document.getElementById('share-box').style.display = 'flex';
+  showModal('share-box');
   document.getElementById('share-url').value = getBasicShareUrl();
   setTimeout(() => {
     document.getElementById('share-url').select();
@@ -506,6 +511,12 @@ async function loadMachineConfig() {
   return machineConfig;
 }
 
+
+function showModal(id) {
+  document.getElementById(id).style.display = 'flex';
+}
+
+
 async function changeMachine(presetName) {
   machinePreset = presetName;
   let config = await loadMachineConfig();
@@ -517,7 +528,7 @@ function sleep(ms) {
 }
 
 function putConfigFile(machineConfig) {
-  let configName = machineConfig.configName;
+  let configName = machineConfig.getMachineType();
   let configFileData = machineConfig.getConfigFile();
   console.log('creating machine config file at /configs/' + configName + '.cfg');
   try {
@@ -542,6 +553,7 @@ function putConfigFile(machineConfig) {
 function putCmosFile(machineConfig) {
   let cmosPath = machineConfig.getMachineCmosPath();
   let cmosName = machineConfig.getCmosName();
+  console.log(`cmos path=${cmosPath} cmos name=${cmosName}`)
   let cmosData = atob(DEFAULT_CMOS[cmosName]);
   if (autoboot) { 
     if (CMOS_BOOT_HOSTFS.hasOwnProperty(cmosName)) {
@@ -553,6 +565,9 @@ function putCmosFile(machineConfig) {
   }
   putDataAtPath(cmosData, cmosPath);
 }
+
+
+
 
 const CPU_ARM2 = 0;
 const CPU_ARM250 = 1;
@@ -575,39 +590,61 @@ const FDC_WD1793_A500 = 2;
 
 
 let presetMachines = {
-  'a310':  () => new MachineConfigBuilder('a310')
+  'a310':  () => new MachineConfigBuilder('a310', "A310 (RISC OS 2)")
     .cpu(CPU_ARM2)
     .memory(1024)
     .memc(MEMC_MEMC1)
-    .rom('arthur120'),
-  'a3000': () => new MachineConfigBuilder('a3000')
+    .fdc(FDC_WD1770)
+    .rom('riscos201'),
+  'a3000': () => new MachineConfigBuilder('a3000', "A3000 (RISC OS 3)")
     .cpu(CPU_ARM2)
     .memory(2048)
     .memc(MEMC_MEMC1A_8)
     .fdc(FDC_WD1770)
     .rom('riscos311'),
-  'a5000': () => new MachineConfigBuilder('a5000')
+  'a5000': () => new MachineConfigBuilder('a5000', "A5000")
     .cpu(CPU_ARM3_25)
     .memory(4096)
     .memc(MEMC_MEMC1A_12)
     .rom('riscos311'),
-  'a3020': () => new MachineConfigBuilder('a3020')
+  'a3020': () => new MachineConfigBuilder('a3020', "A3020")
     .cpu(CPU_ARM250)
     .memory(2048)
     .memc(MEMC_MEMC1A_12)
     .rom('riscos311')
 }
 
-let machineNames = {
-  'a310': 'Archimedes 310',
-  'a410/1': 'Archimedes 410/1',
-  'a3000': 'A3000',
-  'a540': 'Archimedes 540',
-  'a5000': 'A5000',
-  'a3010': 'A3010',
-  'a3020': 'A3020',
-  'a5000a': 'A5000a'
+let OS_NAMES = {
+  'arthur030': 'Arthur 0.3',
+  'arthur120': 'Arthur 1.2',
+  'riscos311': 'RISC OS 3.11',
+  'riscos201': 'RISC OS 2.01'
+};
+
+let machineInfo = {
+  'a310': {name: 'Archimedes 310', released: 'July 1987', price: '£875'},
+  'a410/1': {name: 'Archimedes 410/1', released: 'June 1989', price: '£999'},
+  'a3000': {name: 'A3000', released: 'May 1989', price: '£649'},
+  'a5000': {name: 'A5000', released: 'September 1991', price: '£999 (25 MHz) or £1,499 (33 MHz) including monitor'},
+  'a3010': {name: 'A3010', released: 'September 1992', price: '£499'},
+  'a3020': {name: 'A3020', released: 'September 1992', price: '£800 including monitor'},
 }
+
+let CPU_DESCRIPTIONS = {};
+
+CPU_DESCRIPTIONS[CPU_ARM2]= "ARM2 @ 8 MHz";
+CPU_DESCRIPTIONS[CPU_ARM250]="ARM250 @ 12 MHz";
+CPU_DESCRIPTIONS[CPU_ARM3_25]= "ARM3 @ 25 MHz";
+CPU_DESCRIPTIONS[CPU_ARM3_26]= "ARM3 @ 26 MHz";
+CPU_DESCRIPTIONS[CPU_ARM3_33]="ARM3 @ 33 MHz";
+
+let MEM_SIZE_NAMES = {
+  512: '512 KB',
+  1024: '1 MB',
+  2048: '2 MB',
+  4096: '4 MB',
+  8192: '8 MB'
+};
 
 class MachineConfigBuilder {
   params = {
@@ -631,15 +668,28 @@ class MachineConfigBuilder {
     this.configName = configName;  
   }
 
+  getMemory() {
+    return this.params['mem_size'];
+  }
+
   memory(memSize) {
     this.params['mem_size'] = memSize;
     return this;
+  }
+
+  getMachine() {
+    return this.params['machine'];
+  }
+
+  getCpu() {
+    return this.params['cpu_type'];
   }
 
   cpu(cpuType) { 
     this.params['cpu_type'] = cpuType;
     return this;
   }
+
 
   memc(memcType) {
     this.params['memc_type'] = memcType;
@@ -649,6 +699,10 @@ class MachineConfigBuilder {
   fdc(fdcType) { 
     this.params['fdc_type'] = fdcType;
     return this;
+  }
+
+  getRom() {
+    return this.params['rom_set'];
   }
 
   rom(romSet) {
@@ -736,7 +790,7 @@ class MachineConfig {
   }
 
   getMachineName() {
-    return machineNames[this.configParams['machine']];
+    return machineInfo[this.configParams['machine']].name;
   }
 
   getMachineType() {
@@ -761,7 +815,8 @@ class MachineConfig {
 
   getMachineCmosPath() {
     let cmos = this.getCmosName();
-    return `cmos/${this.configName}.${cmos}.cmos.bin`;
+    let configName = this.configParams['machine'];
+    return `cmos/${configName}.${cmos}.cmos.bin`;
   }
 
   getDefaultCmosPath() {
@@ -778,7 +833,7 @@ class MachineConfig {
     let romUrls = {};
     for (let path of rom_list) {
       if (path.startsWith(romSet + '/')) {
-        romUrls['roms/'+path] = 'https://files-archi.medes.live/roms/' + path;
+        romUrls['roms/'+path] = ROM_BASE + path;
         break;
       }
     }
@@ -786,7 +841,7 @@ class MachineConfig {
       console.warn("Did not find ROM path for " + romSet);
     }
     if (this.configParams['support_rom'])
-      romUrls['roms/arcrom_ext'] = 'https://files-archi.medes.live/roms/arcrom_ext';
+      romUrls['roms/arcrom_ext'] = ROM_BASE + 'arcrom_ext';
     return romUrls;
   }
 
@@ -865,3 +920,45 @@ function arrayBufferToBase64(buffer) {
   return window.btoa(binary);
 };
 
+function populateMachinePresets() {
+  let list = document.getElementById('machine-list');
+  list.innerHTML = '';
+  for (const [presetId, builderFn] of Object.entries(presetMachines)) {
+    let li = document.createElement('li');
+    let builder = builderFn();
+    li.textContent = builder.configName;
+    li.setAttribute('machine-id', presetId);
+    if (presetId == machinePreset)
+      li.classList.add('selected');
+    list.appendChild(li);
+  }
+
+}
+
+function previewMachine(e) {
+  if (!e.target.nodeName == 'LI' || !e.target.hasAttribute('machine-id'))
+    return;
+  let liEl = e.target;
+  let machineId = liEl.getAttribute('machine-id');
+  let pv = document.getElementById('machine-preview');
+  document.querySelector('#machine-list .selected').classList.remove('selected');
+  liEl.classList.add('selected');
+  
+  let builder = presetMachines[machineId]();
+  let machineType = builder.getMachine()
+  pv.querySelector('h3').textContent = builder.configName;
+  pv.querySelector('.cpu').textContent = CPU_DESCRIPTIONS[builder.getCpu()];
+  pv.querySelector('.os').textContent = OS_NAMES[builder.getRom()];
+  pv.querySelector('.memory').textContent = MEM_SIZE_NAMES[builder.getMemory()];
+  pv.querySelector('.release-date').textContent = machineInfo[machineType].released;
+  pv.querySelector('.price').textContent = machineInfo[machineType].price;
+}
+
+function bootSelected() {
+  let presetId = document.querySelector('#machine-list .selected').getAttribute('machine-id');
+  machinePreset = presetId;
+  changeMachine(machinePreset);
+  closeModal('machine-picker');
+}
+
+populateMachinePresets();
