@@ -200,6 +200,20 @@ function getHostFSPathForZipEntry(fileName, fileMeta, dstPath = '/') {
 // Disc image extensions that Arculator handles (see loaders struct in disc.c)
 let validDiscExts = ['.ssd','.dsd','.adf','.adl', '.fdi', '.apd', '.hfe'];
 
+async function t() {
+  let response = await fetch('discs/Liquid.zip', {mode:'cors'});
+  let buf = await response.arrayBuffer();
+  let data = new Uint8Array(buf);
+  let zip = new JSUnzip();
+  zip.open(data);
+  let result = zip.readBinary('!Dreams/End/PerP');
+  if (!result.status) {
+    console.error("failed to extract file", result);
+  } else {
+    console.log('worked', result);
+  }
+
+}
 // Unpack an archive file to HostFS
 async function loadArchive(url, dstPath='/') {
     let response = await fetch(url, {mode:'cors'});
@@ -422,7 +436,7 @@ function closeModal(id, event = null) {
 
 function getBasicShareUrl() {
   let prog = document.getElementById('editor').value;
-  return location.protocol + '//' + location.host + location.pathname + '?basic=' + encodeURIComponent(prog);
+  return location.protocol + '//' + location.host + location.pathname + '#basic=' + encodeURIComponent(prog);
 }
 
 function showShareBox() {
@@ -484,6 +498,12 @@ function lockChangeAlert() {
   }
 }
 
+function updateConfigUI(config) {
+  let el = document.getElementById('machine-status');
+  el.querySelector('.name').textContent = config.getMachineName();
+  el.querySelector('.memory').textContent = MEM_SIZE_NAMES[config.getMemory()];
+  el.querySelector('.os').textContent = OS_NAMES[config.getOs()];
+}
 
 document.getElementById('editor').addEventListener('keypress', e => updateCharCount());
 
@@ -498,6 +518,7 @@ async function loadMachineConfig() {
       builder.disc(diskFile);
   }
   let machineConfig = builder.build();
+  updateConfigUI(machineConfig);
   putConfigFile(machineConfig);
   putCmosFile(machineConfig);
   await loadRoms(machineConfig);
@@ -797,6 +818,10 @@ class MachineConfig {
     return this.configParams['machine'];
   }
 
+  getMemory() {
+    return this.configParams['mem_size'];
+  }
+
   getCmosName() {
     let romset = this.configParams['rom_set'];
     let cmos = '';
@@ -822,6 +847,10 @@ class MachineConfig {
   getDefaultCmosPath() {
     let cmos = this.getCmosName();
     return `cmos/${cmos}/cmos.bin`;
+  }
+
+  getOs() {
+    return this.configParams['rom_set'];
   }
 
   /**
@@ -935,6 +964,18 @@ function populateMachinePresets() {
 
 }
 
+function downloadHostFSfile(path) {
+  let f = FS.analyzePath('/hostfs/' + path);
+  if (!f.exists) {
+    console.error("path not found: " + path);
+    return
+  }
+  var a = document.createElement("a");
+  a.href = window.URL.createObjectURL(new Blob([f.object.contents.buffer], {type: "application/octet-stream"}));
+  a.download = baseName(path);
+  a.click(); 
+}
+
 function previewMachine(e) {
   if (!e.target.nodeName == 'LI' || !e.target.hasAttribute('machine-id'))
     return;
@@ -961,4 +1002,58 @@ function bootSelected() {
   closeModal('machine-picker');
 }
 
+document.body.ondragenter = function(e) {
+  console.log('dragenter', e);
+  //e.preventDefault();
+}
+
+document.body.ondragleave = function(e) {
+  console.log('dragleave', e);
+  //e.preventDefault();
+}
+
+document.body.ondragend = function(e) {
+  console.log('dragend', e);
+}
+
+document.body.ondragover = e => e.preventDefault();
+
+document.body.ondrop = function(ev) {
+  console.log('drop', ev);
+  ev.preventDefault();
+  if (ev.dataTransfer.items) {
+    // Use DataTransferItemList interface to access the file(s)
+    for (var i = 0; i < ev.dataTransfer.items.length; i++) {
+      // If dropped items aren't files, reject them
+      if (ev.dataTransfer.items[i].kind === 'file') {
+        var file = ev.dataTransfer.items[i].getAsFile();
+        console.log('... file[' + i + '].name = ' + file.name, file);
+      }
+    }
+  } 
+}
 populateMachinePresets();
+//showModal('machine-picker');
+
+const FILE_TYPE_IDS = {
+  ZIP: 'Generic ZIP archive',
+  ZIP_WITH_COMMA_FILETYPES: 'Generic ZIP with filename,xxx files',
+  RISCOS_ZIP_ARCHIVE: 'RISC OS ZIP archive',
+  RISCOS_SPARK_ARCHIVE: 'RISC OS Spark archive',
+  RISCOS_ARCFS_ARCHIVE: 'RISC OS ArcFS archive',
+  DISC_IMAGE: 'Disc image',
+  DISC_IMAGE_ZIPPED: 'Disc image in ZIP file',
+  FILE_WITH_COMMA_FILETYPE: 'File with filename,xxx name',
+}
+
+function identifyDiscImage(filename, data) {
+
+}
+
+function identifyZipFile(filename, data) {
+  // look at 
+}
+
+function identifyFileType(filename, data) {
+  if (filename.toLowerCase().endsWith('zip'))
+}

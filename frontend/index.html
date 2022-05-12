@@ -16,7 +16,7 @@
       }
 
       h1, h2, h3, textarea { font-family: riscos-system; font-weight: normal}
-
+      h3 { margin: .5em 0 }
       @font-face {
         font-family: "riscos-system";
         src: url("System.Fixed.woff2") format("woff2");
@@ -165,11 +165,12 @@
         list-style: none; 
         background-color: darkblue;
         margin: 0;
+        padding: 0;
       }
 
       ul#machine-list li {
         display: block;
-        padding: 5px;
+        padding: 8px 1em;
         background-color: #333;
         margin: 2px;
         cursor: pointer;
@@ -188,11 +189,24 @@
         background-color: darkgreen;
       }
 
+      #machine-status {
+        display: block;
+        position: fixed;
+        bottom:0;
+        left: 0;
+        background-color: #555;
+        padding: 5px 1em;
+      }
+
+      #machine-status span { padding-left:.5em}
+
       #machine-preview {
         flex: 2;
-        padding: .5em;
+        padding: .5em 1em;
         width: 35ch;
       }
+
+      #machine-preview h3 { text-align: center;}
       
       @media screen and (max-width: 600px) {
         h1 { font-size: 20pt; margin: 0 .5em}
@@ -356,6 +370,13 @@
       </div>
     </div>
     <!--<textarea id="output" rows="8"></textarea>-->
+
+
+    <div id="machine-status">
+      <span class="name">-</span> 
+      <span class="memory">4MB</span>
+      <span class="os">RISC OS 3.01</span>
+    </div>
     <script async type='text/javascript' src="jsunzip.js"></script>
     <script async type='text/javascript' src="cmos.js"></script>
     <script async type='text/javascript' src="ui.js"></script>
