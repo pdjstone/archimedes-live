@@ -5,7 +5,9 @@
 ARCULATOR_WASM=../arculator-wasm
 ARCULATOR_RELEASE=../arculator21
 DISC_DIR=../arculator-wasm/disks/
+NSPARK_DIR=../nspark
 BUILD_DIR=build
+
 if [ -d "$BUILD_DIR" ]; then
     rm -rf $BUILD_DIR
 fi
@@ -47,3 +49,18 @@ if [ -d "$DISC_DIR" ]; then
     find discs -type f > disc_index.txt
     popd
 fi
+
+if [ ! -d "$NSPARK_DIR" ]; then
+    echo "Please set NSPARK_DIR"
+    exit -1 
+fi 
+
+if [ ! -f "$NSPARK_DIR/build/nspark.wasm" ]; then
+    echo "Please build nspark"
+    exit -1
+fi
+
+mkdir "$BUILD_DIR/nspark"
+cp "$NSPARK_DIR"/build/*.{js,wasm} "$BUILD_DIR/nspark/"
+cp "$NSPARK_DIR"/emscripten/*.js "$BUILD_DIR/nspark/"
+

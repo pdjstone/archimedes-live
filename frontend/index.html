@@ -252,7 +252,7 @@
 
         <a href="#" onclick="showModal('machine-picker')" class="dropdown-button">Choose Machine</a>
 
-        <select id="discs" onchange="loadDisc(this.selectedOptions[0].value)" allowfocus>
+        <select id="discs" onchange="loadSoftwareFromUrl(this.selectedOptions[0].value)" allowfocus>
           <option value="">Load Floppy...</option>
         </select>
        
@@ -377,6 +377,10 @@
       <span class="memory">4MB</span>
       <span class="os">RISC OS 3.01</span>
     </div>
+    <script type="module">
+      import {NSpark} from './nspark/nspark-helper.js';
+      window.NSpark = NSpark;
+    </script>  
     <script async type='text/javascript' src="jsunzip.js"></script>
     <script async type='text/javascript' src="cmos.js"></script>
     <script async type='text/javascript' src="ui.js"></script>
