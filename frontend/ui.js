@@ -123,10 +123,7 @@ if (searchParams.has('autoboot')) {
   autoboot = true;
 } else if (searchParams.has('basic')) {
   let prog = searchParams.get('basic');
-  if (prog == '') {
-    if ('basicProg' in localStorage)
-      prog = localStorage.basicProg;
-  }
+  prog = showEditor(prog);
   Module.preRun.push(function() {
     console.log('UI: preRun - create !boot and prog');
     putDataAtPath(wrapProg(prog), '/hostfs/!boot,ffe');
@@ -134,7 +131,7 @@ if (searchParams.has('autoboot')) {
   Module.postRun.push(function() {
     //ccall('arc_fast_forward', null, ['number'], [6000]);
   });
-  showEditor(prog);
+  
   autoboot = true;
 }
 
@@ -378,8 +375,15 @@ function wrapProg(prog) {
   return '*KEY1 *!boot |M\n*basic\n' + prog + '\nRUN\n';
 }
 
-function runProgram() {
+async function runProgram() {
   let prog = document.getElementById('editor').value;
+  if (!currentMachineConfig.autoboot) {
+    let reboot = await showBooleanDialog('Run BASIC program', 'Reboot emulator to BASIC prompt?', 'Reboot', 'Cancel');
+    if (reboot) {
+      autoboot = true;
+      await changeMachine(machinePreset);
+    }
+  }
   putDataAtPath(wrapProg(prog), '/hostfs/!boot,ffe');
   rerunProg();
   saveProgramToLocalStorage();
@@ -387,12 +391,14 @@ function runProgram() {
 
 function saveProgramToLocalStorage() {
   let prog = document.getElementById('editor').value;
+  if (prog.trim() == '')
+    return;
   localStorage.basicProg = prog;
   console.log('saved program to localStorage');
 }
 
-KEY_ESCAPE = 27;
-KEY_F1 = 112;
+const KEY_ESCAPE = 27;
+const KEY_F1 = 112;
 
 setupDiscPicker();
 
@@ -414,7 +420,6 @@ function setClipboard(text) {
 function closeModal(id, event = null) {
   if (!event || event && (event.target.classList.contains('modal')  || event.target.classList.contains('modal-content')))
     document.getElementById(id).style.display = 'none';
-
 }
 
 function getBasicShareUrl() {
@@ -436,8 +441,8 @@ function tweetProg() {
   let url = "https://twitter.com/intent/tweet?screen_name=ARM2bot&text=" + encodeURIComponent(prog);
   window.open(url);
   closeModal('share-box');
-
 }
+
 function copyProgAsURL() {
   navigator.clipboard.writeText(getBasicShareUrl()).then(function() {
     console.log('clipboard write ok');
@@ -447,8 +452,11 @@ function copyProgAsURL() {
   closeModal('share-box');
 }
 
-function showEditor(program) {
-
+function showEditor(program = '') {
+  if (program == '') {
+    if ('basicProg' in localStorage)
+      program = localStorage.basicProg;
+  }
   document.getElementById('editor').value = program;
   document.getElementById('editor-container').style.display = 'block';
   updateCharCount();
@@ -457,6 +465,7 @@ function showEditor(program) {
     editor.focus();
     editor.setSelectionRange(editor.value.length, editor.value.length);
   }, 20);
+  return program;
 }
 
 function updateCharCount() {
@@ -505,6 +514,10 @@ async function loadMachineConfig() {
       let diskFile = await loadSoftwareFromUrl(discUrl, false);
       builder.disc(diskFile);
   }
+  if (autoboot) {
+    builder.autoboot();
+  }
+
   let machineConfig = builder.build();
   updateConfigUI(machineConfig);
   putConfigFile(machineConfig);
@@ -515,16 +528,37 @@ async function loadMachineConfig() {
   } catch (e) {
     console.log('hostfs dir already exists');
   }
-  
+  window.currentMachineConfig = machineConfig;
   console.log('machine config loaded');
   return machineConfig;
 }
 
 
 function showModal(id) {
-  document.getElementById(id).style.display = 'flex';
+  let el = document.getElementById(id);
+  el.style.display = 'flex';
+  return el;
 }
 
+async function showBooleanDialog(title, text, trueText='OK', falseText='Cancel') {
+  let modal = showModal('generic-dialog');
+  modal.querySelector('h2').textContent = title;
+  modal.querySelector('p').textContent = text;
+  let buttons = modal.querySelectorAll('button');
+  let trueButton = buttons[1];
+  let falseButton = buttons[0];
+
+  trueButton.textContent = trueText;
+  falseButton.textContent = falseText;
+  let promise = new Promise((resolve, reject) => {
+    trueButton.onclick = () => resolve(true);
+    falseButton.onclick = () => resolve(false);
+  });
+  let val = await promise;
+  closeModal('generic-dialog');
+  console.log('clicked', val);
+  return val;
+}
 
 async function changeMachine(presetName) {
   machinePreset = presetName;
@@ -564,9 +598,9 @@ function putCmosFile(machineConfig) {
   let cmosName = machineConfig.getCmosName();
   console.log(`cmos path=${cmosPath} cmos name=${cmosName}`)
   let cmosData = atob(DEFAULT_CMOS[cmosName]);
-  if (autoboot) { 
+  if (machineConfig.autoboot) { 
     if (CMOS_BOOT_HOSTFS.hasOwnProperty(cmosName)) {
-      console.log('using autoboot CMOS for ' +cmosName);
+      console.log('using autoboot CMOS for ' + cmosName);
       cmosData = atob(CMOS_BOOT_HOSTFS[cmosName]);
     }  else {
       console.warn("No autoboot CMOS for " + cmosName);
@@ -666,7 +700,8 @@ class MachineConfigBuilder {
     rom_set: 'riscos311',
     fdc_type: 1,
     support_rom: 1,
-    disc: ''
+    disc: '',
+    autoboot: false
   }
 
   constructor(machine, configName) {
@@ -699,7 +734,6 @@ class MachineConfigBuilder {
     return this;
   }
 
-
   memc(memcType) {
     this.params['memc_type'] = memcType;
     return this;
@@ -730,6 +764,10 @@ class MachineConfigBuilder {
 
     this.params['support_rom'] = supportRom;
     return this;
+  }
+
+  autoboot(autoboot = true) {
+    this.params['autoboot'] = autoboot;
   }
 
   build() {
@@ -799,6 +837,7 @@ class MachineConfig {
   constructor(configName, params) {
     this.configName = configName;
     this.configParams = params;
+    this.autoboot = params.autoboot;
   }
 
   getMachineName() {
@@ -1023,7 +1062,6 @@ document.ondrop = function(ev) {
   } 
 }
 populateMachinePresets();
-//showModal('machine-picker');
 
 async function unpackNsparkToHostFs(blob, dst='/') {
   let buf = await blob.arrayBuffer();
