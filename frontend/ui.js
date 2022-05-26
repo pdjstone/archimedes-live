@@ -123,7 +123,10 @@ if (searchParams.has('autoboot')) {
   autoboot = true;
 } else if (searchParams.has('basic')) {
   let prog = searchParams.get('basic');
-
+  if (prog == '') {
+    if ('basicProg' in localStorage)
+      prog = localStorage.basicProg;
+  }
   Module.preRun.push(function() {
     console.log('UI: preRun - create !boot and prog');
     putDataAtPath(wrapProg(prog), '/hostfs/!boot,ffe');
@@ -444,11 +447,8 @@ function copyProgAsURL() {
   closeModal('share-box');
 }
 
-function showEditor(program = '') {
-  if (program == '') {
-    if ('basicProg' in localStorage)
-      program = localStorage.basicProg;
-  }
+function showEditor(program) {
+
   document.getElementById('editor').value = program;
   document.getElementById('editor-container').style.display = 'block';
   updateCharCount();
