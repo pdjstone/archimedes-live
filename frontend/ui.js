@@ -105,13 +105,14 @@ if (searchParams.has('preset')) {
   machinePreset = searchParams.get('preset');
 }
 
-if (searchParams.has('ff')) {
+/*if (searchParams.has('ff')) {
   Module.postRun.push(function() {
     let ff_ms = parseInt(searchParams.get('ff'));
     console.log(`UI: postRun - fast forward to ${ff_ms} ms`);
     ccall('arc_fast_forward', null, ['number'], [ff_ms]);
   });
-}
+}*/
+
 
 if (searchParams.has('autoboot')) {
   Module.preRun.push(function() {
@@ -130,9 +131,7 @@ if (searchParams.has('autoboot')) {
   Module.postRun.push(function() {
     //ccall('arc_fast_forward', null, ['number'], [6000]);
   });
-  showEditor();
-  document.getElementById('editor').value = prog;
-  updateCharCount();
+  showEditor(prog);
   autoboot = true;
 }
 
@@ -247,6 +246,7 @@ async function loadArchive(url, dstPath='/') {
       let zip = new JSUnzip();
       zip.registerExtension(ZIP_EXT_ACORN, parseRiscOsZipField);
       zip.open(data);
+      // TODO: loop asynchronously?
       for (const fileName in zip.files) {
         let hostFsPath = getHostFSPathForZipEntry(fileName, zip.files[fileName]);
         let result = zip.readBinary(fileName);
@@ -379,6 +379,13 @@ function runProgram() {
   let prog = document.getElementById('editor').value;
   putDataAtPath(wrapProg(prog), '/hostfs/!boot,ffe');
   rerunProg();
+  saveProgramToLocalStorage();
+}
+
+function saveProgramToLocalStorage() {
+  let prog = document.getElementById('editor').value;
+  localStorage.basicProg = prog;
+  console.log('saved program to localStorage');
 }
 
 KEY_ESCAPE = 27;
@@ -437,7 +444,12 @@ function copyProgAsURL() {
   closeModal('share-box');
 }
 
-function showEditor() {
+function showEditor(program = '') {
+  if (program == '') {
+    if ('basicProg' in localStorage)
+      program = localStorage.basicProg;
+  }
+  document.getElementById('editor').value = program;
   document.getElementById('editor-container').style.display = 'block';
   updateCharCount();
   setTimeout(() => {
@@ -450,6 +462,9 @@ function showEditor() {
 function updateCharCount() {
   let prog = document.getElementById('editor').value;
   document.getElementById('char-count').textContent = prog.length.toString() + ' characters';
+  if (window.saveBasicTimeout)
+    clearTimeout(window.saveBasicTimeout)
+  window.saveBasicTimeout = setTimeout(saveProgramToLocalStorage, 1000);
 }
 
 function tryCapture() {
