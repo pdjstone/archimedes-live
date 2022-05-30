@@ -12,8 +12,9 @@ var Module = {
   onRuntimeInitialized: function() {
     console.log('runtime initialised');
     preload.then(() => {
-      console.log('calling main...(' + fps + ',' + machinePreset + ')');
-      callMain([fps.toString(), machinePreset]);
+      let configName = currentMachineConfig.getMachineType();
+      console.log('calling main...(' + fps + ',' + configName + ')');
+      callMain([fps.toString(), configName]);
       console.log('calling main done');
     })
   },
@@ -511,8 +512,8 @@ async function loadMachineConfig() {
   if (searchParams.has('disc')) {
       let discUrl = searchParams.get('disc')
       console.log('UI: load disc URL ' + discUrl);
-      let diskFile = await loadSoftwareFromUrl(discUrl, false);
-      builder.disc(diskFile);
+      let discFile = await loadSoftwareFromUrl(discUrl, false);
+      builder.disc(discFile);
   }
   if (autoboot) {
     builder.autoboot();
@@ -633,6 +634,18 @@ const FDC_WD1793_A500 = 2;
 
 
 let presetMachines = {
+  'a310-arthur030':  () => new MachineConfigBuilder('a310', "A310 (Arthur 0.3)")
+    .cpu(CPU_ARM2)
+    .memory(1024)
+    .memc(MEMC_MEMC1)
+    .fdc(FDC_WD1770)
+    .rom('arthur030'),
+  'a310-arthur120':  () => new MachineConfigBuilder('a310', "A310 (Arthur 1.20)")
+    .cpu(CPU_ARM2)
+    .memory(1024)
+    .memc(MEMC_MEMC1)
+    .fdc(FDC_WD1770)
+    .rom('arthur120'),
   'a310':  () => new MachineConfigBuilder('a310', "A310 (RISC OS 2)")
     .cpu(CPU_ARM2)
     .memory(1024)
@@ -956,19 +969,19 @@ class MachineConfig {
 
 // TODO auto-generate this at build time
 rom_list = [
-  'arthur120/ROM120',
-  'riscos311/ros311',
-  'arthur120_a500/A500_Arthur_ROM.rom',
-  'riscos300/ROM300',
-  'riscos201/ROM201',
-  'riscos200/ROM200',
-  'A4 5th Column.rom',
-  'riscos310_a500/a500_riscos310',
   'arthur030/ROM030',
-  'arcrom_ext',
-  'riscos319/ROM319',
-  'riscos200_a500/ROM200.A500Build',
+  'arthur120/ROM120',
+  'riscos200/ROM200',
+  'riscos201/ROM201',
+  'riscos300/ROM300',
   'riscos310/ROM310',
+  'riscos311/ros311',
+  'riscos319/ROM319',
+  'arthur120_a500/A500_Arthur_ROM.rom',
+  'riscos200_a500/ROM200.A500Build',
+  'riscos310_a500/a500_riscos310',
+  'A4 5th Column.rom',
+  'arcrom_ext'
 ];
 
 
@@ -1186,6 +1199,7 @@ async function loadSoftwareFromUrl(url, insert=true) {
   let blob = await response.blob();
   let discFilename = baseName(url);
   await loadSoftware(discFilename, blob);
+  return discFilename;
 }
 
 
