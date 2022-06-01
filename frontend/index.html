@@ -146,6 +146,14 @@
         -background-color: red;
       }
 
+      #display-container.fullscreen {
+        background-color: black;
+      }
+
+      #display-container.fullscreen canvas {
+        height: 100%;
+      }
+
       #editor { 
         width: 100%;
         background-color: black;
@@ -256,6 +264,7 @@
           <option value="">Load Floppy...</option>
         </select>
        
+        <button onclick="fullscreen()">Fullscreen</button>
         <a href="#" onclick="showModal('about-box')">About</a>
       
       
@@ -350,6 +359,13 @@
       </div>
     </div>
 
+    <div class="modal" id="upload-box" onclick="closeModal('upload-box', event)">
+      <div class="modal-content">
+
+        
+      </div>
+    </div>
+    
     <div class="modal" id="about-box" onclick="closeModal('about-box', event)"> 
       <div id="about" class="modal-content">
         <h2>About Archimedes Live!</h2>

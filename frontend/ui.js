@@ -1208,8 +1208,10 @@ const ROS_FileType_Map = {
   '.zip': 0xddc,
   '.arc': 0x3fb,
   '.txt': 0xfff,
-  '.bas': 0xffb
+  '.bas': 0xffb,
+  '.jfd': 0xfce
 }
+
 const FileTypes = Object.freeze({
   UNKNOWN: {desc:'Unknown file type'},
   ZIP: {desc:'Generic ZIP archive'},
@@ -1297,4 +1299,20 @@ async function identifyFileType(filename, size, blob) {
   if (isRiscOsCompatibleFilename(filename))
     return FileTypes.RISCOS_FILE;
   return type;
+}
+
+
+function fullscreen() {
+  document.getElementById('display-container').requestFullscreen();
+  document.getElementById('canvas').requestPointerLock();
+}
+
+document.getElementById('display-container').onfullscreenchange = function(e) {
+  console.log('fullscreen', document.fullscreenElement);
+  let el = document.getElementById('display-container');
+  if (el == document.fullscreenElement) {
+    el.classList.add('fullscreen');
+  } else {
+    el.classList.remove('fullscren');
+  }
 }
