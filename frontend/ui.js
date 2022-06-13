@@ -1303,16 +1303,20 @@ async function identifyFileType(filename, size, blob) {
 
 
 function fullscreen() {
+  //tryCapture();
   document.getElementById('display-container').requestFullscreen();
-  document.getElementById('canvas').requestPointerLock();
+  if ('keyboard' in navigator) {
+    navigator.keyboard.lock().then(() => console.log('keyboard locked'));
+  }
 }
 
-document.getElementById('display-container').onfullscreenchange = function(e) {
+document.getElementById('display-container').addEventListener('fullscreenchange', function(e) {
   console.log('fullscreen', document.fullscreenElement);
   let el = document.getElementById('display-container');
   if (el == document.fullscreenElement) {
     el.classList.add('fullscreen');
+    tryCapture();
   } else {
-    el.classList.remove('fullscren');
+    el.classList.remove('fullscreen');
   }
-}
+});
