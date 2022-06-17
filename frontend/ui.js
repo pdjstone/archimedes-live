@@ -211,6 +211,11 @@ function isDiscImageFilename(filename) {
   return false;
 }
 
+/**
+ * Check if the filename has a HostFS-compatible (,xxx) extension
+ * or if it has an extension that can be mapped to a known RISC-OS
+ * file type from ROS_FileType_Map
+ */
 function isRiscOsCompatibleFilename(filename) {
   if (filename.match(/,[0-9a-f]{3}$/i)) 
     return true;
@@ -501,6 +506,7 @@ function updateConfigUI(config) {
   el.querySelector('.name').textContent = config.getMachineName();
   el.querySelector('.memory').textContent = MEM_SIZE_NAMES[config.getMemory()];
   el.querySelector('.os').textContent = OS_NAMES[config.getOs()];
+  el.querySelector('.processor').textContent = CPU_DESCRIPTIONS[config.getProcessor()];
 }
 
 document.getElementById('editor').addEventListener('keypress', e => updateCharCount());
@@ -863,6 +869,10 @@ class MachineConfig {
 
   getMemory() {
     return this.configParams['mem_size'];
+  }
+
+  getProcessor() {
+    return this.configParams['cpu_type'];
   }
 
   getCmosName() {

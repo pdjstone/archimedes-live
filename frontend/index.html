@@ -11,12 +11,14 @@
         font-family: arial;
         margin: 0;
         padding: none;
-        background-color: #333;
+        background-color: #222;
         color: #fff;
       }
 
       h1, h2, h3, textarea { font-family: riscos-system; font-weight: normal}
       h3 { margin: .5em 0 }
+      a, a:visited, button, select { color:#4ac0f3}
+
       @font-face {
         font-family: "riscos-system";
         src: url("System.Fixed.woff2") format("woff2");
@@ -25,7 +27,7 @@
       header {
         display: flex;
         flex: 2;
-        background-color: purple;
+        background-color: #333;
         justify-content: space-between;
         align-items: center;
       }
@@ -35,18 +37,34 @@
         white-space: nowrap;
         margin: 3px 1em;
       }
+
       #controls {
-       background-color:darkblue;
        margin: 1em;
        display: flex
+      }
+
+      button, select {
+        border: 1px solid #666;
+        background-color: #222;
+        margin: 2px;
+        padding: 5px;
       }
 
       #controls a { 
         display: block;
         text-decoration: none; 
-        border: 1px solid white; 
+        background-color: #222;
+        border: 1px solid #666; 
         margin: 2px; 
-        padding: 5px }
+        padding: 5px;
+        
+      }
+
+      #controls a:hover, button:hover, select:hover {
+        -background-color: #333;
+        box-shadow: 0 0 3px #666;
+        text-shadow: 0 0 5px #019ade;
+      }
 
       .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
       div.emscripten { text-align: center; }      
@@ -108,12 +126,16 @@
         vertical-align:middle;
       }
       .modal-content {
-        background-color: #666;
-        border: 1px solid black;
+        background-color: #333;
+        border: 1px solid #666;
+        box-shadow: 0 0 30px #444;
         margin:  auto;
         padding: 20px;
         max-width: 600px;
       }
+
+      .modal-content h2 { text-align: center ;}
+      
       .modal-close { 
         display: block;
         float: right;
@@ -121,7 +143,8 @@
       #share-url { width: 100% }
       #logo img { height: 2ex; margin-right: 4px}
       h1 { font-size: 30pt}
-      a, a:visited { color:aqua}
+
+   
       textarea:focus { outline: none }
 
       
@@ -171,7 +194,7 @@
 
       ul#machine-list {
         list-style: none; 
-        background-color: darkblue;
+        background-color: black;
         margin: 0;
         padding: 0;
       }
@@ -194,7 +217,7 @@
 
       #picker-cols {
         justify-content: space-between;
-        background-color: darkgreen;
+        background-color: #555;
       }
 
       #machine-status {
@@ -214,7 +237,7 @@
         width: 35ch;
       }
 
-      #machine-preview h3 { text-align: center;}
+      #machine-preview h3, #machine-preview .buttons { text-align: center;}
       
       @media screen and (max-width: 600px) {
         h1 { font-size: 20pt; margin: 0 .5em}
@@ -317,18 +340,15 @@
           <div id="machine-preview">
               <h3>Archimedes A310</h3>
               <ul>
-             
                 <li>CPU: <span class="cpu">ARM2 @ 8 MHz</span></li>
                 <li>OS: <span class="os">RISC OS 2.01</span></li>
                 <li>Memory: <span class="memory">1 MB</span></li>
                 <li>Release Date: <span class="release-date">July 1987</span></li>
                 <li>Launch Price: <span class="price">£875</span></li>
               </ul>
-               
-
-
-              </p>
+              <div class='buttons'>
               <button onclick="bootSelected()">Boot Machine</button>
+              </div>
           </div>
         </div>
       </div>
@@ -398,6 +418,7 @@
     <div id="machine-status">
       <span class="name">-</span> 
       <span class="memory">4MB</span>
+      <span class="processor">ARM2</span>
       <span class="os">RISC OS 3.01</span>
     </div>
     <script type="module">
