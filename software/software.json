@@ -1,0 +1,28 @@
+{
+ "3dtanks": {
+  "tags": "game,public-domain",
+  "title": "3D Tanks",
+  "disc": "3dtanks.zip",
+  "author": "Stuart Cupit and Simon Cruise",
+  "year": 1989,
+  "id": "3dtanks"
+ },
+ "bloxed": {
+  "tags": "game,public-domain",
+  "disc": "bloxed.zip",
+  "title": "Bloxed",
+  "description": "Fun Tetris clone",
+  "year": 1995,
+  "author": "Steven Singer",
+  "id": "bloxed"
+ },
+ "2067bc": {
+  "title": "2067BC Demo",
+  "year": 1992,
+  "tags": "game,ex-commercial",
+  "publisher": "Oregan",
+  "description": "Prehistoric themed sideways scroller",
+  "disc": "2067bc.zip",
+  "id": "2067bc"
+ }
+}
