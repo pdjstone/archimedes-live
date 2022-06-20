@@ -36,6 +36,7 @@ discs/GameDemos17.zip
 discs/GameDemos06.zip
 discs/SWIV.zip
 discs/Bloxed (1995)(Steven Singer)(H).adf
+discs/GameDemos16.zip
 discs/GameDemos03.zip
 discs/Cycloids.zip
 discs/Nebulus.zip
