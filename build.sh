@@ -40,10 +40,12 @@ fi
 cp -r $ARCULATOR_RELEASE/cmos $BUILD_DIR/emu/
 cp -r $ARCULATOR_RELEASE/roms $BUILD_DIR/emu/
 
-if [ -d "$DISC_DIR" ]; then 
+if [ -d "$SOFTWARE_DIR" ]; then 
+    echo "Building software index from '$SOFTWARE_DIR' dir"
+     ./disctoml2json.py "$SOFTWARE_DIR" "$BUILD_DIR/software"
     echo "Copying discs from $DISC_DIR"
     mkdir $BUILD_DIR/discs
-    cp -r $DISC_DIR/* $BUILD_DIR/discs/
+    cp -r $SOFTWARE_DIR/* $BUILD_DIR/discs/
     pushd .
     cd $BUILD_DIR
     find discs -type f > disc_index.txt
