@@ -448,17 +448,19 @@ function updateCharCount() {
   window.saveBasicTimeout = setTimeout(saveProgramToLocalStorage, 1000);
 }
 
-function tryCapture() {
+function tryCapture(event) {
   if (document.pointerLockElement)
     return;
   document.getElementById('canvas').requestPointerLock();
+  if (event.ctrlKey)
+    document.getElementById('display-container').requestFullscreen();
 }
 
 document.addEventListener('pointerlockchange', lockChangeAlert, false);
 
 
 function lockChangeAlert() {
-  if(document.pointerLockElement === canvas) {
+  if (document.pointerLockElement === canvas) {
     console.log('The pointer lock status is now locked');
     sdl_enable_mouse_capture();
   } else {
@@ -606,19 +608,13 @@ const FDC_WD1793_A500 = 2;
 
 
 let presetMachines = {
-  'a310-arthur030':  () => new MachineConfigBuilder('a310', "A310 (Arthur 0.3)")
-    .cpu(CPU_ARM2)
-    .memory(1024)
-    .memc(MEMC_MEMC1)
-    .fdc(FDC_WD1770)
-    .rom('arthur030'),
-  'a310-arthur120':  () => new MachineConfigBuilder('a310', "A310 (Arthur 1.20)")
+  'a310-arthur':  () => new MachineConfigBuilder('a310', "A310 (Arthur 1.20)")
     .cpu(CPU_ARM2)
     .memory(1024)
     .memc(MEMC_MEMC1)
     .fdc(FDC_WD1770)
     .rom('arthur120'),
-  'a310':  () => new MachineConfigBuilder('a310', "A310 (RISC OS 2)")
+  'a310-ro2':  () => new MachineConfigBuilder('a310', "A310 (RISC OS 2)")
     .cpu(CPU_ARM2)
     .memory(1024)
     .memc(MEMC_MEMC1)
