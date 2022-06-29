@@ -161,39 +161,22 @@ window.onerror = function(event) {
 
 let currentDiscFile = null;
 
-const ZIP_EXT_ACORN = 0x4341; // 'AC' - SparkFS / Acorn
-const ZIP_ID_ARC0 = 0x30435241; // 'ARC0'
 
-function parseRiscOsZipField(offset, len) {
-  // See https://www.davidpilling.com/wiki/index.php/SparkFS "A Comment on Zip files"
-  if (len == 24) len = 20;
-  let id2 = this.getInt(offset + 4, 4);
-  if (id2 != ZIP_ID_ARC0)
-    return null;
-  this.isRiscOs = true;
-  return {
-    len: len,
-    loadAddr: this.getInt(offset + 8, 4) >>> 0,
-    execAddr: this.getInt(offset + 12, 4) >>> 0,
-    attr: this.getInt(offset + 16, 4) >>> 0
-  };
-}
-
-function getHostFSPathForZipEntry(fileName, fileMeta, dstPath = '/') {
-  let hostFsPath = dstPath + fileName;
-  if (fileMeta.hasOwnProperty('extraFields') && 
-      fileMeta['extraFields'].hasOwnProperty(ZIP_EXT_ACORN)) {
-      
-        let riscOsMeta = fileMeta['extraFields'][ZIP_EXT_ACORN];
+function getHostFSPathForZipEntry(fileHeader, dstPath = '/') {
+  let hostFsPath = dstPath + fileHeader.filename;
+  if (fileHeader.hasOwnProperty('extraFields') && 
+      fileHeader['extraFields'].hasOwnProperty(ZIP_EXT_ACORN)) {
+        let filename = fileHeader['filename'];
+        let riscOsMeta = fileHeader['extraFields'][ZIP_EXT_ACORN];
         let loadAddr = riscOsMeta['loadAddr'];
         let execAddr = riscOsMeta['execAddr'];
         
         // See http://www.riscos.com/support/developers/prm/fileswitch.html
         if (loadAddr >>> 20 == 0xfff) {
           let fileType = loadAddr >>> 8 & 0xfff;
-          hostFsPath = dstPath + fileName + ',' + fileType.toString(16).padStart(3, '0');
+          hostFsPath = dstPath + filename + ',' + fileType.toString(16).padStart(3, '0');
         } else {
-          hostFsPath = dstPath + fileName + ',' + loadAddr.toString(16).padStart(8,'0') + '-' + execAddr.toString(16).padStart(8,'0');
+          hostFsPath = dstPath + filename + ',' + loadAddr.toString(16).padStart(8,'0') + '-' + execAddr.toString(16).padStart(8,'0');
         }
      }
      return hostFsPath;
@@ -226,21 +209,7 @@ function isRiscOsCompatibleFilename(filename) {
   return false;
 }
 
-async function t() {
-  let response = await fetch('discs/Liquid.zip', {mode:'cors'});
-  let buf = await response.arrayBuffer();
-  
-  
-  let zip = new JSUnzip();
-  zip.open(data);
-  let result = zip.readBinary('!Dreams/End/PerP');
-  if (!result.status) {
-    console.error("failed to extract file", result);
-  } else {
-    console.log('worked', result);
-  }
 
-}
 // Unpack an archive file to HostFS
 async function loadArchive(url, dstPath='/') {
     let response = await fetch(url, {mode:'cors'});
@@ -249,18 +218,15 @@ async function loadArchive(url, dstPath='/') {
     var preamble = new TextDecoder().decode(data.slice(0, 2));
     if (preamble == 'PK') {
       console.log("Extracting ZIP file to find disc image");
-      let zip = new JSUnzip();
-      zip.registerExtension(ZIP_EXT_ACORN, parseRiscOsZipField);
-      zip.open(data);
+      let zip = new RiscOsUnzip(data);
+     
       // TODO: loop asynchronously?
-      for (const fileName in zip.files) {
-        let hostFsPath = getHostFSPathForZipEntry(fileName, zip.files[fileName]);
-        let result = zip.readBinary(fileName);
-        if (!result.status) {
-          console.error("failed to extract file: " + fileName, result);
-        } else {
-          putDataAtPath(result.data, '/hostfs' + hostFsPath);
-        }
+      for (let h in zip.fileHeaderList) {
+        let hostFsPath = getHostFSPathForZipEntry(h);
+        let data = zip.decompress(fileName);
+       
+        putDataAtPath(data, '/hostfs' + hostFsPath);
+        
       }
     } else {
       console.error('unknown archive filetype - not zip?');
@@ -1091,7 +1057,7 @@ async function unpackNsparkToHostFs(blob, dst='/') {
   let archive = new NSpark(buf);
   for await (const item of archive.unpack()) {
       console.log(item);
-      let data = new Uint8Array(item.buf)
+      let data = new Uint8Array(item.buf);
       putDataAtPath(data, '/hostfs' + dst + item.path, item.timestamp);
   }
 }
@@ -1099,31 +1065,28 @@ async function unpackNsparkToHostFs(blob, dst='/') {
 async function unpackRiscOsZipToHostfs(blob, dst='/') {
   let buf = await blob.arrayBuffer();
   let data = new Uint8Array(buf);
-  let zip = new JSUnzip();
-  zip.registerExtension(ZIP_EXT_ACORN, parseRiscOsZipField);
-  zip.open(data);
-  console.log(zip.files);
-  for (const fileName in zip.files) {
-    if (fileName.endsWith('/'))
+  let zip = new RiscOsUnzip(data);
+  console.log(zip.fileHeaderList);
+  for (let h of zip.fileHeaderList) {
+    if (h.filename.endsWith('/'))
       continue;
-    let hostFsPath = getHostFSPathForZipEntry(fileName, zip.files[fileName]);
-    let result = zip.readBinary(fileName);
-    if (!result.status) {
-      console.error("failed to extract file: " + fileName, result);
-    } else {
-      console.log('creating file at', hostFsPath);
-      putDataAtPath(result.data, '/hostfs' + hostFsPath);
-    }
+    let hostFsPath = getHostFSPathForZipEntry(h);
+    let data = zip.decompress(h.filename);
+
+    console.log('creating file at', hostFsPath);
+    putDataAtPath(data, '/hostfs' + hostFsPath);
+    
   }
 }
 
 async function loadDiscFromZip(filename, blob, insert=true) {
   let buf = await blob.arrayBuffer();
   let data = new Uint8Array(buf);
-  let unzip = new JSUnzip();
-  unzip.open(data);
+  let unzip = new RiscOsUnzip(data);
+
   let zipDiscFile = null;
-  for (const filename in unzip.files) {
+
+  for (let filename of unzip.getFilenames()) {
     if (isDiscImageFilename(filename)) {
       zipDiscFile = filename;
       break;
@@ -1135,12 +1098,7 @@ async function loadDiscFromZip(filename, blob, insert=true) {
     return;
   }
   console.log("Extracting " + zipDiscFile);
-  let result = unzip.readBinary(zipDiscFile);
-  if (!result.status) {
-    console.error("failed to extract file: " + result.error)
-  }
-  data = result.data;
-
+  data = unzip.decompress(zipDiscFile);
   if (zipDiscFile.indexOf('/') >= 0) 
     zipDiscFile = baseName(zipDiscFile);
   console.log('loadDiscFromZip', data);
@@ -1252,16 +1210,14 @@ async function identifyZipFile(filename, size, blob) {
 
   let buf = await blob.arrayBuffer();
   let data = new Uint8Array(buf);
-  let zip = new JSUnzip();
-  zip.registerExtension(ZIP_EXT_ACORN, parseRiscOsZipField);
-  zip.open(data);
+  let zip = new RiscOsUnzip(data);
   if (zip.isRiscOs) {
     console.log('RISC OS ZIP archive');
     return FileTypes.RISCOS_ZIP_ARCHIVE;
   }
   let numDiskImages = 0;
   let numCommaExts = 0;
-  for (const filename in zip.files) {
+  for (const filename of zip.getFilenames()) {
     if (isDiscImageFilename(filename)) 
       numDiskImages++;
     if (filename.match(RE_COMMA_EXT))
