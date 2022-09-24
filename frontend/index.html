@@ -191,33 +191,34 @@
 
       .dropdown-button::after { content: '\0025bc'; }
 
-
-      ul#machine-list {
+      ul.vert-list {
         list-style: none; 
         background-color: black;
         margin: 0;
         padding: 0;
       }
 
-      ul#machine-list li {
+      ul.vert-list li {
         display: block;
         padding: 8px 1em;
+
         background-color: #333;
         margin: 2px;
         cursor: pointer;
       }
 
-      ul#machine-list li:hover {
+      ul.vert-list li:hover {
         background-color: #555;
       }
 
-      ul#machine-list li.selected {
+      ul.vert-list li.selected {
         background-color: #66a;
       }
 
       #picker-cols {
         justify-content: space-between;
         background-color: #555;
+        display: flex
       }
 
       #machine-status {
@@ -239,6 +240,32 @@
 
       #machine-preview h3, #machine-preview .buttons { text-align: center;}
       
+
+      #software-browse .modal-content {
+        max-width: 80%;
+      }
+
+      #software-browser-cols {
+        display: flex;
+        align-items: stretch;
+        -height: 30em;
+      }
+
+      #software-browser-cols .listing ul.vert-list {
+        overflow-y: auto;
+        width: 12em;
+        max-height:20em
+      }
+
+
+
+      #software-details {
+        padding: 1em;
+        background-color: blue;
+      }
+
+
+       
       @media screen and (max-width: 600px) {
         h1 { font-size: 20pt; margin: 0 .5em}
         
@@ -283,10 +310,12 @@
 
         <a href="#" onclick="showModal('machine-picker')" class="dropdown-button">Choose Machine</a>
 
+        <a href="#" onclick="showSoftwareBrowser()" class="dropdown-button">Load Software</a>
+         
         <select id="discs" onchange="loadSoftwareFromUrl(this.selectedOptions[0].value)" allowfocus>
           <option value="">Load Floppy...</option>
         </select>
-       
+      
         <button onclick="fullscreen()">Fullscreen</button>
         <a href="#" onclick="showModal('about-box')">About</a>
       
@@ -319,7 +348,7 @@
           <a href="http://www.riscos.com/support/developers/bbcbasic/index.html">BBC BASIC V Reference Manual</a>
         </p>
       </div>
-      <div id="display-container" onclick="tryCapture()">
+      <div id="display-container" onclick="tryCapture(event)">
         <canvas id="canvas" class="emscripten" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
       </div>
     </div>
@@ -328,9 +357,9 @@
       <div class="modal-content">
         <h2>Choose an Archimedes to Emulate!</h2>
 
-        <div id="picker-cols" style="display: flex">
+        <div id="picker-cols">
          
-            <ul id="machine-list" onclick="previewMachine(event)">
+            <ul id="machine-list" onclick="previewMachine(event)" class="vert-list">
               <li>A3000 (RISC OS 2)</li>
               <li>A3000 (RISC OS 3)</li>
               <li>A3010</li>
@@ -379,10 +408,50 @@
       </div>
     </div>
 
-    <div class="modal" id="upload-box" onclick="closeModal('upload-box', event)">
+    <div class="modal" id="software-browser" onclick="closeModal('software-browser', event)">
       <div class="modal-content">
+        <h2>Load Software</h2>
+        <div id="software-browser-cols">
+          <div class="listing">
+            <label for="software-category">Category:</label> <select id="software-category" allowfocus onchange="filterSoftware()">
+              <option>Games</option>
+              <option>Demos</option>
+            </select>
+            <input class="search" type="text" placeholder="Search" onkeyup="filterSoftware()" allowfocus>
+            <ul class="vert-list"></ul>
+          </div>
+          <div id="software-details">
+            <h3>Software title</h3>
+            <dl>
+              <dt>Author</dt> <dd>A person</dd>
+              <dt>Publisher</dt> <dd>A company</dd>
+            </dl>
+            <p class='description'>This is some software</p>
 
-        
+            <button class='archive'>Unpack onto HostFS</button>
+            <button class='disc'>Insert disc</button>
+            <span class='autoboot'><input type="checkbox" class='autoboot'>Auto-boot</span>
+          </div>
+        </div>
+
+        <p>You can also drag a disc image or archive onto the emulator to load it</p>
+      </div>
+    </div>
+    <div class="modal" id="upload-disc-box" onclick="closeModal('upload-disc-box', event)">
+      <div class="modal-content">
+        <h2>Disc Image</h2>
+        <p>Detected file type: <span class="detect-type"></span></p>
+        <button>Insert disk</button> 
+        <input type="checkbox" id="auto-insert"><label for="auto-insert">Don't ask again</label>
+      </div>
+    </div>
+
+    <div class="modal" id="upload-archive-box" onclick="closeModal('upload-archive-box', event)">
+      <div class="modal-content">
+        <h2>Software archive</h2>
+        <p>File name: <span class="filename"></span></p>
+        <p>Detected file type: <span class="filetype"></span></p>
+        <button>Unpack to HostFS</button> <button>Put archive on HostFS</button>
       </div>
     </div>
     

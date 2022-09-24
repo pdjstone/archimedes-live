@@ -22,7 +22,8 @@ VALID_FIELDS = (
     'tags',
     'description',
     'working',
-    'best-os'
+    'best-os', 'best-machine',
+    'url'
 )
 VALID_FIELDS = set(VALID_FIELDS +  MANDATORY_FIELDS)
 
@@ -42,6 +43,13 @@ VALID_OS = (
     'arthur120',
     'riscos201',
     'riscos311'
+)
+
+VALID_MACHINE = (
+    'a3000',
+    'a3010',
+    'a3020',
+    'a5000',
 )
 
 
@@ -81,12 +89,17 @@ def parse_toml(root, file):
         
         if 'tags' in disc_meta:
             tags = disc_meta['tags'].split(',')
+            disc_meta['tags'] = tags
             for t in tags:
                 if t not in VALID_TAGS:
                     raise Exception(f"'{software_id}' in {toml_path}: Unknown tag '{t}'")
 
         if 'best-os' in disc_meta and disc_meta['best-os'] not in VALID_OS:
             raise Exception(f"'{software_id}' in {toml_path}: Invalid best-os: {disc_meta['best-os']}")
+
+        if 'best-machine' in disc_meta and disc_meta['best-machine'] not in VALID_MACHINE:
+            raise Exception(f"'{software_id}' in {toml_path}: Invalid best-machine: {disc_meta['best-machine']}")
+
         for field in disc_meta.keys():
             if field not in VALID_FIELDS:
                 raise Exception(f"Unknown field '{field}' in '{software_id}' ({toml_path})")
