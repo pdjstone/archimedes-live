@@ -1,505 +1,245 @@
 <!doctype html>
 <html lang="en-gb">
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <link rel="icon" href="images/arclive.png">
-    <title>Archimedes Live!</title>
-    <style>
-      body {
-        font-family: arial;
-        margin: 0;
-        padding: none;
-        background-color: #222;
-        color: #fff;
-      }
 
-      h1, h2, h3, textarea { font-family: riscos-system; font-weight: normal}
-      h3 { margin: .5em 0 }
-      a, a:visited, button, select { color:#4ac0f3}
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" href="images/arclive.png">
+  <title>Archimedes Live!</title>
+  <link rel="stylesheet" href="style.css">
+</head>
 
-      @font-face {
-        font-family: "riscos-system";
-        src: url("System.Fixed.woff2") format("woff2");
-      }
+<body onclick="if (!event.target.hasAttribute('allowfocus')) document.getElementById('canvas').focus()">
 
-      header {
-        display: flex;
-        flex: 2;
-        background-color: #333;
-        justify-content: space-between;
-        align-items: center;
-      }
+<header>
+  <div id="logo"><h1><img src="images/logo.svg" alt="A">rchimedes Live!</h1></div>
 
-      #logo h1 { margin: 5px}
-      #logo {
-        white-space: nowrap;
-        margin: 3px 1em;
-      }
-
-      #controls {
-       margin: 1em;
-       display: flex
-      }
-
-      button, select {
-        border: 1px solid #666;
-        background-color: #222;
-        margin: 2px;
-        padding: 5px;
-      }
-
-      #controls a { 
-        display: block;
-        text-decoration: none; 
-        background-color: #222;
-        border: 1px solid #666; 
-        margin: 2px; 
-        padding: 5px;
-        
-      }
-
-      #controls a:hover, button:hover, select:hover {
-        -background-color: #333;
-        box-shadow: 0 0 3px #666;
-        text-shadow: 0 0 5px #019ade;
-      }
-
-      .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
-      div.emscripten { text-align: center; }      
-      div.emscripten_border { border: 1px solid black; }
-      /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
-
-      canvas:focus { outline: none }
+  <div id='controls'>
+    <a href="#" onclick="showEditor()">Open BASIC editor</a>
+    <a href="#" onclick="showModal('machine-picker')" class="dropdown-button">Choose Machine</a>
+    <a href="#" onclick="showSoftwareBrowser()" class="dropdown-button">Load Software</a>
+      
+    <!-- old disc dropdown, will be removed -->
+    <select id="discs" onchange="loadSoftwareFromUrl(this.selectedOptions[0].value)" allowfocus>
+      <option value="">Load Floppy...</option>
+    </select>
   
-      .spinner {
-        height: 20px;
-        width: 20px;
-        margin: 0;
-        margin-top: 20px;
-        margin-left: 20px;
-        display: inline-block;
-        vertical-align: top;
-
-        animation: rotation 0.8s linear infinite;
-
-        border-left: 3px solid rgb(235, 235, 235);
-        border-right: 3px solid rgb(235, 235, 235);
-        border-bottom: 3px solid rgb(235, 235, 235);
-        border-top: 3px solid rgb(120, 120, 120);
-        
-        border-radius: 100%;
-        background-color: aqua;
-      }
-
-      @keyframes rotation {
-        from {transform: rotate(0deg);}
-        to {transform: rotate(360deg);}
-      }
-
-      #status {
-        display: inline-block;
-        vertical-align: top;
-        margin-top: 30px;
-        margin-left: 20px;
-        font-weight: bold;
-        color: rgb(120, 120, 120);
-      }
-
-      #progress {
-        height: 20px;
-        width: 300px;
-      }
-
-
-      .modal {
-        background-color: rgba(0,0,0,.4);
-        display: none;
-        height: 100%;
-        left: 0;
-        overflow: auto;
-        position: fixed;
-        top: 0;
-        width: 100%;
-        z-index: 1; 
-        vertical-align:middle;
-      }
-      .modal-content {
-        background-color: #333;
-        border: 1px solid #666;
-        box-shadow: 0 0 30px #444;
-        margin:  auto;
-        padding: 20px;
-        max-width: 600px;
-      }
-
-      .modal-content h2 { text-align: center ;}
-      
-      .modal-close { 
-        display: block;
-        float: right;
-      }
-      #share-url { width: 100% }
-      #logo img { height: 2ex; margin-right: 4px}
-      h1 { font-size: 30pt}
-
+    <button onclick="fullscreen()">Fullscreen</button>
+    <a href="#" onclick="showModal('about-box')">About</a>
+  </span>
+</header>
    
-      textarea:focus { outline: none }
 
+<!-- Default emscripted-generated loading UI, need to revise -->
+
+<div class="spinner" id='spinner'></div>
+<div class="emscripten" id="status">Downloading...</div>
+<div class="emscripten">
+  <progress value="0" max="100" id="progress" hidden=1></progress>
+</div>
+
+
+<!-- Main UI - contains editor and emulator canvas ----------------------------------------->
+
+<div id="main">
+
+  <!-- BBC BASIC Editor-->
+  <div id="editor-container">
+    <p>
+      <button onclick="runProgram()">Run (ctrl-enter)</button> 
+      <button onclick="showShareBox()">Share</button>
+    </p>
+    <textarea id="editor" allowfocus autocomplete="off" spellcheck="false" 
+      onkeydown="if (event.keyCode==13 && event.ctrlKey) runProgram()"></textarea>
+
+    <p class="editor-info">
+      <span id="char-count">0 characters</span> | 
+      <a href="http://www.riscos.com/support/developers/basicv/index.htm">BBC BASIC V Guide</a> |
+      <a href="http://www.riscos.com/support/developers/bbcbasic/index.html">BBC BASIC V Reference Manual</a>
+    </p>
+  </div>
+
+  <div id="display-container" onclick="tryCapture(event)">
+    <canvas id="canvas" class="emscripten" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+  </div>
+</div>
+
+
+<!-- Resusable dialog, used by showBooleanDialog() --------------------------->
+
+<div class="modal" id="generic-dialog">
+  <div class="modal-content">
+    <!-- text of h2, p and buttons are replaced dynamically -->
+    <h2>Run BASIC Program</h2>
+    <p>Reboot emulator to BASIC prompt?</p>
+    <div style="text-align:center"><button>OK</button> <button>Cancel</button></div>
+  </div>
+</div>
+
+
+<!-- Machine Picker dialog --------------------------------------------------->
+
+<div class="modal" id="machine-picker"  onclick="closeModal('machine-picker', event)">
+  <div class="modal-content">
+    <h2>Choose an Archimedes to Emulate!</h2>
+
+    <div id="machine-picker-cols">
       
-      #main { 
-        display: flex;
-        flex-direction: row; 
-        width: 100%;
-        justify-content: space-around;
-        -background-color: darkgreen;
-        align-items: center;
-      }
-
-      #editor-container {
-        display: none;
-        flex:2;
-        -background-color: blue;
-        margin: 1em;
-        max-width: 80ch;
-      }
-
-      #display-container {
-        -background-color: red;
-      }
-
-      #display-container.fullscreen {
-        background-color: black;
-      }
-
-      #display-container.fullscreen canvas {
-        height: 100%;
-      }
-
-      #editor { 
-        width: 100%;
-        background-color: black;
-        color: white;
-        border: 1px solid #aaa;
-        padding: 10px;
-        box-sizing: border-box;
-        height: 30em;
-      }
-
-      .editor-info { font-size: 85% }
-
-      .dropdown-button::after { content: '\0025bc'; }
-
-      ul.vert-list {
-        list-style: none; 
-        background-color: black;
-        margin: 0;
-        padding: 0;
-      }
-
-      ul.vert-list li {
-        display: block;
-        padding: 8px 1em;
-
-        background-color: #333;
-        margin: 2px;
-        cursor: pointer;
-      }
-
-      ul.vert-list li:hover {
-        background-color: #555;
-      }
-
-      ul.vert-list li.selected {
-        background-color: #66a;
-      }
-
-      #picker-cols {
-        justify-content: space-between;
-        background-color: #555;
-        display: flex
-      }
-
-      #machine-status {
-        display: block;
-        position: fixed;
-        bottom:0;
-        left: 0;
-        background-color: #555;
-        padding: 5px 1em;
-      }
-
-      #machine-status span { padding-left:.5em}
-
-      #machine-preview {
-        flex: 2;
-        padding: .5em 1em;
-        width: 35ch;
-      }
-
-      #machine-preview h3, #machine-preview .buttons { text-align: center;}
+      <!-- contents of #machine-list are replaced dynamically -->
+      <ul id="machine-list" onclick="previewMachine(event)" class="vert-list">
+        <li>A3000 (RISC OS 2)</li>
+        <li>A3000 (RISC OS 3)</li>
+        <li>A3010</li>
+        <li>A5000</li>
+      </ul>
       
-
-      #software-browse .modal-content {
-        max-width: 80%;
-      }
-
-      #software-browser-cols {
-        display: flex;
-        align-items: stretch;
-        -height: 30em;
-      }
-
-      #software-browser-cols .listing ul.vert-list {
-        overflow-y: auto;
-        width: 12em;
-        max-height:20em
-      }
-
-
-
-      #software-details {
-        padding: 1em;
-        background-color: blue;
-      }
-
-
-       
-      @media screen and (max-width: 600px) {
-        h1 { font-size: 20pt; margin: 0 .5em}
-        
-        header { flex-direction:  column;}
-
-
-        #logo { 
-          margin: 2px;
-          width: 100%;
-          display: block; 
-          text-align: center; 
-          -background-color: red;
-        }
-
-        #editor { 
-          width: 100%;
-          height: 20vh;
-        }
-      
-        body { -background-color: green;}
-        #main { flex-direction: column;}
-        #canvas { width: 100% }
-        #editor-container { 
-          margin: 0; 
-          width: 100%;
-          max-width: 100%;        }
-      }
-
-      @media screen and (max-width: 600px) and (max-height: 600px) {
-        #editor:focus { height: 90vh; }
-      }
-
-    </style>
-  </head>
-  <body onclick="if(!event.target.hasAttribute('allowfocus'))document.getElementById('canvas').focus()">
-
-    <header>
-      <div id="logo"><h1><img src="images/logo.svg" alt="A">rchimedes Live!</h1></div>
-
-      <div id='controls'>
-        <a href="#" onclick="showEditor()">Open BASIC editor</a>
-
-        <a href="#" onclick="showModal('machine-picker')" class="dropdown-button">Choose Machine</a>
-
-        <a href="#" onclick="showSoftwareBrowser()" class="dropdown-button">Load Software</a>
-         
-        <select id="discs" onchange="loadSoftwareFromUrl(this.selectedOptions[0].value)" allowfocus>
-          <option value="">Load Floppy...</option>
-        </select>
-      
-        <button onclick="fullscreen()">Fullscreen</button>
-        <a href="#" onclick="showModal('about-box')">About</a>
-      
-      
-      </span>
-
-      
-    </header>
-   
-   
-    <div class="spinner" id='spinner'></div>
-    <div class="emscripten" id="status">Downloading...</div>
-
-
-  
-    <div class="emscripten">
-      <progress value="0" max="100" id="progress" hidden=1></progress>
-    </div>
-
-    <div id="main">
-      <div id="editor-container"><!-- BBC BASIC Editor-->
-        <p>
-          <button onclick="runProgram()">Run (ctrl-enter)</button> 
-          <button onclick="showShareBox()">Share</button>
-        </p>
-        <textarea id="editor" allowfocus autocomplete="off" spellcheck="false" onkeydown="if(event.keyCode==13&&event.ctrlKey)runProgram()"></textarea>
-        <p class="editor-info">
-          <span id="char-count">0 characters</span> | 
-          <a href="http://www.riscos.com/support/developers/basicv/index.htm">BBC BASIC V Guide</a> |
-          <a href="http://www.riscos.com/support/developers/bbcbasic/index.html">BBC BASIC V Reference Manual</a>
-        </p>
-      </div>
-      <div id="display-container" onclick="tryCapture(event)">
-        <canvas id="canvas" class="emscripten" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
-      </div>
-    </div>
-
-    <div class="modal" id="machine-picker"  onclick="closeModal('machine-picker', event)">
-      <div class="modal-content">
-        <h2>Choose an Archimedes to Emulate!</h2>
-
-        <div id="picker-cols">
-         
-            <ul id="machine-list" onclick="previewMachine(event)" class="vert-list">
-              <li>A3000 (RISC OS 2)</li>
-              <li>A3000 (RISC OS 3)</li>
-              <li>A3010</li>
-              <li>A5000</li>
-            </ul>
-          
-          <div id="machine-preview">
-              <h3>Archimedes A310</h3>
-              <ul>
-                <li>CPU: <span class="cpu">ARM2 @ 8 MHz</span></li>
-                <li>OS: <span class="os">RISC OS 2.01</span></li>
-                <li>Memory: <span class="memory">1 MB</span></li>
-                <li>Release Date: <span class="release-date">July 1987</span></li>
-                <li>Launch Price: <span class="price">£875</span></li>
-              </ul>
-              <div class='buttons'>
-              <button onclick="bootSelected()">Boot Machine</button>
-              </div>
-          </div>
+      <div id="machine-preview">
+        <!-- These elements are kept but their text is replaced by previewMachine() -->
+        <h3>Archimedes A310</h3>
+        <ul>
+          <li>CPU: <span class="cpu">ARM2 @ 8 MHz</span></li>
+          <li>OS: <span class="os">RISC OS 2.01</span></li>
+          <li>Memory: <span class="memory">1 MB</span></li>
+          <li>Release Date: <span class="release-date">July 1987</span></li>
+          <li>Launch Price: <span class="price">£875</span></li>
+        </ul>
+        <div class='buttons'>
+          <button onclick="bootSelected()">Boot Machine</button>
         </div>
       </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- BASIC program share dialog --------------------------------------------->
+
+<div class="modal" id="share-box" onclick="closeModal('share-box', event)">
+  <div class="modal-content">
+    <h2>Share your Archimedes program</h2>
+    <p>Let other people run and remix your program by sharing a link to this page. Or tweet your
+      program at @ARM2bot and it will reply with a short video showing your program running.
+    </p>
+    <input id="share-url" readonly allowfocus>
+
+    <p><button onclick="copyProgAsURL()">Copy URL</button>
+    <button onclick="tweetProg()">Tweet to @ARM2bot</button></p>
+    <p id="bot-speed-warning">@ARM2bot emulates an Archimedes with an 8Mhz ARM2 processor.
+        Your program may run slower than it does here. </p>
+  </div>
+</div>
+
+
+<!-- Software Browser dialog ------------------------------------------------------------------>
+
+<div class="modal" id="software-browser" onclick="closeModal('software-browser', event)">
+  <div class="modal-content">
+    <h2>Load Software</h2>
+    <div id="software-browser-cols">
       
-    </div>
+      <div class="listing">
+          <select id="software-category" allowfocus onchange="filterSoftware()">
+            <option>Games</option>
+            <option>Demos</option>
+          </select>
+      
+        <input class="search" type="text" placeholder="Search" onkeyup="filterSoftware()" allowfocus>
+        <ul class="vert-list"></ul>
+      </div>
 
-    <div class="modal" id="generic-dialog">
-      <div class="modal-content">
-        <h2>Run BASIC Program</h2>
-        <p>Reboot emulator to BASIC prompt?</p>
-        <div style="text-align:center"><button>OK</button> <button>Cancel</button></div>
+      <div id="software-details">
+        <h3>Software title</h3>
+        <dl>
+          <dt>Author</dt> <dd>A person</dd>
+          <dt>Publisher</dt> <dd>A company</dd>
+        </dl>
+        <p class='description'>This is some software</p>
+
+        <button class='archive'>Unpack onto HostFS</button>
+        <button class='disc'>Insert disc</button>
+        <span class='autoboot'><input type="checkbox" class='autoboot'>Auto-boot</span>
       </div>
     </div>
 
-
-    <div class="modal" id="share-box" onclick="closeModal('share-box', event)">
-      <div class="modal-content">
-        <h2>Share your Archimedes program</h2>
-        <p>Let other people run and remix your program by sharing a link to this page. Or tweet your
-          program at @ARM2bot and it will reply with a short video showing your program running.
-        </p>
-        <input id="share-url" readonly allowfocus>
-
-        <p><button onclick="copyProgAsURL()">Copy URL</button>
-        <button onclick="tweetProg()">Tweet to @ARM2bot</button></p>
-        <p id="bot-speed-warning">@ARM2bot emulates an Archimedes with an 8Mhz ARM2 processor.
-           Your program may run slower than it does here. </p>
-      </div>
-    </div>
-
-    <div class="modal" id="software-browser" onclick="closeModal('software-browser', event)">
-      <div class="modal-content">
-        <h2>Load Software</h2>
-        <div id="software-browser-cols">
-          <div class="listing">
-            <label for="software-category">Category:</label> <select id="software-category" allowfocus onchange="filterSoftware()">
-              <option>Games</option>
-              <option>Demos</option>
-            </select>
-            <input class="search" type="text" placeholder="Search" onkeyup="filterSoftware()" allowfocus>
-            <ul class="vert-list"></ul>
-          </div>
-          <div id="software-details">
-            <h3>Software title</h3>
-            <dl>
-              <dt>Author</dt> <dd>A person</dd>
-              <dt>Publisher</dt> <dd>A company</dd>
-            </dl>
-            <p class='description'>This is some software</p>
-
-            <button class='archive'>Unpack onto HostFS</button>
-            <button class='disc'>Insert disc</button>
-            <span class='autoboot'><input type="checkbox" class='autoboot'>Auto-boot</span>
-          </div>
-        </div>
-
-        <p>You can also drag a disc image or archive onto the emulator to load it</p>
-      </div>
-    </div>
-    <div class="modal" id="upload-disc-box" onclick="closeModal('upload-disc-box', event)">
-      <div class="modal-content">
-        <h2>Disc Image</h2>
-        <p>Detected file type: <span class="detect-type"></span></p>
-        <button>Insert disk</button> 
-        <input type="checkbox" id="auto-insert"><label for="auto-insert">Don't ask again</label>
-      </div>
-    </div>
-
-    <div class="modal" id="upload-archive-box" onclick="closeModal('upload-archive-box', event)">
-      <div class="modal-content">
-        <h2>Software archive</h2>
-        <p>File name: <span class="filename"></span></p>
-        <p>Detected file type: <span class="filetype"></span></p>
-        <button>Unpack to HostFS</button> <button>Put archive on HostFS</button>
-      </div>
-    </div>
-    
-    <div class="modal" id="about-box" onclick="closeModal('about-box', event)"> 
-      <div id="about" class="modal-content">
-        <h2>About Archimedes Live!</h2>
-        <p>Archimedes Live is a project by <a href="https://twitter.com/pdjstone">Paul Stone</a> which allows 
-          anyone to try out an emulated <a href="https://en.wikipedia.org/wiki/Acorn_Archimedes">Acorn Archimedes</a> 
-          computer in their web browser. The Archimedes, first released in 1987, was Acorn's 32-bit successor 
-          to the BBC Micro. Acorn also created the ARM2 processor at the heart of the Archimedes - the ancestor 
-          of the ARM chips that power billions of smartphones, computers and other devices around the world today.</p>
-        <p>The emulator itself is a <a href="https://github.com/pdjstone/arculator-wasm">WebAssembly port</a> of
-           Sarah Walker's excellent <a href="http://b-em.bbcmicro.com/arculator/">Arculator</a> Archimedes 
-           emulator</a>.</p>
-        <p>Thanks to <a href="https://twitter.com/mattgodbolt">Matt Godbolt</a> for creating 
-          <a href="https://bbc.godbolt.org/">jsbeeb</a> and demonstrating how awesome a web-based emulator could be. 
-          Thanks also to <a href="https://twitter.com/DominicPajak">Dominic Pajak</a>, creator of the famous 
-          <a href="https://www.bbcmicrobot.com/">BBC Micro Bot</a>, and <a href="https://bbcmic.ro">Owlet BBC BASIC
-             Editor</a> which have allowed people to code, share and remix thousands of wonderfully creative BBC 
-             BASIC programs.</p>
-        <p>The RISC OS "System" font used on this site was converted by <a href="https://github.com/marutan/riscos-free-fonts">Peter Howkins</a>.</p>
-        <p>Archimedes Live is a work in progress, with many bugfixes, improvements and new features still to come. 
-          Thanks to the <a href="https://stardot.org.uk/forums/">StarDot forum</a> community for help with testing, 
-          and for providing tips, help and other expertise on everything Acorn related.</p> 
-        <p>This project is open-source. You can contribute on <a href="https://github.com/pdjstone/archimedes-live">GitHub</a>
-        with code and helpful bug reports.</p>
-        <p><a href="https://twitter.com/ArcLiveWeb?ref_src=twsrc%5Etfw" class="twitter-follow-button" data-show-count="false">Follow @ArcLiveWeb</a><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
-      </div>
-    </div>
-    <!--<textarea id="output" rows="8"></textarea>-->
+    <p>You can also drag a disc image or archive file onto the emulator to load it</p>
+  </div>
+</div>
 
 
-    <div id="machine-status">
-      <span class="name">-</span> 
-      <span class="memory">4MB</span>
-      <span class="processor">ARM2</span>
-      <span class="os">RISC OS 3.01</span>
-    </div>
-    <script type="module">
-      import {NSpark} from './nspark/nspark-helper.js';
-      window.NSpark = NSpark;
-    </script>  
-    <script type='text/javascript' src="zlib.js"></script>
-    <script type='text/javascript' src="riscosunzip.js"></script>
-    <script async type='text/javascript' src="cmos.js"></script>
-    <script async type='text/javascript' src="ui.js"></script>
-    <script async type="text/javascript" src="arculator.js"></script>
-  </body>
+<!-- Upload UI ----------------------------------------------------------------------->
+
+<div class="modal" id="upload-disc-box" onclick="closeModal('upload-disc-box', event)">
+  <div class="modal-content">
+    <h2>Disc Image</h2>
+    <p>Detected file type: <span class="detect-type"></span></p>
+    <button>Insert disk</button> 
+    <input type="checkbox" id="auto-insert"><label for="auto-insert">Don't ask again</label>
+  </div>
+</div>
+
+<div class="modal" id="upload-archive-box" onclick="closeModal('upload-archive-box', event)">
+  <div class="modal-content">
+    <h2>Software archive</h2>
+    <p>File name: <span class="filename"></span></p>
+    <p>Detected file type: <span class="filetype"></span></p>
+    <button>Unpack to HostFS</button> <button>Put archive on HostFS</button>
+  </div>
+</div>
+
+
+<!-- About box ----------------------------------------------------------------->
+
+<div class="modal" id="about-box" onclick="closeModal('about-box', event)"> 
+  <div id="about" class="modal-content">
+    <h2>About Archimedes Live!</h2>
+    <p>Archimedes Live is a project by <a href="https://twitter.com/pdjstone">Paul Stone</a> which allows 
+      anyone to try out an emulated <a href="https://en.wikipedia.org/wiki/Acorn_Archimedes">Acorn Archimedes</a> 
+      computer in their web browser. The Archimedes, first released in 1987, was Acorn's 32-bit successor 
+      to the BBC Micro. Acorn also created the ARM2 processor at the heart of the Archimedes - the ancestor 
+      of the ARM chips that power billions of smartphones, computers and other devices around the world today.</p>
+    <p>The emulator itself is a <a href="https://github.com/pdjstone/arculator-wasm">WebAssembly port</a> of
+        Sarah Walker's excellent <a href="http://b-em.bbcmicro.com/arculator/">Arculator</a> Archimedes 
+        emulator</a>.</p>
+    <p>Thanks to <a href="https://twitter.com/mattgodbolt">Matt Godbolt</a> for creating 
+      <a href="https://bbc.godbolt.org/">jsbeeb</a> and demonstrating how awesome a web-based emulator could be. 
+      Thanks also to <a href="https://twitter.com/DominicPajak">Dominic Pajak</a>, creator of the famous 
+      <a href="https://www.bbcmicrobot.com/">BBC Micro Bot</a>, and <a href="https://bbcmic.ro">Owlet BBC BASIC
+          Editor</a> which have allowed people to code, share and remix thousands of wonderfully creative BBC 
+          BASIC programs.</p>
+    <p>The RISC OS "System" font used on this site was converted by <a href="https://github.com/marutan/riscos-free-fonts">Peter Howkins</a>.</p>
+    <p>Archimedes Live is a work in progress, with many bugfixes, improvements and new features still to come. 
+      Thanks to the <a href="https://stardot.org.uk/forums/">StarDot forum</a> community for help with testing, 
+      and for providing tips, help and other expertise on everything Acorn related.</p> 
+    <p>This project is open-source. You can contribute on <a href="https://github.com/pdjstone/archimedes-live">GitHub</a>
+    with code and helpful bug reports.</p>
+    <p><a href="https://twitter.com/ArcLiveWeb?ref_src=twsrc%5Etfw" class="twitter-follow-button" data-show-count="false">Follow @ArcLiveWeb</a><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
+  </div>
+</div>
+
+
+<!-- Machine status panel -------------------------------------------------------->
+
+<div id="machine-status">
+  <span class="name">-</span> 
+  <span class="memory">4MB</span>
+  <span class="processor">ARM2</span>
+  <span class="os">RISC OS 3.01</span>
+</div>
+
+
+<!-- Imports --------------------------------------------------------------------->
+
+<script type="module">
+  import {NSpark} from './nspark/nspark-helper.js';
+  window.NSpark = NSpark;
+</script>  
+<script type='text/javascript' src="zlib.js"></script>
+<script type='text/javascript' src="riscosunzip.js"></script>
+<script async type='text/javascript' src="cmos.js"></script>
+<script async type='text/javascript' src="ui.js"></script>
+<script async type="text/javascript" src="arculator.js"></script>
+
+</body>
 </html>
-
-
