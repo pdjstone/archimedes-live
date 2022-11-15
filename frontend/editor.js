@@ -74,7 +74,10 @@ function showShareBox() {
 
 function getBasicShareUrl() {
   let prog = document.getElementById('editor').value;
-  return location.protocol + '//' + location.host + location.pathname + '#basic=' + encodeURIComponent(prog);
+  let param = encodeURIComponent(prog)
+    .replace(/[(]/g, "%28")
+    .replace(/[)]/g, "%29");
+  return location.protocol + '//' + location.host + location.pathname + '#basic=' + param;
 }
 
 
