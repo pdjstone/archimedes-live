@@ -1,0 +1,13 @@
+# Copy this file to build-vars.sh and point the vars to the right directories
+
+# clone and build https://github.com/pdjstone/arculator-wasm
+ARCULATOR_WASM=../arculator-wasm
+
+# Download and unpack http://b-em.bbcmicro.com/arculator/
+ARCULATOR_RELEASE=../Arculator_V2.1_Linux
+
+# clone and build https://github.com/pdjstone/nspark-wasm
+NSPARK_DIR=../nspark-wasm
+
+
+SOFTWARE_DIR=software

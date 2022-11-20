@@ -2,10 +2,8 @@
 
 # TODO: replace with Webpack or whatever the kids use these days
 
-ARCULATOR_WASM=../arculator-wasm
-ARCULATOR_RELEASE=../arculator21
-DISC_DIR=../arculator-wasm/disks/
-NSPARK_DIR=../nspark
+source ./build-vars.sh
+
 BUILD_DIR=build
 
 if [ -d "$BUILD_DIR" ]; then
