@@ -1,0 +1,6 @@
+[submodule "arculator-wasm"]
+	path = arculator-wasm
+	url = https://github.com/pdjstone/arculator-wasm.git
+[submodule "nspark-wasm"]
+	path = nspark-wasm
+	url = https://github.com/pdjstone/nspark-wasm.git
