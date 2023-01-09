@@ -16,30 +16,31 @@ build:
 build/index.html: frontend build
 	cp -r frontend/* build
 
-build/arculator.js: arculator-wasm/emscripten_out/arculator.js build
-	cp arculator-wasm/emscripten_out/arculator.{js,data,wasm} build
+build/arculator.js: arculator-wasm/build/wasm/arculator.js build
+	cp arculator-wasm/build/wasm/arculator.{js,data,wasm} build
 
 build/nspark/nspark.js: nspark-wasm/emscripten_out/nspark.js build
 	mkdir -p build/nspark
 	cp nspark-wasm/build/*.{js,wasm} build/nspark
 	cp nspark-wasm/emscripten/*.js build/nspark
 
-arculator-wasm/emscripten_out/arculator.js:
+arculator-wasm/build/wasm/arculator.js:
 	touch arculator-wasm/arc.cfg # FIXME
-	cd arculator-wasm && aclocal
-	cd arculator-wasm && autoconf
-	cd arculator-wasm && automake
-	cd arculator-wasm && emconfigure ./configure --enable-debug --disable-podules
-	cd arculator-wasm && emmake make
+	cd arculator-wasm && make
 
 nspark-wasm/emscripten_out/nspark.js:
 	mkdir -p nspark-wasm/build
 	emcmake cmake -S nspark-wasm -B nspark-wasm/build
 	emmake cmake --build nspark-wasm/build
 
-build/emu:
+build/emu: dlcache/arculator21.tar.gz
 	mkdir -p build/emu
-	curl -s http://b-em.bbcmicro.com/arculator/Arculator_V2.1_Linux.tar.gz | tar xz -C build/emu/ roms cmos
+	tar xzf dlcache/arculator21.tar.gz -C build/emu/ roms cmos
+
+dlcache/arculator21.tar.gz:
+	mkdir -p dlcache
+	curl -s http://b-em.bbcmicro.com/arculator/Arculator_V2.1_Linux.tar.gz --output dlcache/arculator21.tar.gz
+
 
 #if [ -d "$SOFTWARE_DIR" ]; then
 #    echo "Building software index from '$SOFTWARE_DIR' dir"
