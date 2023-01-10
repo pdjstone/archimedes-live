@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<head>
+<title>Canvas Mouse Test</title>
+<style>
+    #outer { background-color: lightgreen; text-align: center;}
+    body.fullscreen #outer { background-color: darkblue; }
+    body.fullscreen #canvas { height: 100%}
+</style>
+</head>
+<body>
+    <h1>Canvas Mouse Test</h1>
+    <p id="coords"></p>
+    <p id="fps"></p>
+    <p><button onclick="capture()">Capture</button> <button onclick="fs()">Fullscreen</button></p>
+<div id="outer">
+<canvas id="canvas" width=640 height=512 onclick="if (event.ctrlKey)  {fs()  } else { capture()}"></canvas>
+</div>
+
+<script>
+let px = 0;
+let py = 0;
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let locked = false;
+
+function capture() {
+    canvas.requestPointerLock();
+}
+
+document.onpointerlockchange = function(e) {
+    console.log('pointerlockchange', document.pointerLockElement);
+    locked = (document.pointerLockElement == canvas); 
+}
+
+document.onpointerlockerror = function(e) {
+    console.error('pointerlockerror', e);
+}
+
+document.onfullscreenchange = function() {
+    fullscreen = (document.fullscreenElement != null);
+    if (fullscreen) {
+        document.body.classList.add('fullscreen');
+        canvas.requestPointerLock();
+    } else {
+        document.body.classList.remove('fullscreen');
+    }
+}
+
+canvas.onmousemove = function(e) {
+    let text;
+    if (locked) {
+        let mx = e.movementX;
+        let my = e.movementY;
+
+        // this limit set in keyboard_poll
+        if (mx > 63) mx = 63;
+        if (mx < -63) mx = -63;
+        if (my > 63) my = 63;
+        if (my < -63) my = -63;
+        px += mx;
+        py += my;
+        if (px > canvas.width) px = canvas.width;
+        if (py > canvas.height) py = canvas.height;
+        if (px < 0) px = 0;
+        if (py < 0) py = 0;
+        text = `mx: ${mx}  my: ${my}  | x: ${px} y: ${py}` 
+    } else {
+        px = e.offsetX;
+        py = e.offsetY; 
+        text = "x: " + px + " y:" + py;
+    }
+   
+    document.getElementById('coords').textContent = text;
+}
+
+function updateFPS() {
+    frames++;
+    let n = performance.now();
+    let fps = Math.round(frames/((n-start)/1000));
+    if (frames > 100) { 
+        frames = 0;
+        start = n;
+    }
+    document.getElementById('fps').textContent = 'FPS: ' + fps;
+}
+var cursor = new Image();
+cursor.src = 'images/arclive.png';
+
+var start = performance.now();
+var frames = 0;
+
+function plot() {
+    ctx.fillStyle = '#777';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(cursor, px-6, py-2);
+    updateFPS();
+    requestAnimationFrame(plot);
+}
+
+plot();
+
+function fs() {
+    document.getElementById('outer').requestFullscreen().catch(err => console.error(err));
+    if ('keyboard' in navigator) {
+        navigator.keyboard.lock().then(() => console.log('keyboard locked'));
+    }
+}
+
+</script>
+</body>
