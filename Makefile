@@ -17,7 +17,10 @@ build/index.html: frontend build
 	cp -r frontend/* build
 
 build/arculator.js: arculator-wasm/build/wasm/arculator.js build
-	cp arculator-wasm/build/wasm/arculator.{js,data,wasm} build
+	cp arculator-wasm/build/wasm/arculator.{js,data,data.js,wasm} build
+ifdef DEBUG
+	cp arculator-wasm/build/wasm/arculator.wasm.map build
+endif
 
 build/nspark/nspark.js: nspark-wasm/emscripten_out/nspark.js build
 	mkdir -p build/nspark
@@ -26,7 +29,7 @@ build/nspark/nspark.js: nspark-wasm/emscripten_out/nspark.js build
 
 arculator-wasm/build/wasm/arculator.js:
 	touch arculator-wasm/arc.cfg # FIXME
-	cd arculator-wasm && make
+	cd arculator-wasm && make wasm
 
 nspark-wasm/emscripten_out/nspark.js:
 	mkdir -p nspark-wasm/build
