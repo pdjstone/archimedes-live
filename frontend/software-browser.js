@@ -124,7 +124,12 @@ function populateSoftwareList(search = '', tags=null) {
 
 function filterSoftware() {
   let searchText = document.querySelector('#software-browser .search').value;
-  let tags = document.getElementById('software-category').selectedOptions[0].value.split(',');
+  let tags = document.getElementById('software-category').selectedOptions[0].value;
+  if (tags == '') {
+    tags = null;
+  } else {
+    tags = tags.split(',');
+  }
   populateSoftwareList(searchText, tags);
 
 }
