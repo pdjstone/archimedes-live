@@ -3,8 +3,11 @@ var progressElement = document.getElementById('progress');
 var spinnerElement = document.getElementById('spinner');
 
 
-// TODO: check if this reduces performance
-HTMLCanvasElement.prototype.getContext = (function(oldGetContextFn) {
+// The below code let us take screenshots of the canvas (via saveEmulatorScreenshot)
+// however it may reduce the performance of the canvas.
+// It would be much better to do this by directly grabbing the screen buffer from
+// Arculator memory.
+/*HTMLCanvasElement.prototype.getContext = (function(oldGetContextFn) {
   return function(type, attrs) {
     attrs = attrs || {};
     if (type === "webgl") {
@@ -13,7 +16,7 @@ HTMLCanvasElement.prototype.getContext = (function(oldGetContextFn) {
     }
     return oldGetContextFn.call(this, type, attrs);
   };
-}(HTMLCanvasElement.prototype.getContext));
+}(HTMLCanvasElement.prototype.getContext));*/
 
 
 const ROM_BASE_PROD = 'https://files-archi.medes.live/roms/';
@@ -244,7 +247,7 @@ async function* makeTextFileLineIterator(fileURL) {
     }
 }
 
-async function setupDiscPicker() {
+/*async function setupDiscPicker() {
     let dropdown = document.getElementById('discs');
     for await (let discUrl of makeTextFileLineIterator('disc_index.txt')) {
         let discName = discUrl.substr(discUrl.lastIndexOf('/')+1);
@@ -252,9 +255,7 @@ async function setupDiscPicker() {
     }
 }
 
-
-
-setupDiscPicker();
+setupDiscPicker();*/
 
 
 function closeModal(id, event = null) {
@@ -417,4 +418,44 @@ function appendDl(dl, title, description) {
   dd.textContent = description;
   dl.appendChild(dt);
   dl.appendChild(dd);
+}
+
+
+if (searchParams.has('dbglatency')) {
+  canvas.addEventListener('mousedown', e => {
+    if (document.pointerLockElement)
+      document.body.classList.add('dbg-mouseclick');
+  });
+  canvas.addEventListener('mouseup', e => {
+    if (document.pointerLockElement)
+      document.body.classList.remove('dbg-mouseclick');
+  });
+  var mm = 0;
+  canvas.addEventListener('mousemove', e => {
+    if (!document.pointerLockElement) return;
+    let cl = document.body.classList;
+    
+    if (e.movementX != 0 || e.movementY != 0) {
+      if (mm) clearTimeout(mm);
+      cl.add('dbg-mousemove');
+    }
+    mm = setTimeout(() => cl.remove('dbg-mousemove'),20);
+  });
+/*
+
+http://localhost:8000/#dbglatency&basic=10%20MODE%202%0A20%20*POINTER%0A30%20MOUSE%20ON%0A40%20LX%3D0%3ALY%3D0%3AT%3DTIME%0A50%20REPEAT%0A60%20MOUSE%20X%2CY%2CB%0A70%20PRINT%20%3BTIME-T%3B%22%20%22%3BB%3B%22%20%22%3BX-LX%3B%22%20%22%3BY-LY%0A80%20IF%20B%3E0%20THEN%20COLOUR%200%2CB%20ELSE%20IF%20X-LX%3C%3E0%20THEN%20COLOUR%200%2C5%20ELSE%20COLOUR%200%2C0%0A90%20LX%3DX%3ALY%3DY%0A100%20C%3DINKEY(1)%0A120%20IF%20B%3D1%20THEN%20T%3DTIME%0A130%20UNTIL%200
+
+10 MODE 2
+20 *POINTER
+30 MOUSE ON
+40 LX=0:LY=0:T=TIME
+50 REPEAT
+60 MOUSE X,Y,B
+70 PRINT ;TIME-T;" ";B;" ";X-LX;" ";Y-LY
+80 IF B>0 THEN COLOUR 0,B ELSE IF X-LX<>0 THEN COLOUR 0,5 ELSE COLOUR 0,0
+90 LX=X:LY=Y
+100 C=INKEY(1)
+120 IF B=1 THEN T=TIME
+130 UNTIL 0
+*/
 }
