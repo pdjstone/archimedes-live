@@ -28,7 +28,7 @@ build/nspark/nspark.js: nspark-wasm/build/nspark.js
 
 arculator-wasm/build/wasm/arculator.js:
 	touch arculator-wasm/arc.cfg # FIXME
-	make -C arculator-wasm build/wasm/arculator.js
+	make -C arculator-wasm wasm
 
 nspark-wasm/build/nspark.js:
 	@mkdir -p nspark-wasm/build
