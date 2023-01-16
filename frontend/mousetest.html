@@ -5,24 +5,39 @@
     #outer { background-color: lightgreen; text-align: center;}
     body.fullscreen #outer { background-color: darkblue; }
     body.fullscreen #canvas { height: 100%}
+    body.mouseclick  #outer { background-color: red}
+    body.keypress #outer { background-color: magenta }
 </style>
 </head>
 <body>
     <h1>Canvas Mouse Test</h1>
     <p id="coords"></p>
     <p id="fps"></p>
-    <p><button onclick="capture()">Capture</button> <button onclick="fs()">Fullscreen</button></p>
+    <p><button onclick="capture()">Capture</button> <button onclick="fs()">Fullscreen</button> 
+    Delay <input type=number onchange="delay=parseInt(this.value)" value="5"></p>
 <div id="outer">
-<canvas id="canvas" width=640 height=512 onclick="if (event.ctrlKey)  {fs()  } else { capture()}"></canvas>
+<canvas id="canvas" width=640 height=512></canvas>
 </div>
 
 <script>
 let px = 0;
 let py = 0;
+let b = 0;
+let k = 0;
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 let locked = false;
+let fullscreen = false;
+
+canvas.addEventListener('click', e => {
+    if (fullscreen || locked) return;
+    if (e.ctrlKey)  {
+        fs();  
+    } else { 
+        capture();
+    }
+});
 
 function capture() {
     canvas.requestPointerLock();
@@ -47,17 +62,37 @@ document.onfullscreenchange = function() {
     }
 }
 
+canvas.addEventListener('mousedown', e => {
+    document.body.classList.add('mouseclick');
+    b = 1;
+});
+
+canvas.addEventListener('mouseup', e => {
+    document.body.classList.remove('mouseclick');
+    b = 0;
+});
+
+document.body.addEventListener('keydown', e => {
+    document.body.classList.add('keypress');
+    k = 1;
+});
+
+document.body.addEventListener('keyup', e => {
+    document.body.classList.remove('keypress');
+    k = 0;
+});
 canvas.onmousemove = function(e) {
     let text;
+
     if (locked) {
+        
         let mx = e.movementX;
         let my = e.movementY;
-
         // this limit set in keyboard_poll
-        if (mx > 63) mx = 63;
-        if (mx < -63) mx = -63;
-        if (my > 63) my = 63;
-        if (my < -63) my = -63;
+        // if (mx > 63) mx = 63;
+        // if (mx < -63) mx = -63;
+        // if (my > 63) my = 63;
+        // if (my < -63) my = -63;
         px += mx;
         py += my;
         if (px > canvas.width) px = canvas.width;
@@ -71,7 +106,7 @@ canvas.onmousemove = function(e) {
         text = "x: " + px + " y:" + py;
     }
    
-    document.getElementById('coords').textContent = text;
+    //document.getElementById('coords').textContent = text;
 }
 
 function updateFPS() {
@@ -89,12 +124,25 @@ cursor.src = 'images/arclive.png';
 
 var start = performance.now();
 var frames = 0;
+var delay = 5;
+function syncdelay(ms) {
+    let t = performance.now() + ms;
+    while (performance.now() < t) {}
+}
 
 function plot() {
-    ctx.fillStyle = '#777';
+    syncdelay(delay);
+    if (b == 1)
+        ctx.fillStyle = 'red';
+    else if (k == 1)
+        ctx.fillStyle = 'magenta';
+    else 
+        ctx.fillStyle = '#777';
+
+        
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(cursor, px-6, py-2);
-    updateFPS();
+    //updateFPS();
     requestAnimationFrame(plot);
 }
 
