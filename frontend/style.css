@@ -340,5 +340,6 @@ ul.vert-list li.selected {
 }
 
 /* Latency debugging */
-body.dbg-mouseclick { background-color: red }
-body.dbg-mousemove { background-color: blue }
+body.dbg-mouseclick #display-container.fullscreen, body.dbg-mouseclick { background-color: red }
+body.dbg-mousemove #display-container.fullscreen, body.dbg-mousemove { background-color: blue }
+body.dbg-keypress #display-container.fullscreen, body.dbg-keypress { background-color: magenta }

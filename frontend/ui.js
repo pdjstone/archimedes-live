@@ -423,12 +423,13 @@ function appendDl(dl, title, description) {
 
 if (searchParams.has('dbglatency')) {
   canvas.addEventListener('mousedown', e => {
-    if (document.pointerLockElement)
-      document.body.classList.add('dbg-mouseclick');
+    if (!document.pointerLockElement) return;
+    document.body.classList.add('dbg-mouseclick');
+    //console.log(performance.now(), "JS mousedown");
   });
   canvas.addEventListener('mouseup', e => {
-    if (document.pointerLockElement)
-      document.body.classList.remove('dbg-mouseclick');
+    if (!document.pointerLockElement) return;
+    document.body.classList.remove('dbg-mouseclick');
   });
   var mm = 0;
   canvas.addEventListener('mousemove', e => {
@@ -441,6 +442,15 @@ if (searchParams.has('dbglatency')) {
     }
     mm = setTimeout(() => cl.remove('dbg-mousemove'),20);
   });
+
+  document.body.addEventListener('keydown', e => {
+    if (!document.pointerLockElement) return;
+    document.body.classList.add('dbg-keypress');
+  });
+  document.body.addEventListener('keyup', e => {
+    if (!document.pointerLockElement) return;
+    document.body.classList.remove('dbg-keypress');
+  });
 /*
 
 http://localhost:8000/#dbglatency&basic=10%20MODE%202%0A20%20*POINTER%0A30%20MOUSE%20ON%0A40%20LX%3D0%3ALY%3D0%3AT%3DTIME%0A50%20REPEAT%0A60%20MOUSE%20X%2CY%2CB%0A70%20PRINT%20%3BTIME-T%3B%22%20%22%3BB%3B%22%20%22%3BX-LX%3B%22%20%22%3BY-LY%0A80%20IF%20B%3E0%20THEN%20COLOUR%200%2CB%20ELSE%20IF%20X-LX%3C%3E0%20THEN%20COLOUR%200%2C5%20ELSE%20COLOUR%200%2C0%0A90%20LX%3DX%3ALY%3DY%0A100%20C%3DINKEY(1)%0A120%20IF%20B%3D1%20THEN%20T%3DTIME%0A130%20UNTIL%200
@@ -448,6 +458,8 @@ http://localhost:8000/#dbglatency&basic=10%20MODE%202%0A20%20*POINTER%0A30%20MOU
 10 MODE 2
 20 *POINTER
 30 MOUSE ON
+35 DIM Z% 16:!Z%=2:Z%!4=4:Z%!8=1:Z%!12=1
+36 SYS "Wimp_SpriteOp",36,0,"ptr_default",1,0,0,Z%,0
 40 LX=0:LY=0:T=TIME
 50 REPEAT
 60 MOUSE X,Y,B
