@@ -171,10 +171,7 @@ async function identifyZipFile(filename, size, blob) {
   let buf = await blob.arrayBuffer();
   let data = new Uint8Array(buf);
   let zip = new RiscOsUnzip(data);
-  if (zip.isRiscOs) {
-    console.log('RISC OS ZIP archive');
-    return FileTypes.RISCOS_ZIP_ARCHIVE;
-  }
+  
   let numDiskImages = 0;
   let numCommaExts = 0;
   for (const filename of zip.getFilenames()) {
@@ -190,6 +187,8 @@ async function identifyZipFile(filename, size, blob) {
     return FileTypes.DISC_IMAGE_MULTI_ZIPPED;
   } else if (numCommaExts > 1) {
     return FileTypes.ZIP_WITH_COMMA_FILETYPES;
+  } else if (zip.isRiscOs) {
+    return FileTypes.RISCOS_ZIP_ARCHIVE;
   } else {
     return FileTypes.ZIP;
   }
