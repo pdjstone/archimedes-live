@@ -4,3 +4,6 @@
 [submodule "nspark-wasm"]
 	path = nspark-wasm
 	url = https://github.com/pdjstone/nspark-wasm.git
+[submodule "arclive-software"]
+	path = arclive-software
+	url = https://github.com/pdjstone/arclive-software.git
