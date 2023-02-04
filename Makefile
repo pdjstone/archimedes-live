@@ -10,6 +10,8 @@ clean:
 	rm -rf nspark-wasm/build
 	rm -rf build
 
+catalogue: build build/software/software.json
+
 build:
 	mkdir -p build
 
@@ -44,15 +46,7 @@ dlcache/arculator21.tar.gz:
 	mkdir -p dlcache
 	curl -s http://b-em.bbcmicro.com/arculator/Arculator_V2.1_Linux.tar.gz --output dlcache/arculator21.tar.gz
 
+build/software/software.json:
+	arclive-software/toml2json.py arclive-software/catalogue/ build/software/
 
-#if [ -d "$SOFTWARE_DIR" ]; then
-#    echo "Building software index from '$SOFTWARE_DIR' dir"
-#     ./disctoml2json.py "$SOFTWARE_DIR" "$BUILD_DIR/software"
-#    echo "Copying discs from $DISC_DIR"
-#    mkdir $BUILD_DIR/discs
-#    cp -r $SOFTWARE_DIR/* $BUILD_DIR/discs/
-#    pushd .
-#    cd $BUILD_DIR
-#    find discs -type f > disc_index.txt
-#    popd
-#fi
+
