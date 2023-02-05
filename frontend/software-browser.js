@@ -7,8 +7,8 @@ const SOFTWARE_BASE = 'software/';
 
 const SOFTWARE_CATGORIES = Object.freeze({
   'Category: All': [],
-  'Demoscene': ['demo-scene'],
-  'Education': ['education'],
+  'Demoscene': ['demoscene'],
+  //'Education': ['education'],
   'Games' : ['game'],
   '(Ex) commercial games': ['game', '!demo', '!public-domain'],
   'Public Domain': ['public-domain'],
@@ -72,10 +72,14 @@ function showSoftware(softwareId) {
 async function showSoftwareBrowser() {
   showModal('software-browser');
   if (typeof window.software == 'undefined') {
-    let response = await fetch(SOFTWARE_INDEX);
-    let json = await response.json();
-    window.software = json;
-    populateSoftwareCategories();
+    try {
+      let response = await fetch(SOFTWARE_INDEX);
+      let json = await response.json();
+      window.software = json;
+      populateSoftwareCategories();
+    } catch (e) {
+      console.error("failed to fetch software catalogue: " + e);
+    }
   }
   populateSoftwareList();
   
@@ -97,17 +101,19 @@ function populateSoftwareList(search = '', tags=null) {
   removeAllChildNodes(ul);
   search = search.toLowerCase();
   let titles = [];
-  for (const [softwareId, software] of Object.entries(window.software)) {
-    let title = software['title'];
-    if ('year' in software) 
-      title += ' (' + software['year'] + ')';
+  for (const [softwareId, meta] of Object.entries(window.software)) {
+    let title = meta['title'];
+    if ('year' in meta) 
+      title += ' (' + meta['year'] + ')';
     let searchMatch = search == '' || title.toLowerCase().includes(search);
     let tagsMatch = true;
     if (tags) {
       for (let t of tags) {
-        if (t.startsWith('!') && software.tags.indexOf(t) >= 0 || software.tags.indexOf(t) < 0) {
+        if (t.startsWith('!')) { 
+          if (meta.tags.indexOf(t.substr(1)) >= 0)
+            tagsMatch = false;
+        } else if (meta.tags.indexOf(t) < 0) 
           tagsMatch = false;
-        }
       }
     }
     if (searchMatch && tagsMatch)

@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-all: build/index.html build/arculator.js build/nspark/nspark.js build/emu
+all: build/index.html build/arculator.js build/nspark/nspark.js build/emu build/software/software.json
 
 serve:
 	python3 -m http.server -d build

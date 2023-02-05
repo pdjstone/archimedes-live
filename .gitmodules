@@ -7,3 +7,4 @@
 [submodule "arclive-software"]
 	path = arclive-software
 	url = https://github.com/pdjstone/arclive-software.git
+	branch = main
