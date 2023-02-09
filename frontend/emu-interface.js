@@ -64,7 +64,7 @@ document.addEventListener('pointerlockchange', lockChangeAlert, false);
  */
 function captureKeyShortcuts(event) {
   if (event.altKey && event.keyCode == KEY_F1) {
-      saveEmulatorScreenshot();
+    arc_capture_screenshot();
   }
 }
 
@@ -123,8 +123,8 @@ function fullscreen() {
 var screenshots = 0;
 
 
-function saveEmulatorScreenshot() {
-  document.getElementById('canvas').toBlob(blob => {
+function saveEmulatorScreenshot(canvas) {
+  canvas.toBlob(blob => {
     let a = document.createElement("a");
     a.href = window.URL.createObjectURL(blob);
     window.screenshots++;
@@ -134,5 +134,56 @@ function saveEmulatorScreenshot() {
     }
     a.download = prefix + window.screenshots.toString().padStart(2, '0') + '.png';
     a.click(); 
+  });
+}
+
+function arc_capture_screenshot() {
+  ccall('arc_capture_screenshot', null, []);
+}
+
+/**
+ * This is called from video_renderer_update in video_sdl2.c when a 
+ * screenshot has been requested. The simpler way of doing this is
+ * to just call toBlob on the main emulator canvas. However, by default
+ * that doesn't work with a WebGL context. You can  preserveDrawingBuffer
+ * when createing the WebGL context, however this can affect performance.
+ * So instead this works by copying the display buffer out of WASM memory.
+ * 
+ * bptr is a pointer to the emulator display buffer. 
+ * The buffer is in ARGB  format (i.e. 4 bytes per pixel) 
+ * bw/bh is the size of the display buffer. 
+ * sx/sy/sw/sh describe the area within the buffer which contains the
+ * screen display (this can change size/position depending on the
+ * current mode/borders etc..)
+ * ww/wh are the current size of the screen (i.e. canvas), which the 
+ * screenshot must be scaled to fit
+ */
+function save_screenshot(bptr, bw, bh, sx, sy, sw, sh, ww, wh) {  
+  let pixels = new Uint8ClampedArray(HEAPU8.subarray(bptr, bptr + bw*bh*4));
+
+  // Flip endianness and convert ARGB to RGBA  
+  // This is probably slower than doing it in WebGL but it doesn't
+  // seem to add much overhead 
+  let dv = new DataView(pixels.buffer);
+  for (let y=0 ; y < sh; y++) {
+    for (let x=0; x < sw; x++) {
+      let p = (sy+y)*bw*4 + (sx+x)*4;
+      dv.setUint32(p, (dv.getUint32(p, true)<<8)|0xff, false);
+    }
+  }
+  let imgData = new ImageData(pixels, bw);
+
+  // We can scale the bitmap using resizeWidth/resizeWidth but Firefox 
+  // doesn't support resizeQuality: pixelated. Instead scale on canvas
+  createImageBitmap(imgData, sx, sy, sw, sh)
+  .then(bitmap => {
+    console.log(bitmap);
+    let canvas = document.createElement('canvas');
+    let ctx = canvas.getContext('2d');
+    canvas.width = ww;
+    canvas.height = wh;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(bitmap, 0, 0, ww, wh);
+    saveEmulatorScreenshot(canvas);
   });
 }
