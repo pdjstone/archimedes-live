@@ -2,28 +2,6 @@ var statusElement = document.getElementById('status');
 var progressElement = document.getElementById('progress');
 var spinnerElement = document.getElementById('spinner');
 
-
-// The below code let us take screenshots of the canvas (via saveEmulatorScreenshot)
-// however it may reduce the performance of the canvas.
-// It would be much better to do this by directly grabbing the screen buffer from
-// Arculator memory.
-/*HTMLCanvasElement.prototype.getContext = (function(oldGetContextFn) {
-  return function(type, attrs) {
-    attrs = attrs || {};
-    if (type === "webgl") {
-      console.log('force preserveDrawingBuffer=true on webgl canvas');
-      attrs.preserveDrawingBuffer = true;
-    }
-    return oldGetContextFn.call(this, type, attrs);
-  };
-}(HTMLCanvasElement.prototype.getContext));*/
-
-
-const ROM_BASE_PROD = 'https://files-archi.medes.live/roms/';
-const ROM_BASE_TEST = 'emu/roms/';
-
-const ROM_BASE = ROM_BASE_TEST;
-
 var Module = {
   noInitialRun: true,
   onRuntimeInitialized: function() {

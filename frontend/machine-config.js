@@ -1,3 +1,8 @@
+const ROM_BASE_PROD = 'https://files-archi.medes.live/roms/';
+const ROM_BASE_DEV = 'emu/roms/';
+
+let ROM_BASE = (document.domain == 'localhost') ? ROM_BASE_DEV : ROM_BASE_PROD;
+
 // These constants match Arculator
 const CPU_ARM2 = 0;
 const CPU_ARM250 = 1;

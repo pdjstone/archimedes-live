@@ -2,8 +2,11 @@
 * Software browser UI
 */
 
-const SOFTWARE_INDEX = 'software/software.json'
-const SOFTWARE_BASE = 'software/';
+const SOFTWARE_INDEX = 'software.json'
+const SOFTWARE_BASE_PROD = 'https://files-archi.medes.live/software/';
+const SOFTWARE_BASE_DEV = 'software/';
+
+let SOFTWARE_BASE = (document.domain == 'localhost') ? SOFTWARE_BASE_DEV : SOFTWARE_BASE_PROD;
 
 const SOFTWARE_CATGORIES = Object.freeze({
   'Category: All': [],
@@ -73,7 +76,7 @@ async function showSoftwareBrowser() {
   showModal('software-browser');
   if (typeof window.software == 'undefined') {
     try {
-      let response = await fetch(SOFTWARE_INDEX);
+      let response = await fetch(SOFTWARE_BASE + SOFTWARE_INDEX);
       let json = await response.json();
       window.software = json;
       populateSoftwareCategories();
