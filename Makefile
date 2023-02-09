@@ -49,4 +49,7 @@ dlcache/arculator21.tar.gz:
 build/software/software.json:
 	arclive-software/toml2json.py arclive-software/catalogue/ build/software/
 
-
+deploy: all
+	s3cmd sync -m application/wasm --exclude *.txt build/emu/roms s3://files-archi.medes.live/
+	cd build && s3cmd sync --no-mime-magic --guess-mime-type software s3://files-archi.medes.live
+	cd build && s3cmd sync --no-mime-magic --guess-mime-type --exclude 'emu/*' --exclude 'software/*' . s3://archi.medes.live
