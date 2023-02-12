@@ -6,7 +6,7 @@ const SOFTWARE_INDEX = 'software.json'
 const SOFTWARE_BASE_PROD = 'https://files-archi.medes.live/software/';
 const SOFTWARE_BASE_DEV = 'software/';
 
-let SOFTWARE_BASE = (document.domain == 'localhost') ? SOFTWARE_BASE_DEV : SOFTWARE_BASE_PROD;
+let SOFTWARE_BASE = (document.domain == 'archi.medes.live') ? SOFTWARE_BASE_PROD : SOFTWARE_BASE_DEV;
 
 const SOFTWARE_CATGORIES = Object.freeze({
   'Category: All': [],
