@@ -143,4 +143,12 @@ function filterSoftware() {
 
 }
 
-//showSoftwareBrowser().then(() => {});
+function handleFileButton() {
+  if (!this.files || this.files.length == 0)
+    return;
+  let file = this.files[0];
+  console.log("upload via file button", file.name);
+  loadSoftware(file.name, file).then(() => console.log('done loading file'));
+}
+
+document.getElementById('filebutton').addEventListener('change', handleFileButton, false);

@@ -101,6 +101,10 @@ if (searchParams.has('preset')) {
   machinePreset = searchParams.get('preset');
 }
 
+if (searchParams.has('showsoftwarebrowser')) {
+  showSoftwareBrowser().then(() => console.log('showsoftwarebrowser=1'));
+}
+
 /*if (searchParams.has('ff')) {
   Module.postRun.push(function() {
     let ff_ms = parseInt(searchParams.get('ff'));
