@@ -63,8 +63,11 @@ document.addEventListener('pointerlockchange', lockChangeAlert, false);
  * when canvas has pointerLock
  */
 function captureKeyShortcuts(event) {
-  if (event.altKey && event.keyCode == KEY_F1) {
+  if (event.altKey && event.code == 'F1') {
     arc_capture_screenshot();
+  } else if (event.ctrlKey && event.code == 'Backquote') {
+    console.log('simulate escape');
+    setTimeout(() => sendKeyCode(KEY_ESCAPE), 20);
   }
 }
 
@@ -132,7 +135,9 @@ function saveEmulatorScreenshot(canvas) {
     if ('currentSoftwareId' in window) {
       prefix = window.currentSoftwareId + '-';
     }
-    a.download = prefix + window.screenshots.toString().padStart(2, '0') + '.png';
+    let filename = prefix + window.screenshots.toString().padStart(2, '0') + '.png';
+    console.log('Saving screenshot to ' + filename);
+    a.download = filename;
     a.click(); 
   });
 }
@@ -177,7 +182,6 @@ function save_screenshot(bptr, bw, bh, sx, sy, sw, sh, ww, wh) {
   // doesn't support resizeQuality: pixelated. Instead scale on canvas
   createImageBitmap(imgData, sx, sy, sw, sh)
   .then(bitmap => {
-    console.log(bitmap);
     let canvas = document.createElement('canvas');
     let ctx = canvas.getContext('2d');
     canvas.width = ww;
