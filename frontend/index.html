@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 
-<body onclick="if (!event.target.hasAttribute('allowfocus')) document.getElementById('canvas').focus()">
+<body onclick="if (!event.target.hasAttribute('tabindex')) document.getElementById('canvas').focus()">
 
 <header>
   <div id="logo"><h1><img src="images/logo.svg" alt="A">rchimedes Live!</h1></div>
@@ -19,11 +19,6 @@
     <a href="#" onclick="showEditor()">Open BASIC editor</a>
     <a href="#" onclick="showModal('machine-picker')" class="dropdown-button">Choose Machine</a>
     <a href="#" onclick="showSoftwareBrowser()" class="dropdown-button">Load Software</a>
-      
-    <!-- old disc dropdown, will be removed -->
-    <!--<select id="discs" onchange="loadSoftwareFromUrl(this.selectedOptions[0].value)" allowfocus>
-      <option value="">Load Floppy...</option>
-    </select>-->
   
     <button onclick="fullscreen()">Fullscreen</button>
     <a href="#" onclick="showModal('about-box')">About</a>
@@ -50,7 +45,7 @@
       <button onclick="runProgram()">Run (ctrl-enter)</button> 
       <button onclick="showShareBox()">Share</button>
     </p>
-    <textarea id="editor" allowfocus autocomplete="off" spellcheck="false" 
+    <textarea id="editor" tabindex="0" autocomplete="off" spellcheck="false" 
       onkeydown="if (event.keyCode==13 && event.ctrlKey) runProgram()"></textarea>
 
     <p class="editor-info">
@@ -122,7 +117,7 @@
     <p>Let other people run and remix your program by sharing a link to this page. Or tweet your
       program at @ARM2bot and it will reply with a short video showing your program running.
     </p>
-    <input id="share-url" readonly allowfocus>
+    <input id="share-url" readonly tabindex="0">
 
     <p><button onclick="copyProgAsURL()">Copy URL</button>
     <!--<button onclick="tweetProg()">Tweet to @ARM2bot</button>--></p>
@@ -140,16 +135,21 @@
     <div id="software-browser-cols">
       
       <div class="listing">
-          <select id="software-category" allowfocus onchange="filterSoftware()">
+          <select id="software-category" tabindex="0" onchange="filterSoftware()">
             <option>Games</option>
             <option>Demos</option>
           </select>
       
-        <input class="search" type="text" placeholder="Search" onkeyup="filterSoftware()" allowfocus>
+        <input class="search" type="text" placeholder="Search" onkeyup="filterSoftware()" tabindex="0">
         <ul class="vert-list"></ul>
       </div>
 
-      <div id="software-details">
+      <div id="software-intro"> <!-- this is displayed before any item is selected from the left hand side -->
+        <h3>Try out some Archimedes software!</h3>
+        <p>Search or browse through the categories to the left, find a game or sofware and try it out!</p>
+      </div>
+
+      <div id="software-details"> <!-- this div is used as a template in showSoftware() -->
         <h3>Software title</h3>
         <dl>
           <dt>Author</dt> <dd>A person</dd>

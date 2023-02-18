@@ -107,7 +107,6 @@ async function loadSoftware(filename, blob) {
   let filetype = await identifyFileType(filename, 0, blob);
   console.log('filetype', filetype.desc);
   if ('loadDisc' in filetype) {
-    console.log('load disc', filetype.loadDisc);
     return await filetype.loadDisc(filename, blob, true);
   } else if ('unpackFn' in filetype) {
     console.log('unpack', filetype.unpackFn);

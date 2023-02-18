@@ -256,7 +256,7 @@ ul.vert-list li.selected {
 #machine-picker-cols {
   /* Contains the machine list and preview panel */
   justify-content: space-between;
-  background-color: #555;
+  background-color: #556;
   display: flex
 }
 
@@ -284,7 +284,7 @@ ul.vert-list li.selected {
 #software-browser-cols .listing {
   /* Left panel of software browser
      contains category dropdown, search box and software list */
-  background-color: red;
+  -background-color: red;
   display: flex;
   flex-direction: column;
   flex-basis: 0;
@@ -295,12 +295,37 @@ ul.vert-list li.selected {
   max-height:20em
 }
 
-#software-details {
+#software-browser-cols .listing ul li {
+  font-size: 90%;
+}
+
+#software-details, #software-intro {
   padding: 1em;
-  background-color: blue;
+  background-color: #556;
   flex-grow: 3;
 }
 
+/* hidden before any software item is chosen */
+#software-details { display: none }
+
+dl {
+  display: flex;
+  flex-flow: row wrap;
+  border-width: 1px 1px 0 0;
+}
+dt {
+  flex-basis: 20%;
+  padding: 2px 4px;
+  text-align: right;
+}
+dt::after { content: ':' }
+
+dd {
+  flex-basis: 70%;
+  flex-grow: 1;
+  margin: 0;
+  padding: 2px 4px;
+}
 
 /* -- Mobile styles ------------------------------------------------ */
 
@@ -339,7 +364,8 @@ ul.vert-list li.selected {
   #editor:focus { height: 90vh; }
 }
 
-/* Latency debugging */
+
+/* -- Latency debugging ----------------------- */
 body.dbg-mouseclick #display-container.fullscreen, body.dbg-mouseclick { background-color: red }
 body.dbg-mousemove #display-container.fullscreen, body.dbg-mousemove { background-color: blue }
 body.dbg-keypress #display-container.fullscreen, body.dbg-keypress { background-color: magenta }

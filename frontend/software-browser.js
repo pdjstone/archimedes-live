@@ -24,8 +24,8 @@ function showSoftware(softwareId) {
   let meta = window.software[softwareId];
   let details = document.getElementById('software-details');
   let title = meta['title'];
-  if ('year' in meta) 
-    title += ' (' + meta['year'] + ')';
+  //if ('year' in meta) 
+  //  title += ' (' + meta['year'] + ')';
   details.querySelector('h3').textContent = title;
 
   let dl = details.querySelector('dl');
@@ -33,6 +33,7 @@ function showSoftware(softwareId) {
 
   if ('author' in meta) appendDl(dl, 'Author', meta['author']);
   if ('publisher' in meta) appendDl(dl, 'Publisher', meta['publisher']);
+  if ('year' in meta) appendDl(dl, 'Year', meta['year'].toString());
 
   if ('description' in meta) {
     details.querySelector('.description').style.display = 'block';
@@ -68,9 +69,9 @@ function showSoftware(softwareId) {
   }
   
   details.querySelector('.autoboot').style.display = ('autoboot' in meta) ? 'inline' : 'none';
-  
+  details.style.display = 'block';
+  document.getElementById('software-intro').style.display = 'none';
 }
-
 
 async function showSoftwareBrowser() {
   showModal('software-browser');
@@ -125,8 +126,13 @@ function populateSoftwareList(search = '', tags=null) {
   titles.sort((a,b) => { return (a[1] > b[1]) ? 1 : -1});
   for (const [softwareId, title] of titles) {
     let li = document.createElement('li');
+    li.setAttribute('tabindex', '0');
     li.textContent = title;
-    li.onclick = () => showSoftware(softwareId);
+    li.onclick = (e) => {
+      ul.querySelector('.selected')?.classList.remove('selected');
+      e.target.classList.add('selected');
+      showSoftware(softwareId);
+    }
     ul.appendChild(li);
   }
 }
@@ -148,7 +154,10 @@ function handleFileButton() {
     return;
   let file = this.files[0];
   console.log("upload via file button", file.name);
-  loadSoftware(file.name, file).then(() => console.log('done loading file'));
+  loadSoftware(file.name, file).then(() => {
+    closeModal('software-browser');
+    console.log('done loading file');
+  });
 }
 
 document.getElementById('filebutton').addEventListener('change', handleFileButton, false);
