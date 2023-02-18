@@ -1,0 +1,2 @@
+s3cmd
+jinja2-cli

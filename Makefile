@@ -1,4 +1,5 @@
 SHELL := /bin/bash
+BUILD_TAG := $(shell echo `git rev-parse --short HEAD`-`[[ -n $$(git status -s) ]] && echo 'dirty' || echo 'clean'`)
 
 all: build/index.html build/arculator.js build/nspark/nspark.js build/emu build/software/software.json
 
@@ -17,6 +18,7 @@ build:
 
 build/index.html: frontend build
 	cp -r frontend/* build
+	jinja2 -D BUILD_TAG=${BUILD_TAG} build/index.template.html > build/index.html && rm build/index.template.html
 
 build/arculator.js: arculator-wasm/build/wasm/arculator.js build
 	cp arculator-wasm/build/wasm/arculator.{js,data,data.js,wasm} build

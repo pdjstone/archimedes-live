@@ -16,6 +16,9 @@ var Module = {
   preRun: [],
   postRun: [],
   logReadFiles: true,
+  locateFile: function(file) {
+    return file + '?' + BUILD_TAG;
+  },
   print: (function() {
     var element = document.getElementById('output');
     if (element) element.value = ''; // clear browser cache
@@ -102,7 +105,9 @@ if (searchParams.has('preset')) {
 }
 
 if (searchParams.has('showsoftwarebrowser')) {
-  showSoftwareBrowser().then(() => console.log('showsoftwarebrowser=1'));
+  addEventListener('load', event => {
+    showSoftwareBrowser().then(() => console.log('showsoftwarebrowser=1'));
+  });
 }
 
 /*if (searchParams.has('ff')) {

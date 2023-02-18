@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="icon" href="images/arclive.png">
   <title>Archimedes Live!</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?{{ BUILD_TAG }}">
 </head>
 
 <body onclick="if (!event.target.hasAttribute('tabindex')) document.getElementById('canvas').focus()">
@@ -233,23 +233,26 @@
 
 
 <!-- Imports --------------------------------------------------------------------->
-
+<script>
+  BUILD_TAG='{{ BUILD_TAG }}';
+</script>
 <script type="module">
   import {NSpark} from './nspark/nspark-helper.js';
   window.NSpark = NSpark;
 </script>  
-<script type='text/javascript' src="zlib.js"></script>
-<script type='text/javascript' src="riscosunzip.js"></script>
-<script async type='text/javascript' src="cmos.js"></script>
-<script async type='text/javascript' src="machine-config.js"></script>
-<script async type='text/javascript' src="editor.js"></script>
-<script async type='text/javascript' src="ui.js"></script>
-<script async type='text/javascript' src="emu-interface.js"></script>
-<script async type='text/javascript' src="fsutil.js"></script>
-<script async type='text/javascript' src="software-browser.js"></script>
-<script async type='text/javascript' src="hostfs.js"></script>
-<script async type="text/javascript" src="arculator.data.js"></script>
-<script async type="text/javascript" src="arculator.js"></script>
+
+<script type='text/javascript' src="zlib.js?{{ BUILD_TAG }}"></script>
+<script type='text/javascript' src="riscosunzip.js?{{ BUILD_TAG }}"></script>
+<script async type='text/javascript' src="cmos.js?{{ BUILD_TAG }}"></script>
+<script async type='text/javascript' src="machine-config.js?{{ BUILD_TAG }}"></script>
+<script async type='text/javascript' src="editor.js?{{ BUILD_TAG }}"></script>
+<script async type='text/javascript' src="ui.js?{{ BUILD_TAG }}"></script>
+<script async type='text/javascript' src="emu-interface.js?{{ BUILD_TAG }}"></script>
+<script async type='text/javascript' src="fsutil.js?{{ BUILD_TAG }}"></script>
+<script async type='text/javascript' src="software-browser.js?{{ BUILD_TAG }}"></script>
+<script async type='text/javascript' src="hostfs.js?{{ BUILD_TAG }}"></script>
+<script async type="text/javascript" src="arculator.data.js??{{ BUILD_TAG }}"></script>
+<script async type="text/javascript" src="arculator.js??{{ BUILD_TAG }}"></script>
 
 </body>
 </html>

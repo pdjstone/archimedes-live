@@ -25,8 +25,11 @@ Some features can be accessed using the hash portion of the URL (e.g. `https://a
 * **disc** - a URL pointing to a disc image or RISC OS archive. If a disc image (e.g. .adf) or zipped disc image is specified, it will be inserted into drive 0. If a RISC OS compatible archive is specified (e.g. ArcFS/SparkFS), it will be unpacked into the root HostFS directory. **Note:** if the URL points to a different domain, the server must send the appropriate [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin) headers.  
 * **autoboot** - This will create a !Boot [Obey file](https://www.riscosopen.org/wiki/documentation/show/Introduction%20to%20Obey) on HostFS which will be run when the machine boots. The contents of the file are set to the value of this parameter. You can use this to auto-boot software loaded using the `disc` parameter. e.g. `https://archi.medes.live/#disc=https://bitshifters.github.io/content/bs-django01.zip&autoboot=desktop%20filer_run%20adfs::0.$.!Django01`
 * **basic** - This will create a !Boot [Command file](https://www.riscosopen.org/wiki/documentation/show/*Exec) on HostFS which will boot into BASIC when the emulator loads, then type and run the program contained in this parameter. You can use the BASIC editor share button to create these URLs.
+* **showsoftwarebrowser** - Show the software browser when the page loads.
 
 ### Building
+
+There are a few Python packages required to build the code. Jinja is required for HTML templating. s3cmd is required for deployment to S3. Run `pip3 install -r requirements-dev.txt` to install these.
 
 After cloning, ensure that the git submodules are initialised and updated using `git submodule update --init`. Once done, the `arculator-wasm`, `arclive-software` and `nspark-wasm` directories should contain the source code for those projects.
 
