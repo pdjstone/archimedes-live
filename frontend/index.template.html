@@ -235,9 +235,12 @@
 <!-- Imports --------------------------------------------------------------------->
 <script>
   BUILD_TAG='{{ BUILD_TAG }}';
+  ARCULATOR_BUILD_TAG='{{ ARCULATOR_BUILD_TAG }}';
+  NSPARK_BUILD_TAG='{{ NSPARK_BUILD_TAG }}';
+  SOFTWARE_BUILD_TAG='{{ SOFTWARE_BUILD_TAG }}';
 </script>
 <script type="module">
-  import {NSpark} from './nspark/nspark-helper.js';
+  import {NSpark} from './nspark/nspark-helper.js?{{ NSPARK_BUILD_TAG }}';
   window.NSpark = NSpark;
 </script>  
 
@@ -251,8 +254,9 @@
 <script async type='text/javascript' src="fsutil.js?{{ BUILD_TAG }}"></script>
 <script async type='text/javascript' src="software-browser.js?{{ BUILD_TAG }}"></script>
 <script async type='text/javascript' src="hostfs.js?{{ BUILD_TAG }}"></script>
-<script async type="text/javascript" src="arculator.data.js??{{ BUILD_TAG }}"></script>
-<script async type="text/javascript" src="arculator.js??{{ BUILD_TAG }}"></script>
+
+<script async type="text/javascript" src="arculator.data.js?{{ ARCULATOR_BUILD_TAG }}"></script>
+<script async type="text/javascript" src="arculator.js??{{ ARCULATOR_BUILD_TAG }}"></script>
 
 </body>
 </html>

@@ -1,5 +1,10 @@
 SHELL := /bin/bash
-BUILD_TAG := $(shell echo `git rev-parse --short HEAD`-`[[ -n $$(git status -s) ]] && echo 'dirty' || echo 'clean'`)
+BUILD_TAG_CMD := echo `git rev-parse --short HEAD`-`[[ -n $$(git status -s) ]] && echo 'dirty' || echo 'clean'`
+
+BUILD_TAG := $(shell ${BUILD_TAG_CMD})
+ARCULATOR_BUILD_TAG := $(shell cd arculator-wasm && ${BUILD_TAG_CMD})
+NSPARK_BUILD_TAG := $(shell cd nspark-wasm && ${BUILD_TAG_CMD})
+SOFTWARE_BUILD_TAG := $(shell cd arclive-software && ${BUILD_TAG_CMD})
 
 all: build/index.html build/arculator.js build/nspark/nspark.js build/emu build/software/software.json
 
@@ -18,7 +23,8 @@ build:
 
 build/index.html: frontend build
 	cp -r frontend/* build
-	jinja2 -D BUILD_TAG=${BUILD_TAG} build/index.template.html > build/index.html && rm build/index.template.html
+	jinja2 -D BUILD_TAG=${BUILD_TAG} -D ARCULATOR_BUILD_TAG=${ARCULATOR_BUILD_TAG} -D NSPARK_BUILD_TAG=${NSPARK_BUILD_TAG} -D SOFTWARE_BUILD_TAG=${SOFTWARE_BUILD_TAG} build/index.template.html > build/index.html
+	rm build/index.template.html
 
 build/arculator.js: arculator-wasm/build/wasm/arculator.js build
 	cp arculator-wasm/build/wasm/arculator.{js,data,data.js,wasm} build

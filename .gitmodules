@@ -1,9 +1,11 @@
 [submodule "arculator-wasm"]
 	path = arculator-wasm
 	url = https://github.com/pdjstone/arculator-wasm.git
+	branch = master
 [submodule "nspark-wasm"]
 	path = nspark-wasm
 	url = https://github.com/pdjstone/nspark-wasm.git
+	branch = master
 [submodule "arclive-software"]
 	path = arclive-software
 	url = https://github.com/pdjstone/arclive-software.git

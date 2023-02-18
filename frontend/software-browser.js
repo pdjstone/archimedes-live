@@ -2,7 +2,7 @@
 * Software browser UI
 */
 
-const SOFTWARE_INDEX = 'software.json?' + BUILD_TAG;
+const SOFTWARE_INDEX = 'software.json?' + SOFTWARE_BUILD_TAG;
 const SOFTWARE_BASE_PROD = 'https://files-archi.medes.live/software/';
 const SOFTWARE_BASE_DEV = 'software/';
 

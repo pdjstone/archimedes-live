@@ -16,9 +16,7 @@ var Module = {
   preRun: [],
   postRun: [],
   logReadFiles: true,
-  locateFile: function(file) {
-    return file + '?' + BUILD_TAG;
-  },
+  locateFile: file => file + '?' + ARCULATOR_BUILD_TAG,
   print: (function() {
     var element = document.getElementById('output');
     if (element) element.value = ''; // clear browser cache
