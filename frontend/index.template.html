@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="style.css?{{ BUILD_TAG }}">
 </head>
 
-<body onclick="if (!event.target.hasAttribute('tabindex')) document.getElementById('canvas').focus()">
+<body onclick="if (event.target.tabIndex == -1) document.getElementById('canvas').focus()">
 
 <header>
   <div id="logo"><h1><img src="images/logo.svg" alt="A">rchimedes Live!</h1></div>
