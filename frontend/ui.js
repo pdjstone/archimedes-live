@@ -6,6 +6,7 @@ var Module = {
   noInitialRun: true,
   onRuntimeInitialized: function() {
     console.log('runtime initialised');
+    setWindowTitle=()=>{}; //prevent SDL changing window title
     preload.then(() => {
       let configName = currentMachineConfig.getMachineType();
       console.log('calling main...(' + fps + ',' + configName + ')');
@@ -227,11 +228,19 @@ async function loadMachineConfig() {
   let builder = presetMachines[machinePreset]();
 
   if (searchParams.has('disc')) {
-      let discUrl = searchParams.get('disc')
-      console.log('UI: load disc URL ' + discUrl);
-      let discFile = await loadSoftwareFromUrl(discUrl, false);
-      console.log('UI: configure machine with disc', discFile);
-      builder.disc(discFile);
+      let disc = searchParams.get('disc');
+      let discFile = '';
+      if (disc.includes('/')) { // it's a URL
+        console.log('UI: load disc URL ' + disc);
+        discFile = await loadSoftwareFromUrl(disc, insert=false);
+      } else { // assume it's an ID from the software catalog
+        console.log('UI: load software id ' + disc);
+        loadFromSoftwareCatalogue(disc, insert=false);
+      }
+      if (discFile) {
+        console.log('UI: configure machine with disc', discFile);
+        builder.disc(discFile);
+      }
   }
   if (autoboot) {
     builder.autoboot();

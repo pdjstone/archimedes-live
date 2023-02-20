@@ -22,7 +22,7 @@ const FileTypes = Object.freeze({
   RISCOS_FILE: {desc: 'RISC OS compatible file'}
 });
 
-const RE_COMMA_EXT = /,[a-f0-9]{3}$/i;
+const RE_COMMA_EXT = /,[a-f0-9]{3}$/i; // 'filename,abc'
 
 
 function getHostFSPathForZipEntry(fileHeader, dstPath = '/') {
@@ -37,7 +37,7 @@ function getHostFSPathForZipEntry(fileHeader, dstPath = '/') {
       // See http://www.riscos.com/support/developers/prm/fileswitch.html
       if (loadAddr >>> 20 == 0xfff) {
         let fileType = loadAddr >>> 8 & 0xfff;
-        hostFsPath = dstPath + filename + ',' + fileType.toString(16).padStart(3, '0');
+        hostFsPath = dstPath + filename + ',' + fileType.toString(16).padStart(3,'0');
       } else {
         hostFsPath = dstPath + filename + ',' + loadAddr.toString(16).padStart(8,'0') + '-' + execAddr.toString(16).padStart(8,'0');
       }
@@ -61,28 +61,6 @@ function isRiscOsCompatibleFilename(filename) {
   return false;
 }
   
-/*
-async function loadArchive(url, dstPath='/') {
-  let response = await fetch(url, {mode:'cors'});
-  let buf = await response.arrayBuffer();
-  let data = new Uint8Array(buf);
-  let preamble = new TextDecoder().decode(data.slice(0, 2));
-  if (preamble == 'PK') {
-    console.log("Extracting ZIP file to find disc image");
-    let zip = new RiscOsUnzip(data);
-    
-    // TODO: loop asynchronously?
-    for (let h in zip.fileHeaderList) {
-      let hostFsPath = getHostFSPathForZipEntry(h);
-      let data = zip.decompress(fileName);
-      putDataAtPath(data, '/hostfs' + hostFsPath);
-    }
-  } else {
-    console.error('unknown archive filetype - not zip?');
-  }
-}
-*/
-
 
 function convertDotExtToHostfsExt(filename) {
   for (const [ext, filetype] of Object.entries(ROS_FileType_Map)) {
@@ -160,7 +138,7 @@ async function unpackRiscOsZipToHostfs(blob, dst='/') {
 
 
 async function identifyZipFile(filename, size, blob) {
-  console.log('testing zip');
+  console.log('Testing ZIP file');
   let header = await blob.slice(0,2).text();
   if (header != 'PK') {
     console.warn("No PK header");
@@ -178,7 +156,7 @@ async function identifyZipFile(filename, size, blob) {
       numDiskImages++;
     if (filename.match(RE_COMMA_EXT))
       numCommaExts++;
-    console.log(filename);
+    console.log('ZIP entry: ' + filename);
   }
   if (numDiskImages == 1) {
     return FileTypes.DISC_IMAGE_ZIPPED;

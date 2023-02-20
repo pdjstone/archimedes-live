@@ -50,8 +50,7 @@ function showSoftware(softwareId) {
     archiveButton.style.display = 'inline-block';
     archiveButton.onclick = () => {
       closeModal('software-browser');
-      loadSoftwareFromUrl(SOFTWARE_BASE+meta['archive']);
-      window.currentSoftwareId = meta.id;
+      loadFromSoftwareCatalogue(softwareId);
     }
   } else {
     archiveButton.style.display = 'none';
@@ -61,8 +60,7 @@ function showSoftware(softwareId) {
     discButton.style.display = 'inline-block';
     discButton.onclick = () => {
       closeModal('software-browser');
-      loadSoftwareFromUrl(SOFTWARE_BASE+meta['disc'], true);
-      window.currentSoftwareId = meta.id;
+      loadFromSoftwareCatalogue(softwareId);
     }
   } else {
     discButton.style.diplay = 'none';
@@ -73,8 +71,24 @@ function showSoftware(softwareId) {
   document.getElementById('software-intro').style.display = 'none';
 }
 
-async function showSoftwareBrowser() {
-  showModal('software-browser');
+async function loadFromSoftwareCatalogue(softwareId, insert=true) {
+  console.debug(`loadFromSoftwareCatalogue ${softwareId} insert=${insert}`);
+  let software = await fetchSoftwareCatalogue();
+  if (!softwareId in software) {
+    console.error(`Unknown software ID ${softwareId}`);
+    return;
+  }
+  let meta = software[softwareId];
+  if ('archive' in meta) {
+    loadSoftwareFromUrl(SOFTWARE_BASE + meta['archive']);
+  } else if ('disc' in meta) {
+    loadSoftwareFromUrl(SOFTWARE_BASE + meta['disc'], insert);
+  }
+  document.title = meta['title'] + " - Archimedes Live!";
+  window.currentSoftwareId = meta.id;
+}
+
+async function fetchSoftwareCatalogue() {
   if (typeof window.software == 'undefined') {
     try {
       let response = await fetch(SOFTWARE_BASE + SOFTWARE_INDEX);
@@ -85,8 +99,13 @@ async function showSoftwareBrowser() {
       console.error("failed to fetch software catalogue: " + e);
     }
   }
+  return window.software;
+}
+
+async function showSoftwareBrowser() {
+  showModal('software-browser');
+  await fetchSoftwareCatalogue();
   populateSoftwareList();
-  
 }
 
 function populateSoftwareCategories() {
