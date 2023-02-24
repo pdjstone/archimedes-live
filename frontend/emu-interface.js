@@ -66,7 +66,7 @@ function captureKeyShortcuts(event) {
   if (false && event.shiftKey && event.altKey && event.code == 'F1') {
     console.log('captureKeyShortcuts: record video');
     recordVideo(10000).then(() => {});
-  } else if (event.altKey && event.code == 'F1') {
+  } else if (event.altKey && event.code == 'IntlBackslash') {
     arc_capture_screenshot();
   } else if (event.ctrlKey && event.code == 'Backquote') {
     console.log('simulate escape');
