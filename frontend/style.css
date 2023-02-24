@@ -20,6 +20,10 @@ h3 { margin: .5em 0 }
 
 a, a:visited, button, select { color:#4ac0f3}
 
+a[role="button"]:not([href]) {
+	cursor: pointer;
+}
+
 @font-face {
   font-family: "riscos-system";
   src: url("System.Fixed.woff2") format("woff2");
@@ -326,6 +330,8 @@ dd {
   margin: 0;
   padding: 2px 4px;
 }
+
+.boot-recommended label::before { content: 'ℹ️ ' }
 
 /* -- Mobile styles ------------------------------------------------ */
 

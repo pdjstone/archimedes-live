@@ -24,8 +24,6 @@ function showSoftware(softwareId) {
   let meta = window.software[softwareId];
   let details = document.getElementById('software-details');
   let title = meta['title'];
-  //if ('year' in meta) 
-  //  title += ' (' + meta['year'] + ')';
   details.querySelector('h3').textContent = title;
 
   let dl = details.querySelector('dl');
@@ -44,9 +42,46 @@ function showSoftware(softwareId) {
 
   let archiveButton = details.querySelector('button.archive');
   let discButton = details.querySelector('button.disc');
- 
 
-  if ('archive' in meta) {
+  let currentOs = currentMachineConfig.getOs();
+  let currentCpu = currentMachineConfig.getProcessor();
+  let currentMem = currentMachineConfig.getMemory();
+  let bootRecommended = document.querySelector('.boot-recommended');
+  let changeMachineCheckbox = bootRecommended.querySelector('input[type=checkbox]');
+  let changeMachineLabel = bootRecommended.querySelector('label');
+  let bestPreset = '';
+
+  let updateActionButtonLabel = () => {
+    let checked = changeMachineCheckbox.checked;
+    discButton.textContent = checked ? 'Change machine and insert disc' : 'Insert disc';
+    archiveButton.textContent = checked ? 'Change machine and unpack onto HostFS' : 'Unpack onto HostFS';
+  };
+
+  if ((currentOs != 'riscos311' && (!'best-os' in meta || meta['best-os'] != currentOs)) ||
+      ('best-os' in meta && meta['best-os'] != currentOs) ||
+      ('best-cpu' in meta && meta['best-cpu'] != currentCpu) ||
+      ('min-mem' in meta && meta['min-mem'] > currentMem))  {
+    let recommenedOs = 'riscos311';
+    if ('best-os' in meta)
+      recommenedOs = meta['best-os'];
+    let recommendedOsName = OS_NAMES[recommenedOs];
+    bestPreset = recommendMachinePreset(recommenedOs);
+    let configBuilder = presetMachines[bestPreset]();
+    let warning = `This software works best in ${recommendedOsName}, change machine to ${configBuilder.configName}?`;
+    changeMachineLabel.textContent = warning;
+
+    bootRecommended.style.display = 'block';
+    changeMachineCheckbox.onchange = updateActionButtonLabel;
+    changeMachineCheckbox.checked = true;
+    
+  } else {
+    bootRecommended.style.display = 'none';
+    changeMachineCheckbox.checked = false;
+  }
+
+  updateActionButtonLabel();
+
+  if ('archive' in meta) {  
     archiveButton.style.display = 'inline-block';
     archiveButton.onclick = () => {
       closeModal('software-browser');
@@ -58,14 +93,17 @@ function showSoftware(softwareId) {
 
   if ('disc' in meta) {
     discButton.style.display = 'inline-block';
-    discButton.onclick = () => {
+    discButton.onclick = async () => {
       closeModal('software-browser');
-      loadFromSoftwareCatalogue(softwareId);
+      console.log(`rebooting to ${bestPreset}`);
+      machinePreset = bestPreset;
+      await changeMachine(bestPreset);
+      await loadFromSoftwareCatalogue(softwareId);
     }
   } else {
     discButton.style.diplay = 'none';
   }
-  
+
   details.querySelector('.autoboot').style.display = ('autoboot' in meta) ? 'inline' : 'none';
   details.style.display = 'block';
   document.getElementById('software-intro').style.display = 'none';

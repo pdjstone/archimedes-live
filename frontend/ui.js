@@ -85,6 +85,7 @@ if (location.hash)
 
 let searchParams = new URLSearchParams(queryString);
 let machinePreset = 'a3000';
+let preloadDisc = null;
 let autoboot = false;
 let unpackArchivesToHostFS = true;
 
@@ -102,7 +103,9 @@ if (searchParams.has('fixedfps')) {
 if (searchParams.has('preset')) {
   machinePreset = searchParams.get('preset');
 }
-
+if (searchParams.has('disc')) {
+  preloadDisc = searchParams.get('disc')
+}
 if (searchParams.has('showsoftwarebrowser')) {
   addEventListener('load', event => {
     showSoftwareBrowser().then(() => console.log('showsoftwarebrowser=1'));
@@ -154,12 +157,12 @@ if (machinePreset) {
 Module.setStatus('Downloading...');
 
 window.onerror = function(event) {
-    // TODO: do not warn on ok events like simulating an infinite loop or exitStatus
-    Module.setStatus('Exception thrown, see JavaScript console');
-    spinnerElement.style.display = 'none';
-    Module.setStatus = function(text) {
+  // TODO: do not warn on ok events like simulating an infinite loop or exitStatus
+  Module.setStatus('Exception thrown, see JavaScript console');
+  spinnerElement.style.display = 'none';
+  Module.setStatus = function(text) {
     if (text) Module.printErr('[post-exception status] ' + text);
-    };
+  };
 };
 
 
@@ -227,8 +230,9 @@ async function loadMachineConfig() {
   console.log('Loading preset machine: ' + machinePreset);
   let builder = presetMachines[machinePreset]();
 
-  if (searchParams.has('disc')) {
-      let disc = searchParams.get('disc');
+  if (preloadDisc) { // disc URL parameter was specified
+      let disc = preloadDisc;
+      preloadDisc = null; // only load disc from URL once
       let discFile = '';
       if (disc.includes('/')) { // it's a URL
         console.log('UI: load disc URL ' + disc);
@@ -242,7 +246,8 @@ async function loadMachineConfig() {
         builder.disc(discFile);
       }
   }
-  if (autoboot) {
+  if (autoboot) { // autoboot URL parameter was specified
+    autoboot = false;
     builder.autoboot();
   }
 
@@ -257,7 +262,6 @@ async function loadMachineConfig() {
     console.log('hostfs dir already exists');
   }
   window.currentMachineConfig = machineConfig;
-  console.log('machine config loaded');
   return machineConfig;
 }
 

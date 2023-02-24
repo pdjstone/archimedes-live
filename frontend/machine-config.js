@@ -113,6 +113,15 @@ let presetMachines = {
 };
 Object.freeze(presetMachines);
 
+function recommendMachinePreset(bestOs=null, minimumMemory=null) {
+  if (bestOs == 'arthur120') return 'a310-arthur';
+  if (bestOs == 'riscos311' && minimumMemory == null || minimumMemory <= 2048)
+    return 'a3000';
+  if (bestOs == 'riscos201') return 'a310-ro2';
+  if (minimumMemory > 2048) return 'a5000';
+  console.error(`No machine recommendation for ${bestOs} minimum mem=${minimumMemory}`);
+  return null;
+}
 
 class MachineConfigBuilder {
   params = {

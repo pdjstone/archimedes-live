@@ -16,12 +16,12 @@
   <div id="logo"><h1><img src="images/logo.svg" alt="A">rchimedes Live!</h1></div>
 
   <div id='controls'>
-    <a href="#" onclick="showEditor()">Open BASIC editor</a>
-    <a href="#" onclick="showModal('machine-picker')" class="dropdown-button">Choose Machine</a>
-    <a href="#" onclick="showSoftwareBrowser()" class="dropdown-button">Load Software</a>
+    <a role="button" onclick="showEditor()">Open BASIC editor</a>
+    <a role="button" onclick="showModal('machine-picker')" class="dropdown-button">Choose Machine</a>
+    <a role="button" onclick="showSoftwareBrowser()" class="dropdown-button">Load Software</a>
   
     <button onclick="fullscreen()">Fullscreen</button>
-    <a href="#" onclick="showModal('about-box')">About</a>
+    <a role="button" onclick="showModal('about-box')">About</a>
   </span>
 </header>
    
@@ -130,7 +130,7 @@
 <!-- Software Browser dialog ------------------------------------------------------------------>
 
 <div class="modal" id="software-browser" onclick="closeModal('software-browser', event)">
-  <div class="modal-content">
+  <div class="modal-content" tabindex="0">
     <h2>Load Software</h2>
     <div id="software-browser-cols">
       
@@ -149,7 +149,7 @@
         <p>Search or browse through the categories to the left, find a game or sofware and try it out!</p>
       </div>
 
-      <div id="software-details"> <!-- this div is used as a template in showSoftware() -->
+      <div id="software-details" tabindex="0"> <!-- this div is used as a template in showSoftware() -->
         <h3>Software title</h3>
         <dl>
           <dt>Author</dt> <dd>A person</dd>
@@ -159,6 +159,9 @@
 
         <button class='archive'>Unpack onto HostFS</button>
         <button class='disc'>Insert disc</button>
+        <p class="boot-recommended">
+          <label for="boot-recommended-machine">This software runs best on RISC OS 3.</label>
+          <input type="checkbox" id="boot-recommended-machine"></p>
         <span class='autoboot'><input type="checkbox" class='autoboot'>Auto-boot</span>
       </div>
     </div>
