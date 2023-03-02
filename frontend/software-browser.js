@@ -61,13 +61,25 @@ function showSoftware(softwareId) {
       ('best-os' in meta && meta['best-os'] != currentOs) ||
       ('best-cpu' in meta && meta['best-cpu'] != currentCpu) ||
       ('min-mem' in meta && meta['min-mem'] > currentMem))  {
-    let recommenedOs = 'riscos311';
-    if ('best-os' in meta)
-      recommenedOs = meta['best-os'];
-    let recommendedOsName = OS_NAMES[recommenedOs];
-    bestPreset = recommendMachinePreset(recommenedOs);
+    let requirements = {os: 'riscos311'};
+
+    let recommendStr = '';
+    if ('best-os' in meta) {
+      requirements.os = meta['best-os'];
+      recommendStr += ' in ' + OS_NAMES[requirements.os];
+    }
+    if ('best-cpu' in meta) {
+      requirements.cpu = meta['best-cpu'];
+      recommendStr += ' with an ' + requirements.cpu.toUpperCase() + ' CPU';
+    }
+    if ('min-mem' in meta) {
+      requirements.mem = meta['min-mem'];
+      recommendStr += ' with ' + MEM_SIZE_NAMES[requirements.mem] + ' RAM';
+    }
+
+    bestPreset = recommendMachinePreset(requirements);
     let configBuilder = presetMachines[bestPreset]();
-    let warning = `This software works best in ${recommendedOsName}, change machine to ${configBuilder.configName}?`;
+    let warning = `This software works best${recommendStr}, change machine to ${configBuilder.configName}?`;
     changeMachineLabel.textContent = warning;
 
     bootRecommended.style.display = 'block';
