@@ -107,9 +107,11 @@ function showSoftware(softwareId) {
     discButton.style.display = 'inline-block';
     discButton.onclick = async () => {
       closeModal('software-browser');
-      console.log(`rebooting to ${bestPreset}`);
-      machinePreset = bestPreset;
-      await changeMachine(bestPreset);
+      if (changeMachineCheckbox.checked) {
+        console.log(`rebooting to ${bestPreset}`);
+        machinePreset = bestPreset;
+        await changeMachine(bestPreset);
+      }
       await loadFromSoftwareCatalogue(softwareId);
     }
   } else {
