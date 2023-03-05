@@ -107,7 +107,7 @@ let presetMachines = {
     .rom('riscos311'),
   'a3020': () => new MachineConfigBuilder('a3020', "A3020")
     .cpu(CPU_ARM250)
-    .memory(2048)
+    .memory(4096)
     .memc(MEMC_MEMC1A_12)
     .rom('riscos311')
 };
@@ -119,9 +119,9 @@ function recommendMachinePreset(req) {
   let os = 'riscos311';
   let cpu = null;
 
-  if ('mem' in req) mem = req.mem;
-  if ('os' in req) os = req.os;
-  if ('cpu' in req) cpu = req.cpu;
+  if ('min-mem' in req) mem = req['min-mem'];
+  if ('best-os' in req) os = req['best-os'];
+  if ('best-cpu' in req) cpu = req['best-cpu'];
 
   if (cpu == 'arm2' || cpu == null) {
     if (os == 'arthur120' && mem <= 1024) return 'a310-arthur';
@@ -131,12 +131,12 @@ function recommendMachinePreset(req) {
   if (os == 'riscos311') {
     if (mem <= 2048 && cpu == 'arm2')
       return 'a3000';
-    if (cpu == 'arm250' && mem <= 2048)
+    if ((cpu == null || cpu == 'arm250') && mem <= 4096)
       return 'a3020';
     if (cpu == 'arm3' && mem <= 4096)
       return 'a5000';
   }
-  let reqStr = JSON.stringify(req);
+  let reqStr = JSON.stringify({mem:mem, os:os, cpu:cpu});
   console.error(`No machine recommendation for ${reqStr}`);
   return null;
 }

@@ -61,23 +61,19 @@ function showSoftware(softwareId) {
       ('best-os' in meta && meta['best-os'] != currentOs) ||
       ('best-cpu' in meta && meta['best-cpu'] != currentCpu) ||
       ('min-mem' in meta && meta['min-mem'] > currentMem))  {
-    let requirements = {os: 'riscos311'};
-
+  
     let recommendStr = '';
     if ('best-os' in meta) {
-      requirements.os = meta['best-os'];
-      recommendStr += ' in ' + OS_NAMES[requirements.os];
+      recommendStr += ' in ' + OS_NAMES[meta['best-os']];
     }
     if ('best-cpu' in meta) {
-      requirements.cpu = meta['best-cpu'];
-      recommendStr += ' with an ' + requirements.cpu.toUpperCase() + ' CPU';
+      recommendStr += ' with an ' + meta['best-cpu'].toUpperCase() + ' CPU';
     }
     if ('min-mem' in meta) {
-      requirements.mem = meta['min-mem'];
-      recommendStr += ' with ' + MEM_SIZE_NAMES[requirements.mem] + ' RAM';
+      recommendStr += ' with ' + MEM_SIZE_NAMES[meta['min-mem']] + ' RAM';
     }
 
-    bestPreset = recommendMachinePreset(requirements);
+    bestPreset = recommendMachinePreset(meta);
     let configBuilder = presetMachines[bestPreset]();
     let warning = `This software works best${recommendStr}, change machine to ${configBuilder.configName}?`;
     changeMachineLabel.textContent = warning;
@@ -93,30 +89,28 @@ function showSoftware(softwareId) {
 
   updateActionButtonLabel();
 
+  let loadFn = async () => {
+    closeModal('software-browser');
+    if (changeMachineCheckbox.checked) {
+      console.log(`Rebooting to ${bestPreset}`);
+      machinePreset = bestPreset;
+      await changeMachine(bestPreset);
+    }
+    await loadFromSoftwareCatalogue(softwareId);
+    console.log(`Software ${softwareId} loaded!`);
+  }
+
   if ('archive' in meta) {  
     archiveButton.style.display = 'inline-block';
-    archiveButton.onclick = () => {
-      closeModal('software-browser');
-      loadFromSoftwareCatalogue(softwareId);
-    }
-  } else {
-    archiveButton.style.display = 'none';
-  }
+    discButton.style.display = 'none';
+    archiveButton.onclick = loadFn;
+  } 
 
   if ('disc' in meta) {
     discButton.style.display = 'inline-block';
-    discButton.onclick = async () => {
-      closeModal('software-browser');
-      if (changeMachineCheckbox.checked) {
-        console.log(`rebooting to ${bestPreset}`);
-        machinePreset = bestPreset;
-        await changeMachine(bestPreset);
-      }
-      await loadFromSoftwareCatalogue(softwareId);
-    }
-  } else {
-    discButton.style.diplay = 'none';
-  }
+    archiveButton.style.display = 'none';
+    discButton.onclick = loadFn;
+  } 
 
   details.querySelector('.autoboot').style.display = ('autoboot' in meta) ? 'inline' : 'none';
   details.style.display = 'block';
