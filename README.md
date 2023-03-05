@@ -15,7 +15,8 @@ Web frontend for [Arculator WASM](https://github.com/pdjstone/arculator-wasm). S
 
 ## Supported URL options
 
-Some features can be accessed using the hash portion of the URL (e.g. `https://archi.medes.live#foo=bar`):
+Some features can be accessed using the hash portion of the URL (e.g. `https://archi.medes.live#foo=bar`). These are useful when linking to Archimedes Live:
+
 * **preset** - load a preset machine configuration instead of the default A3000. Current valid values are:
   * `a310-arthur` - A310 with Arthur 1.20 ROM. ARM 2 CPU with 1MB RAM
   * `a310-ro2` - A310 with RISC OS 2 ROM. ARM 2 CPU with 1MB RAM 
