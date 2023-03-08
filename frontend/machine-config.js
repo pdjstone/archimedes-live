@@ -107,19 +107,37 @@ let presetMachines = {
     .rom('riscos311'),
   'a3020': () => new MachineConfigBuilder('a3020', "A3020")
     .cpu(CPU_ARM250)
-    .memory(2048)
+    .memory(4096)
     .memc(MEMC_MEMC1A_12)
     .rom('riscos311')
 };
 Object.freeze(presetMachines);
 
-function recommendMachinePreset(bestOs=null, minimumMemory=null) {
-  if (bestOs == 'arthur120') return 'a310-arthur';
-  if (bestOs == 'riscos311' && minimumMemory == null || minimumMemory <= 2048)
-    return 'a3000';
-  if (bestOs == 'riscos201') return 'a310-ro2';
-  if (minimumMemory > 2048) return 'a5000';
-  console.error(`No machine recommendation for ${bestOs} minimum mem=${minimumMemory}`);
+function recommendMachinePreset(req) {
+
+  let mem = 0;
+  let os = 'riscos311';
+  let cpu = null;
+
+  if ('min-mem' in req) mem = req['min-mem'];
+  if ('best-os' in req) os = req['best-os'];
+  if ('best-cpu' in req) cpu = req['best-cpu'];
+
+  if (cpu == 'arm2' || cpu == null) {
+    if (os == 'arthur120' && mem <= 1024) return 'a310-arthur';
+    if (os == 'riscos201' && mem <= 2048) return 'a310-ro2';
+  }
+
+  if (os == 'riscos311') {
+    if (mem <= 2048 && cpu == 'arm2')
+      return 'a3000';
+    if ((cpu == null || cpu == 'arm250') && mem <= 4096)
+      return 'a3020';
+    if (cpu == 'arm3' && mem <= 4096)
+      return 'a5000';
+  }
+  let reqStr = JSON.stringify({mem:mem, os:os, cpu:cpu});
+  console.error(`No machine recommendation for ${reqStr}`);
   return null;
 }
 
