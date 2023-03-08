@@ -125,13 +125,15 @@ async function loadFromSoftwareCatalogue(softwareId, insert=true) {
     return;
   }
   let meta = software[softwareId];
+  let discFile = '';
   if ('archive' in meta) {
     loadSoftwareFromUrl(SOFTWARE_BASE + meta['archive']);
   } else if ('disc' in meta) {
-    loadSoftwareFromUrl(SOFTWARE_BASE + meta['disc'], insert);
+    discFile = await loadSoftwareFromUrl(SOFTWARE_BASE + meta['disc'], insert);
   }
   document.title = meta['title'] + " - Archimedes Live!";
   window.currentSoftwareId = meta.id;
+  return discFile;
 }
 
 async function fetchSoftwareCatalogue() {

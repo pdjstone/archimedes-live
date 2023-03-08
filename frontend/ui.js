@@ -239,7 +239,7 @@ async function loadMachineConfig() {
         discFile = await loadSoftwareFromUrl(disc, insert=false);
       } else { // assume it's an ID from the software catalog
         console.log('UI: load software id ' + disc);
-        loadFromSoftwareCatalogue(disc, insert=false);
+        discFile = await loadFromSoftwareCatalogue(disc, insert=false);
       }
       if (discFile) {
         console.log('UI: configure machine with disc', discFile);
