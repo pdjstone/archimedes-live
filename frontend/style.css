@@ -138,6 +138,14 @@ div.emscripten { text-align: center; }
   align-items: center;
 }
 
+#audio-warning {
+  display: block;
+  background-color: darkorange;
+  color: white;
+  margin: 0;
+  padding: .5em;
+}
+
 #machine-status {
   display: block;
   position: fixed;

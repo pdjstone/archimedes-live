@@ -145,6 +145,8 @@ Module.preRun.push(function() {
   ENV.SDL_EMSCRIPTEN_KEYBOARD_ELEMENT ="#canvas";
 });
 
+Module.preRun.push(monitorAudioContext);
+
 Module.arguments = [fps.toString()];
 if (machinePreset) {
   console.log('UI: Using preset machine config ' + machinePreset);
@@ -382,6 +384,26 @@ function appendDl(dl, title, description) {
   dl.appendChild(dd);
 }
 
+
+async function monitorAudioContext() {
+  let audioContext = null;
+  while (audioContext == null) {
+    let contexts = Object.keys(AL.contexts);
+    if (contexts.length != 1) {
+      console.log(`Audio state: expected 1 context, got ${contexts.length}`);
+      await sleep(50);
+    } else {
+      audioContext = AL.contexts[contexts[0]].audioCtx;
+    }
+  }
+  console.log("Audio ", audioContext.state);
+  audioContext.addEventListener('statechange', e => {
+    console.log('audio state changed:', audioContext.state);
+    if (audioContext.state == 'running') {
+      document.getElementById('audio-warning').style.display = 'none';
+    }
+  });
+}
 
 if (searchParams.has('dbglatency')) {
   canvas.addEventListener('mousedown', e => {
