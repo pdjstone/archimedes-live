@@ -112,7 +112,6 @@ async function unpackNsparkToHostFs(blob, dst='/') {
   let buf = await blob.arrayBuffer();
   let archive = new NSpark(buf);
   for await (const item of archive.unpack()) {
-      console.log(item);
       let data = new Uint8Array(item.buf);
       putDataAtPath(data, '/hostfs' + dst + item.path, item.timestamp);
   }
