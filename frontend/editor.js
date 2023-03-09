@@ -1,3 +1,4 @@
+const BASIC_RUN_FAST_FORWARD = 7500;
 
 function rerunProg() {
     sendKeyCode(KEY_ESCAPE);
@@ -19,6 +20,7 @@ async function runProgram() {
     if (reboot) {
       autoboot = true;
       await changeMachine(machinePreset);
+      arc_fast_forward(BASIC_RUN_FAST_FORWARD);
     }
   }
   putDataAtPath(wrapProg(prog), '/hostfs/!boot,ffe');

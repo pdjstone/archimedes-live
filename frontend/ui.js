@@ -112,14 +112,13 @@ if (searchParams.has('showsoftwarebrowser')) {
   });
 }
 
-/*if (searchParams.has('ff')) {
+if (searchParams.has('ff')) {
   Module.postRun.push(function() {
     let ff_ms = parseInt(searchParams.get('ff'));
     console.log(`UI: postRun - fast forward to ${ff_ms} ms`);
-    ccall('arc_fast_forward', null, ['number'], [ff_ms]);
+    arc_fast_forward(ff_ms);
   });
-}*/
-
+}
 
 if (searchParams.has('autoboot')) {
   Module.preRun.push(function() {
@@ -131,12 +130,12 @@ if (searchParams.has('autoboot')) {
 } else if (searchParams.has('basic')) {
   let prog = searchParams.get('basic');
   prog = showEditor(prog);
-  Module.preRun.push(function() {
+  Module.preRun.push(() => {
     console.log('UI: preRun - create !boot and prog');
     putDataAtPath(wrapProg(prog), '/hostfs/!boot,ffe');
   });
   Module.postRun.push(function() {
-    //ccall('arc_fast_forward', null, ['number'], [6000]);
+    arc_fast_forward(BASIC_RUN_FAST_FORWARD);
   });
   
   autoboot = true;
@@ -203,7 +202,13 @@ function sdl_disable_mouse_capture() {
   ccall('sdl_disable_mouse_capture', null, []);
 }
 
+function arc_fast_forward(ms) {
+  ccall('arc_fast_forward', null, ['number'], [ms]);
+}
 
+function arc_get_emulation_ms() {
+  return ccall('arc_get_emulation_ms', 'int', []);
+}
 
 
 function closeModal(id, event = null) {
