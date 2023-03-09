@@ -127,7 +127,7 @@ async function loadFromSoftwareCatalogue(softwareId, insert=true) {
   let meta = software[softwareId];
   let discFile = '';
   if ('archive' in meta) {
-    loadSoftwareFromUrl(SOFTWARE_BASE + meta['archive']);
+    await loadSoftwareFromUrl(SOFTWARE_BASE + meta['archive']);
   } else if ('disc' in meta) {
     discFile = await loadSoftwareFromUrl(SOFTWARE_BASE + meta['disc'], insert);
   }
