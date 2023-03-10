@@ -12,6 +12,10 @@ var Module = {
       console.log('calling main...(' + fps + ',' + configName + ')');
       callMain([fps.toString(), configName]);
       console.log('calling main done');
+      if (fastForward) {
+        arc_fast_forward(fastForward);
+        fastForward = 0;
+      }
     })
   },
   preRun: [],
@@ -85,10 +89,9 @@ if (location.hash)
 
 let searchParams = new URLSearchParams(queryString);
 let machinePreset = 'a3000';
-let preloadDisc = null;
-let autoboot = false;
 let unpackArchivesToHostFS = true;
-
+let firstBoot = true;
+let fastForward = 0;
 let fps = 0;
 
 if (searchParams.has('fixedfps')) {
@@ -100,60 +103,17 @@ if (searchParams.has('fixedfps')) {
   }
   console.log('UI: Fixing frame rate to ' + fps + ' FPS');
 }
-if (searchParams.has('preset')) {
-  machinePreset = searchParams.get('preset');
-}
-if (searchParams.has('disc')) {
-  preloadDisc = searchParams.get('disc')
-}
+
 if (searchParams.has('showsoftwarebrowser')) {
   addEventListener('load', event => {
     showSoftwareBrowser().then(() => console.log('showsoftwarebrowser=1'));
   });
 }
 
-if (searchParams.has('ff')) {
-  Module.postRun.push(function() {
-    let ff_ms = parseInt(searchParams.get('ff'));
-    console.log(`UI: postRun - fast forward to ${ff_ms} ms`);
-    arc_fast_forward(ff_ms);
-  });
-}
-
-if (searchParams.has('autoboot')) {
-  Module.preRun.push(function() {
-    let autoboot = searchParams.get('autoboot');
-    console.log('UI: preRun - create !boot:' + autoboot);
-    putDataAtPath(autoboot, '/hostfs/!boot,feb');
-  }); 
-  autoboot = true;
-} else if (searchParams.has('basic')) {
-  let prog = searchParams.get('basic');
-  prog = showEditor(prog);
-  Module.preRun.push(() => {
-    console.log('UI: preRun - create !boot and prog');
-    putDataAtPath(wrapProg(prog), '/hostfs/!boot,ffe');
-  });
-  Module.postRun.push(function() {
-    arc_fast_forward(BASIC_RUN_FAST_FORWARD);
-  });
-  
-  autoboot = true;
-}
-
-Module.preRun.push(function() {
-  ENV.SDL_EMSCRIPTEN_KEYBOARD_ELEMENT ="#canvas";
-});
-
+Module.preRun.push(() => ENV.SDL_EMSCRIPTEN_KEYBOARD_ELEMENT ="#canvas" );
 Module.preRun.push(monitorAudioContext);
+Module.preRun.push(() => preload = loadMachineConfig());
 
-Module.arguments = [fps.toString()];
-if (machinePreset) {
-  console.log('UI: Using preset machine config ' + machinePreset);
-  Module.arguments.push(machinePreset); // we use config file name == machine name
-  Module.preRun.push(() => preload = loadMachineConfig());
-  
-}
 
 Module.setStatus('Downloading...');
 
@@ -167,6 +127,17 @@ window.onerror = function(event) {
 };
 
 
+function pauseEmulator() {
+  ccall('arc_pause_main_thread', null, []);
+  document.body.classList.add('emu-paused');
+  let emulatorTime = arc_get_emulation_ms();
+  console.log('Emulator paused at ', emulatorTime);
+}
+
+function resumeEmulator() {
+  ccall('arc_resume_main_thread', null, []);
+  document.body.classList.remove('emu-paused');
+}
 
 function arc_set_display_mode(display_mode) {
   ccall('arc_set_display_mode', null, ['number'], display_mode);
@@ -205,6 +176,7 @@ function sdl_disable_mouse_capture() {
 }
 
 function arc_fast_forward(ms) {
+  console.log(`Fast-forwaring emulator to ${ms}ms`);
   ccall('arc_fast_forward', null, ['number'], [ms]);
 }
 
@@ -234,27 +206,69 @@ function updateConfigUI(config) {
  * @returns
  */
 async function loadMachineConfig() {
+  let discFile = '';
+  let autoboot = '';
+  let softwareMeta = null;
+
+  if (firstBoot) { // booting when page loads
+    firstBoot = false;
+    if (searchParams.has('disc')) {
+      let disc = searchParams.get('disc');
+      if (disc.includes('/')) { // it's a URL
+        console.log(`UI: Loading disc URL ${disc} specified in page URL`);
+        discFile = await loadSoftwareFromUrl(disc, insert=false);
+      } else { // assume it's an ID from the software catalog
+        console.log(`UI: load software id ${disc} specified in page URL`);
+        discFile = await loadFromSoftwareCatalogue(disc, insert=false);
+        softwareMeta = software[disc];
+        let recommendedPreset = recommendMachinePreset(softwareMeta);
+        if (recommendedPreset != machinePreset) {
+          console.log(`UI: Recommended machine for ${disc} is ${recommendedPreset}`);
+          machinePreset = recommendedPreset;
+        }
+      }
+    }
+    if (searchParams.has('preset')) {
+      machinePreset = searchParams.get('preset');
+      console.log(`UI: machine preset ${machinePreset} specified in page URL`);
+    }
+    if (searchParams.has('autoboot')) {
+      autoboot = searchParams.get('autoboot');
+      if (!autoboot && softwareMeta) {
+        autoboot = getAutobootScript(softwareMeta);
+        if (!autoboot) {
+          console.warn(`Empty autoboot URL param specified but software ${softwareMeta.id} does not have autoboot app`)
+        }
+        if ('ff-ms' in softwareMeta) {
+          let ff = softwareMeta['ff-ms'];
+          console.log(`${softwareMeta.id} specified a fast-forward of ${ff}ms`);
+          fastForward = ff;
+        }
+      } else if (!autoboot) {
+        console.warn(`Empty autoboot URL specified`);
+      }
+    } else if (searchParams.has('basic')) {
+      let prog = searchParams.get('basic');
+      prog = showEditor(prog);
+      Module.preRun.push(() => {
+        console.log('UI: preRun - create !boot and prog');
+        putDataAtPath(wrapProg(prog), '/hostfs/!boot,ffe');
+      });
+      fastForward = BASIC_RUN_FAST_FORWARD;
+    }
+    if (searchParams.has('ff')) {
+      fastForward = parseInt(searchParams.get('ff'));
+      console.log(`UI: Fast-forward of ${fastForward}ms specified in page URL`);
+    }
+  }
   console.log('Loading preset machine: ' + machinePreset);
   let builder = presetMachines[machinePreset]();
 
-  if (preloadDisc) { // disc URL parameter was specified
-      let disc = preloadDisc;
-      preloadDisc = null; // only load disc from URL once
-      let discFile = '';
-      if (disc.includes('/')) { // it's a URL
-        console.log('UI: load disc URL ' + disc);
-        discFile = await loadSoftwareFromUrl(disc, insert=false);
-      } else { // assume it's an ID from the software catalog
-        console.log('UI: load software id ' + disc);
-        discFile = await loadFromSoftwareCatalogue(disc, insert=false);
-      }
-      if (discFile) {
-        console.log('UI: configure machine with disc', discFile);
-        builder.disc(discFile);
-      }
+  if (discFile) {
+    console.log('UI: configure machine with disc', discFile);
+    builder.disc(discFile);
   }
   if (autoboot) { // autoboot URL parameter was specified
-    autoboot = false;
     builder.autoboot();
   }
 
@@ -267,6 +281,10 @@ async function loadMachineConfig() {
     FS.mkdir('/hostfs');
   } catch (e) {
     console.log('hostfs dir already exists');
+  }
+  if (autoboot) {
+    console.log('UI: create !boot:' + autoboot);
+    putDataAtPath(autoboot, '/hostfs/!boot,feb');
   }
   window.currentMachineConfig = machineConfig;
   return machineConfig;
@@ -384,25 +402,27 @@ function appendDl(dl, title, description) {
   dl.appendChild(dd);
 }
 
-
 async function monitorAudioContext() {
   let audioContext = null;
   while (audioContext == null) {
     let contexts = Object.keys(AL.contexts);
-    if (contexts.length != 1) {
+    if (contexts.length < 1) {
       console.log(`Audio state: expected 1 context, got ${contexts.length}`);
       await sleep(50);
     } else {
       audioContext = AL.contexts[contexts[0]].audioCtx;
     }
   }
-  console.log("Audio ", audioContext.state);
-  audioContext.addEventListener('statechange', e => {
-    console.log('audio state changed:', audioContext.state);
-    if (audioContext.state == 'running') {
-      document.getElementById('audio-warning').style.display = 'none';
-    }
-  });
+  
+  let updateAudioState = function() {
+    console.log("Audio state:", audioContext.state);
+    if (audioContext.state == 'suspended')
+      document.body.classList.add('audio-suspended');
+    else
+      document.body.classList.remove('audio-suspended');
+  }
+  audioContext.addEventListener('statechange', updateAudioState);
+  updateAudioState();
 }
 
 if (searchParams.has('dbglatency')) {

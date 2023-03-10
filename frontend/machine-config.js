@@ -114,7 +114,7 @@ let presetMachines = {
 Object.freeze(presetMachines);
 
 function recommendMachinePreset(req) {
-
+  
   let mem = 0;
   let os = 'riscos311';
   let cpu = null;
@@ -129,7 +129,7 @@ function recommendMachinePreset(req) {
   }
 
   if (os == 'riscos311') {
-    if (mem <= 2048 && cpu == 'arm2')
+    if ((cpu == null || cpu == 'arm2') && mem <= 2048)
       return 'a3000';
     if ((cpu == null || cpu == 'arm250') && mem <= 4096)
       return 'a3020';
@@ -138,6 +138,21 @@ function recommendMachinePreset(req) {
   }
   let reqStr = JSON.stringify({mem:mem, os:os, cpu:cpu});
   console.error(`No machine recommendation for ${reqStr}`);
+  return null;
+}
+
+function getAutobootScript(softwareMeta) {
+  if ('autoboot' in softwareMeta) {
+    return softwareMeta['autoboot'];
+  }
+  let bootCmd = 'desktop filer_run ';
+  if ('app-path' in softwareMeta) {
+    if ('archive' in softwareMeta) { // will be unpacked to HostFS
+      return bootCmd + 'HostFS:$.' + softwareMeta['app-path'];
+    } else {
+      return bootCmd + 'ADFS::0.$.' + softwareMeta['app-path'];
+    }
+  }
   return null;
 }
 
@@ -249,6 +264,14 @@ class MachineConfig {
 
   getProcessor() {
     return this.configParams['cpu_type'];
+  }
+
+  getCpuName() { // should match the 'best-cpu' field from software meta
+    let cpuId = this.getProcessor();
+    if (cpuId == CPU_ARM2) return 'arm2';
+    if (cpuId == CPU_ARM250) return 'arm250';
+    if (cpuId >= CPU_ARM3_20 && cpuId <= CPU_ARM3_35) return 'arm3';
+    return null;
   }
 
   getCmosName() {

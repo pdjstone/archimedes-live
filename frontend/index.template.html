@@ -58,6 +58,12 @@
 
   <div id="display-container" onclick="tryCapture(event)">
     <canvas id="canvas" class="emscripten" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+    <div class="emulator-overlay">
+      <div class="resume-dialog"> 
+        <button class="round-button" onclick="resumeEmulator()"><span class="play-button"></span></button>
+        <p>Click to resume the emulator</p>
+      </div>
+    </div>
   </div>
 </div>
 

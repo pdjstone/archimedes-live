@@ -50,6 +50,9 @@ function lockChangeAlert() {
 function tryCapture(event) {
   if (document.pointerLockElement)
     return;
+  if (document.body.classList.contains('emu-paused')) {
+    resumeEmulator();
+  }
   document.getElementById('canvas').requestPointerLock();
   if (event && event.ctrlKey)
     document.getElementById('display-container').requestFullscreen();

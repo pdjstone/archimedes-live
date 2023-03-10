@@ -44,7 +44,7 @@ function showSoftware(softwareId) {
   let discButton = details.querySelector('button.disc');
 
   let currentOs = currentMachineConfig.getOs();
-  let currentCpu = currentMachineConfig.getProcessor();
+  let currentCpu = currentMachineConfig.getCpuName();
   let currentMem = currentMachineConfig.getMemory();
   let bootRecommended = document.querySelector('.boot-recommended');
   let changeMachineCheckbox = bootRecommended.querySelector('input[type=checkbox]');
@@ -72,7 +72,9 @@ function showSoftware(softwareId) {
     if ('min-mem' in meta) {
       recommendStr += ' with ' + MEM_SIZE_NAMES[meta['min-mem']] + ' RAM';
     }
-
+    if (recommendStr == '' && currentOs != 'riscos311') {
+      recommendStr = ' in RISC OS 3';
+    }
     bestPreset = recommendMachinePreset(meta);
     let configBuilder = presetMachines[bestPreset]();
     let warning = `This software works best${recommendStr}, change machine to ${configBuilder.configName}?`;
@@ -150,10 +152,18 @@ async function fetchSoftwareCatalogue() {
   return window.software;
 }
 
+var softwareBrowserFirstOpen = true;
+
 async function showSoftwareBrowser() {
   showModal('software-browser');
   await fetchSoftwareCatalogue();
   populateSoftwareList();
+  if (softwareBrowserFirstOpen) {
+    softwareBrowserFirstOpen = false;
+    if (window.currentSoftwareId) {
+      showSoftware(currentSoftwareId)
+    }
+  }
 }
 
 function populateSoftwareCategories() {
