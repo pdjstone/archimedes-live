@@ -29,7 +29,7 @@ function dirName(path) {
   return '/';
 }
   
-function putDataAtPath(data, path, timestamp=0) {
+function putDataAtPath(data, path, timestampMillis=0) {
   mkdirsForFile(path);
   try {
     FS.stat(path);
@@ -39,8 +39,8 @@ function putDataAtPath(data, path, timestamp=0) {
     
   }
   FS.createDataFile(dirName(path), baseName(path), data, true, true);
-  if (timestamp != 0) {
-    FS.utime(path, timestamp * 1000);
+  if (timestampMillis != 0) {
+    FS.utime(path, timestampMillis, timestampMillis);
   }
 }
 
