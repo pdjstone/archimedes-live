@@ -54,7 +54,18 @@ header {
   margin: 3px 1em;
 }
 
-#logo h1 { margin: 5px }
+#logo h1 { margin: 5px; vertical-align: middle; }
+
+#logo h1::first-letter { 
+  background-image: url(images/logo.svg);
+  display: inline-block;
+  padding: 0 5px 0 0.5ex;
+  background-size: 54px 54px;
+  background-repeat: no-repeat;
+  color: transparent;
+  font-size: 58px;
+  background-position: top center;
+}
 #logo img { height: 2ex; margin-right: 4px}
 
 /* controls are buttons next to the header */

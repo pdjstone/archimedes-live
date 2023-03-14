@@ -1,4 +1,4 @@
-# Archimedes Live!
+# Archimedes Live! ([archi.medes.live](https://archi.medes.live))
 
 Web frontend for [Arculator WASM](https://github.com/pdjstone/arculator-wasm). Still very much a work in progress, see Issues for what's left to do and known bugs.
 
