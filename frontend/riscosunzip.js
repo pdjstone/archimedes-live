@@ -51,7 +51,7 @@ class ExtensibleUnzip extends Zlib.Unzip {
             if (extraMeta && extraMeta.hasOwnProperty('len') && extraMeta.len > 0) {
                 offset += extraMeta.len + 4; 
             } else {
-                offset += extraFieldLen;
+                offset += extraFieldLen + 4;
             }
         }
         return extraFields;

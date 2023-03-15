@@ -44,7 +44,22 @@ function getHostFSPathForZipEntry(fileHeader, dstPath = '/') {
   }
   return hostFsPath;
 }
-  
+
+function getZipEntryRiscOsTimestamp(fileHeader) {
+  if (fileHeader.hasOwnProperty('extraFields') && 
+    fileHeader['extraFields'].hasOwnProperty(ZIP_EXT_ACORN)) {
+
+    let riscOsMeta = fileHeader['extraFields'][ZIP_EXT_ACORN];
+    let loadAddr = riscOsMeta['loadAddr'];
+    let execAddr = riscOsMeta['execAddr'];
+    if (loadAddr >>> 20 == 0xfff) {
+      let cs = parseInt((loadAddr & 0xff).toString(16).padStart(2,'0') + execAddr.toString(16).padStart(8,'0'), 16);
+      let ts = new Date(1900,0,1).getTime() + cs*10;
+      return ts;
+    }
+  }
+  return 0;
+}
 
 /**
  * Check if the filename has a HostFS-compatible (,xxx) extension
@@ -87,7 +102,7 @@ async function loadSoftware(filename, blob) {
   if ('loadDisc' in filetype) {
     return await filetype.loadDisc(filename, blob, true);
   } else if ('unpackFn' in filetype) {
-    console.log('unpack', filetype.unpackFn);
+    //console.log('unpack', filetype.unpackFn);
     if (unpackArchivesToHostFS)
       await filetype.unpackFn(blob);
     else 
@@ -122,16 +137,15 @@ async function unpackRiscOsZipToHostfs(blob, dst='/') {
   let buf = await blob.arrayBuffer();
   let data = new Uint8Array(buf);
   let zip = new RiscOsUnzip(data);
-  console.log(zip.fileHeaderList);
+
   for (let h of zip.fileHeaderList) {
     if (h.filename.endsWith('/'))
       continue;
     let hostFsPath = getHostFSPathForZipEntry(h);
     let data = zip.decompress(h.filename);
-
+    let timestamp = getZipEntryRiscOsTimestamp(h);
     console.log('creating file at', hostFsPath);
-    putDataAtPath(data, '/hostfs' + hostFsPath);
-    
+    putDataAtPath(data, '/hostfs' + hostFsPath, timestamp);
   }
 }
 
