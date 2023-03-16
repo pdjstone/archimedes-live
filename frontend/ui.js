@@ -7,14 +7,13 @@ var Module = {
   onRuntimeInitialized: function() {
     console.log('runtime initialised');
     setWindowTitle=()=>{}; //prevent SDL changing window title
-    preload.then(() => {
-      let configName = currentMachineConfig.getMachineType();
+    preload.then(machineConfig => {
+      let configName = machineConfig.getMachineType();
       console.log('calling main...(' + fps + ',' + configName + ')');
       callMain([fps.toString(), configName]);
       console.log('calling main done');
-      if (fastForward) {
-        arc_fast_forward(fastForward);
-        fastForward = 0;
+      if (machineConfig.fastForward) {
+        arc_fast_forward(machineConfig.fastForward);
       }
     })
   },
@@ -88,10 +87,9 @@ if (location.hash)
   queryString = '?' + location.hash.substr(1);
 
 let searchParams = new URLSearchParams(queryString);
-let machinePreset = 'a3000';
 let unpackArchivesToHostFS = true;
 let firstBoot = true;
-let fastForward = 0;
+let machinePreset = 'a3000';
 let fps = 0;
 
 if (searchParams.has('fixedfps')) {
@@ -112,7 +110,12 @@ if (searchParams.has('showsoftwarebrowser')) {
 
 Module.preRun.push(() => ENV.SDL_EMSCRIPTEN_KEYBOARD_ELEMENT ="#canvas" );
 Module.preRun.push(monitorAudioContext);
-Module.preRun.push(() => preload = loadMachineConfig());
+
+Module.preRun.push(() => {
+  let opts = getPageBootParams();
+  console.log('page boot params:', opts);
+  preload = loadMachineConfig(opts);
+});
 
 
 Module.setStatus('Downloading...');
@@ -200,69 +203,108 @@ function updateConfigUI(config) {
   el.querySelector('.processor').textContent = CPU_DESCRIPTIONS[config.getProcessor()];
 }
 
+function getPageBootParams() {
+  let opts = { preset:'a3000' };
+
+  if (searchParams.has('disc')) {
+    opts.disc = searchParams.get('disc');
+  }
+  if (searchParams.has('preset')) {
+    let preset = searchParams.get('preset');
+    if (preset in presetMachines) {
+      opts.preset = preset;
+      machinePreset = preset;
+    } else {
+      console.warn(`No machine preset named '${preset}'`);
+    }
+  }
+  if (searchParams.has('autoboot')) {
+    let autoboot = searchParams.get('autoboot');
+    if (!autoboot) {
+      autoboot = true;
+    }
+    opts.autoboot = autoboot;
+  }
+  if (searchParams.has('ff')) {
+    let ff = parseInt(searchParams.get('ff'));
+    if (!isNaN(ff)) {
+      opts.fastForward = ff;
+    } else {
+      console.warn('Invalid ff value: ', searchParams.get('ff'));
+    }
+  }
+  if (searchParams.has('soundfilter')) {
+    let sf = parseInt(searchParams.get('soundfilter'));
+    if (sf >= 0 && sf <= 2) {
+      opts.soundFilter = sf;
+    } else {
+      console.warn(`Invalid value for sound-filter - must be 0 (full), 1 (reduced) or 2 (more reduced)`);
+    }
+  }
+  return opts;
+}
 
 /**
  * This is called both at page load and when we change machine from the UI
  * @returns
  */
-async function loadMachineConfig() {
-  let discFile = '';
+async function loadMachineConfig(_opts=null) {
+  let opts = {
+    autoboot: false,
+    disc: null,
+    preset: 'a3000',
+    fastForward: 0,
+    basic: null,
+    soundFilter: -1
+  }
+  if (_opts) {
+    Object.assign(opts, _opts);
+  }
+
+  let discFile = ''; // if a floppy image is specifed this will be set
   let autoboot = '';
   let softwareMeta = null;
 
-  if (firstBoot) { // booting when page loads
-    firstBoot = false;
-    if (searchParams.has('disc')) {
-      let disc = searchParams.get('disc');
-      if (disc.includes('/')) { // it's a URL
-        console.log(`UI: Loading disc URL ${disc} specified in page URL`);
-        discFile = await loadSoftwareFromUrl(disc, insert=false);
-      } else { // assume it's an ID from the software catalog
-        console.log(`UI: load software id ${disc} specified in page URL`);
-        discFile = await loadFromSoftwareCatalogue(disc, insert=false);
-        softwareMeta = software[disc];
-        let recommendedPreset = recommendMachinePreset(softwareMeta);
-        if (recommendedPreset != machinePreset) {
-          console.log(`UI: Recommended machine for ${disc} is ${recommendedPreset}`);
-          machinePreset = recommendedPreset;
-        }
+  if (opts.disc) {
+    if (opts.disc.includes('/')) { // it's a URL
+        console.log(`UI: Loading disc URL ${opts.disc}`);
+        discFile = await loadSoftwareFromUrl(opts.disc, insert=false);
+    } else { // assume it's an ID from the software catalog
+      console.log(`UI: load software id ${opts.disc}`);
+      discFile = await loadFromSoftwareCatalogue(opts.disc, insert=false);
+      softwareMeta = software[opts.disc];
+      let recommendedPreset = recommendMachinePreset(softwareMeta);
+      if (recommendedPreset != machinePreset) {
+        console.log(`UI: Recommended machine for ${opts.disc} is ${recommendedPreset}`);
+        machinePreset = recommendedPreset;
+        opts.preset = machinePreset;
       }
-    }
-    if (searchParams.has('preset')) {
-      machinePreset = searchParams.get('preset');
-      console.log(`UI: machine preset ${machinePreset} specified in page URL`);
-    }
-    if (searchParams.has('autoboot')) {
-      autoboot = searchParams.get('autoboot');
-      if (!autoboot && softwareMeta) {
-        autoboot = getAutobootScript(softwareMeta);
-        if (!autoboot) {
-          console.warn(`Empty autoboot URL param specified but software ${softwareMeta.id} does not have autoboot app`)
-        }
-        if ('ff-ms' in softwareMeta) {
-          let ff = softwareMeta['ff-ms'];
-          console.log(`${softwareMeta.id} specified a fast-forward of ${ff}ms`);
-          fastForward = ff;
-        }
-      } else if (!autoboot) {
-        console.warn(`Empty autoboot URL specified`);
-      }
-    } else if (searchParams.has('basic')) {
-      let prog = searchParams.get('basic');
-      prog = showEditor(prog);
-      Module.preRun.push(() => {
-        console.log('UI: preRun - create !boot and prog');
-        putDataAtPath(wrapProg(prog), '/hostfs/!boot,ffe');
-      });
-      fastForward = BASIC_RUN_FAST_FORWARD;
-    }
-    if (searchParams.has('ff')) {
-      fastForward = parseInt(searchParams.get('ff'));
-      console.log(`UI: Fast-forward of ${fastForward}ms specified in page URL`);
     }
   }
-  console.log('Loading preset machine: ' + machinePreset);
-  let builder = presetMachines[machinePreset]();
+  if (opts.preset) {
+    machinePreset = opts.preset;
+  }
+
+  if (opts.autoboot) {
+    if (opts.autoboot === true && softwareMeta) {
+      autoboot = getAutobootScript(softwareMeta);
+      if (!autoboot) {
+        console.warn(`Empty autoboot URL param specified but software ${softwareMeta.id} does not have autoboot app`)
+      }
+      if ('ff-ms' in softwareMeta && opts.fastForward == 0) {
+        let ff = softwareMeta['ff-ms'];
+        console.log(`${softwareMeta.id} specified a fast-forward of ${ff}ms`);
+        opts.fastForward = ff;
+      }
+      if ('sound-filter' in softwareMeta && opts.soundFilter == -1) {
+        opts.soundFilter = softwareMeta['sound-filter'];
+      }
+    } else if (autoboot == '') {
+      console.warn(`Empty autoboot URL specified`);
+    }
+  }
+  console.log('Loading preset machine: ' + opts.preset);
+  let builder = presetMachines[opts.preset]();
 
   if (discFile) {
     console.log('UI: configure machine with disc', discFile);
@@ -270,6 +312,12 @@ async function loadMachineConfig() {
   }
   if (autoboot) { // autoboot URL parameter was specified
     builder.autoboot();
+  }
+  if (opts.fastForward) {
+    builder.fastForward(opts.fastForward);
+  }
+  if (opts.soundFilter >= 0 && opts.soundFilter <= 2) {
+    builder.soundFilter(opts.soundFilter);
   }
 
   let machineConfig = builder.build();
@@ -282,7 +330,7 @@ async function loadMachineConfig() {
   } catch (e) {
     console.log('hostfs dir already exists');
   }
-  if (autoboot) {
+  if (autoboot && !opts.basic) {
     console.log('UI: create !boot:' + autoboot);
     putDataAtPath(autoboot, '/hostfs/!boot,feb');
   }
@@ -317,9 +365,9 @@ async function showBooleanDialog(title, text, trueText='OK', falseText='Cancel')
   return val;
 }
 
-async function changeMachine(presetName) {
+async function changeMachine(presetName, autoboot=false) {
   machinePreset = presetName;
-  let config = await loadMachineConfig();
+  let config = await loadMachineConfig({preset:presetName, autoboot:autoboot});
   arc_load_config_and_reset(config.getMachineType());
 }
 
@@ -336,6 +384,16 @@ function arrayBufferToBase64(buffer) {
   return window.btoa(binary);
 }
 
+let machinePresetsPopulated = false;
+
+function showMachinePicker() {
+  if (!machinePresetsPopulated) {
+    populateMachinePresets();
+    machinePresetsPopulated = true;
+  }
+  showModal('machine-picker');
+}
+
 function populateMachinePresets() {
   let list = document.getElementById('machine-list');
   removeAllChildNodes(list);
@@ -348,7 +406,6 @@ function populateMachinePresets() {
       li.classList.add('selected');
     list.appendChild(li);
   }
-
 }
 
 function previewMachine(e) {
@@ -375,8 +432,7 @@ function previewMachine(e) {
  */
 function bootSelected() {
   let presetId = document.querySelector('#machine-list .selected').getAttribute('machine-id');
-  machinePreset = presetId;
-  changeMachine(machinePreset);
+  changeMachine(presetId);
   closeModal('machine-picker');
 }
 

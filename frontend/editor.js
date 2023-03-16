@@ -19,7 +19,7 @@ async function runProgram() {
       'Reboot', 'Cancel');
     if (reboot) {
       autoboot = true;
-      await changeMachine(machinePreset);
+      await changeMachine(machinePreset, autoboot=true);
       arc_fast_forward(BASIC_RUN_FAST_FORWARD);
     }
   }

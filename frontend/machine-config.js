@@ -168,7 +168,9 @@ class MachineConfigBuilder {
     fdc_type: 1,
     support_rom: 1,
     disc: '',
-    autoboot: false
+    autoboot: false,
+    fast_forward: 0,
+    sound_filter: 0
   }
 
   constructor(machine, configName) {
@@ -237,6 +239,14 @@ class MachineConfigBuilder {
     this.params['autoboot'] = autoboot;
   }
 
+  fastForward(fastForward = 0) {
+    this.params['fast_forward'] = fastForward;
+  }
+
+  soundFilter(soundFilter = 0) {
+    this.params['sound_filter'] = soundFilter;
+  }
+
   build() {
     return new MachineConfig(this.configName, this.params);
   }
@@ -248,6 +258,7 @@ class MachineConfig {
     this.configName = configName;
     this.configParams = params;
     this.autoboot = params.autoboot;
+    this.fastForward = params.fast_forward;
   }
 
   getMachineName() {
@@ -326,7 +337,19 @@ class MachineConfig {
     return romUrls;
   }
 
-  getConfigFile() {
+  getArcConfigFile() {
+    let soundFilter = this.configParams['sound_filter'];
+    return `
+sound_enable = 1
+first_fullscreen = 0
+stereo = 1
+sound_gain = 0
+sound_filter = ${soundFilter}
+disc_noise_gain = 0
+`;
+  }
+
+  getMachineConfigFile() {
     let c = this.configParams;
     let fpaEnabled = c['fpa_enabled'] ? 1 : 0;
     let supportRom = c['support_rom'] ? 1 : 0;
@@ -378,25 +401,15 @@ class MachineConfig {
 
 function putConfigFile(machineConfig) {
   let configName = machineConfig.getMachineType();
-  let configFileData = machineConfig.getConfigFile();
-  console.log('creating machine config file at /configs/' + configName + '.cfg');
-  try {
-    let path = '/configs/' + configName + '.cfg';
-    FS.stat(path);
-    FS.unlink(path);
-    console.log('removed existing config file at ' + path);
-  } catch (e) {
-    
-  }
-  
-  try {
-    FS.mkdir('/configs');
-  } catch(e) {
-    console.log('dir /configs already exists?');
-  }
-  
-  FS.createDataFile('/configs', configName + '.cfg', configFileData, true, true);
-  //console.log(configFileData);
+  let machineConfigFileData = machineConfig.getMachineConfigFile();
+  let configPath = '/configs/' + configName + '.cfg';
+  console.log('Creating machine config file at', configPath);
+  console.log(machineConfigFileData);
+  putDataAtPath(machineConfigFileData, configPath);
+  let arcCfgFileData = machineConfig.getArcConfigFile();
+  console.log('Creating arc.cfg');
+  console.log(arcCfgFileData);
+  putDataAtPath(arcCfgFileData, 'arc.cfg');
 }
 
 function putCmosFile(machineConfig) {

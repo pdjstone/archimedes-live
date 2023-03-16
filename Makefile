@@ -38,7 +38,6 @@ build/nspark/nspark.js: nspark-wasm/emscripten_out/nspark.js build
 	cp nspark-wasm/emscripten/*.js build/nspark
 
 arculator-wasm/build/wasm/arculator.js:
-	touch arculator-wasm/arc.cfg # FIXME
 	cd arculator-wasm && make wasm
 
 nspark-wasm/emscripten_out/nspark.js:
