@@ -473,8 +473,8 @@ async function monitorAudioContext() {
   while (audioContext == null) {
     let contexts = Object.keys(AL.contexts);
     if (contexts.length < 1) {
-      console.log(`Audio state: expected 1 context, got ${contexts.length}`);
-      await sleep(50);
+      console.log('Audio state: waiting for context');
+      await sleep(200);
     } else {
       audioContext = AL.contexts[contexts[0]].audioCtx;
     }

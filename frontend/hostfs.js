@@ -169,7 +169,7 @@ async function identifyZipFile(filename, size, blob) {
       numDiskImages++;
     if (filename.match(RE_COMMA_EXT))
       numCommaExts++;
-    console.log('ZIP entry: ' + filename);
+    //console.log('ZIP entry: ' + filename);
   }
   if (numDiskImages == 1) {
     return FileTypes.DISC_IMAGE_ZIPPED;

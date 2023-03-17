@@ -421,11 +421,11 @@ function putConfigFile(machineConfig) {
   let machineConfigFileData = machineConfig.getMachineConfigFile();
   let configPath = '/configs/' + configName + '.cfg';
   console.log('Creating machine config file at', configPath);
-  console.log(machineConfigFileData);
+  //console.log(machineConfigFileData);
   putDataAtPath(machineConfigFileData, configPath);
   let arcCfgFileData = machineConfig.getArcConfigFile();
   console.log('Creating arc.cfg');
-  console.log(arcCfgFileData);
+  //console.log(arcCfgFileData);
   putDataAtPath(arcCfgFileData, 'arc.cfg');
 }
 
