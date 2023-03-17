@@ -204,7 +204,7 @@ function updateConfigUI(config) {
 }
 
 function getPageBootParams() {
-  let opts = { preset:'a3000' };
+  let opts = {};
 
   if (searchParams.has('disc')) {
     opts.disc = searchParams.get('disc');
@@ -276,8 +276,12 @@ async function loadMachineConfig(_opts=null) {
       let recommendedPreset = recommendMachinePreset(softwareMeta);
       if (recommendedPreset != machinePreset) {
         console.log(`UI: Recommended machine for ${opts.disc} is ${recommendedPreset}`);
-        machinePreset = recommendedPreset;
-        opts.preset = machinePreset;
+        if ('preset' in _opts) {
+          console.warn("ignoring recommended preset and using ", _opts.preset);
+        } else {
+          machinePreset = recommendedPreset;
+          opts.preset = machinePreset;
+        }
       }
     }
   }
