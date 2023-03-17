@@ -209,6 +209,17 @@ function getPageBootParams() {
   if (searchParams.has('disc')) {
     opts.disc = searchParams.get('disc');
   }
+  if (searchParams.has('basic')) {
+    if ('disc' in opts) {
+      console.warn("Cannot specify 'disc' and 'basic' params");
+    } else {
+      let prog = searchParams.get('basic');
+
+      showBasicEditor(prog, createAutobootFile=true);
+      opts.autoboot = true;
+      opts.fastForward = BASIC_RUN_FAST_FORWARD;
+    }
+  }
   if (searchParams.has('preset')) {
     let preset = searchParams.get('preset');
     if (preset in presetMachines) {
@@ -314,7 +325,7 @@ async function loadMachineConfig(_opts=null) {
     console.log('UI: configure machine with disc', discFile);
     builder.disc(discFile);
   }
-  if (autoboot) { // autoboot URL parameter was specified
+  if (autoboot || opts.autoboot === true) { // autoboot URL parameter was specified
     builder.autoboot();
   }
   if (opts.fastForward) {
@@ -439,11 +450,6 @@ function bootSelected() {
   changeMachine(presetId);
   closeModal('machine-picker');
 }
-
-
-populateMachinePresets();
-
-
 
 
 function removeAllChildNodes(parent) {

@@ -226,7 +226,8 @@ function downloadHostFSfile(path) {
     return
   }
   let a = document.createElement("a");
-  a.href = window.URL.createObjectURL(new Blob([f.object.contents.buffer], {type: "application/octet-stream"}));
+  let buf = f.contents.buffer.slice(0, f.object.usedBytes);
+  a.href = window.URL.createObjectURL(new Blob([buf], {type: "application/octet-stream"}));
   a.download = baseName(path);
   a.click(); 
 }

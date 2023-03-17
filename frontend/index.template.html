@@ -16,7 +16,7 @@
   <div id="logo"><h1>Archimedes Live!</h1></div>
 
   <div id='controls'>
-    <a role="button" onclick="showEditor()">Open BASIC editor</a>
+    <a role="button" onclick="showBasicEditor()">Open BASIC editor</a>
     <a role="button" onclick="showMachinePicker()" class="dropdown-button">Choose Machine</a>
     <a role="button" onclick="showSoftwareBrowser()" class="dropdown-button">Load Software</a>
   
@@ -42,9 +42,11 @@
 
   <!-- BBC BASIC Editor-->
   <div id="editor-container">
+    
     <p>
       <button onclick="runProgram()">Run (ctrl-enter)</button> 
       <button onclick="showShareBox()">Share</button>
+      <button style="float:right" onclick="closeBasicEditor()">Close 🗙</button>
     </p>
     <textarea id="editor" tabindex="0" autocomplete="off" spellcheck="false" 
       onkeydown="if (event.keyCode==13 && event.ctrlKey) runProgram()"></textarea>

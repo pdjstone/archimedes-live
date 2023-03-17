@@ -18,7 +18,6 @@ async function runProgram() {
       'Reboot emulator to BASIC prompt?', 
       'Reboot', 'Cancel');
     if (reboot) {
-      autoboot = true;
       await changeMachine(machinePreset, autoboot=true);
       arc_fast_forward(BASIC_RUN_FAST_FORWARD);
     }
@@ -38,7 +37,7 @@ function saveProgramToLocalStorage() {
 
 
 
-function showEditor(program = '') {
+function showBasicEditor(program = '', createAutobootFile=false) {
   if (program == '') {
     if ('basicProg' in localStorage)
       program = localStorage.basicProg;
@@ -51,7 +50,14 @@ function showEditor(program = '') {
     editor.focus();
     editor.setSelectionRange(editor.value.length, editor.value.length);
   }, 20);
+  if (createAutobootFile) {
+    putDataAtPath(wrapProg(program), '/hostfs/!boot,ffe');
+  }
   return program;
+}
+
+function closeBasicEditor() {
+  document.getElementById('editor-container').style.display = 'none';
 }
 
 function updateCharCount() {

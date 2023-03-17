@@ -39,6 +39,7 @@ let machineInfo = {
   'a5000': {name: 'A5000', released: 'September 1991', price: '£999 (25 MHz) or £1,499 (33 MHz) including monitor'},
   'a3010': {name: 'A3010', released: 'September 1992', price: '£499'},
   'a3020': {name: 'A3020', released: 'September 1992', price: '£800 including monitor'},
+  'a4': {name: 'A4', released: 'June 1992', price: '£1399'}
 }
 Object.freeze(machineInfo)
 
@@ -47,7 +48,8 @@ CPU_DESCRIPTIONS[CPU_ARM2] = "ARM2 @ 8 MHz";
 CPU_DESCRIPTIONS[CPU_ARM250] ="ARM250 @ 12 MHz";
 CPU_DESCRIPTIONS[CPU_ARM3_25] = "ARM3 @ 25 MHz";
 CPU_DESCRIPTIONS[CPU_ARM3_26] = "ARM3 @ 26 MHz";
-CPU_DESCRIPTIONS[CPU_ARM3_33] ="ARM3 @ 33 MHz";
+CPU_DESCRIPTIONS[CPU_ARM3_33] = "ARM3 @ 33 MHz";
+CPU_DESCRIPTIONS[CPU_ARM3_24] = "ARM3 @ 24 MHz";
 Object.freeze(CPU_DESCRIPTIONS);
 
 
@@ -109,7 +111,13 @@ let presetMachines = {
     .cpu(CPU_ARM250)
     .memory(4096)
     .memc(MEMC_MEMC1A_12)
+    .rom('riscos311'),
+  /*'a4': () => new MachineConfigBuilder('a4', "A4 Laptop")
+    .cpu(CPU_ARM3_24)
+    .memory(2048)
+    .memc(MEMC_MEMC1A_12)
     .rom('riscos311')
+    .monitor('lcd')*/
 };
 Object.freeze(presetMachines);
 
@@ -170,7 +178,8 @@ class MachineConfigBuilder {
     disc: '',
     autoboot: false,
     fast_forward: 0,
-    sound_filter: 0
+    sound_filter: 0,
+    monitor_type: 'multisync'
   }
 
   constructor(machine, configName) {
@@ -237,6 +246,12 @@ class MachineConfigBuilder {
 
   autoboot(autoboot = true) {
     this.params['autoboot'] = autoboot;
+    return this;
+  }
+
+  monitor(monitor) {
+    this.params['monitor_type'] = monitor;
+    return this;
   }
 
   fastForward(fastForward = 0) {
@@ -334,6 +349,8 @@ class MachineConfig {
     }
     if (this.configParams['support_rom'])
       romUrls['roms/arcrom_ext'] = ROM_BASE + 'arcrom_ext';
+    if (this.configParams['machine'] == 'a4')
+      romUrls['roms/A4 5th Column.rom'] = ROM_BASE + 'A4 5th Column.rom';
     return romUrls;
   }
 
@@ -372,7 +389,7 @@ disc_noise_gain = 0
   fdc_type = ${c['fdc_type']}
   st506_present = 1
   rom_set = ${c['rom_set']}
-  monitor_type = multisync
+  monitor_type = ${c['monitor_type']}
   joystick_if = none
   unique_id = -490017344
   hd4_fn = 
