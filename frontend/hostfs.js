@@ -96,11 +96,11 @@ async function putFileOnHostFs(filename, blob, dst='/') {
   FS.createDataFile('/hostfs' + dst, filename, data, true, true);
 }
 
-async function loadSoftware(filename, blob) {
+async function loadSoftware(filename, blob, insert=true) {
   let filetype = await identifyFileType(filename, 0, blob);
   console.log('filetype', filetype.desc);
   if ('loadDisc' in filetype) {
-    return await filetype.loadDisc(filename, blob, true);
+    return await filetype.loadDisc(filename, blob, insert);
   } else if ('unpackFn' in filetype) {
     //console.log('unpack', filetype.unpackFn);
     if (unpackArchivesToHostFS)
@@ -117,7 +117,7 @@ async function loadSoftwareFromUrl(url, insert=true) {
   if (url == "") return;
   let response = await fetch(url, {mode:'cors'});
   let blob = await response.blob();
-  let discFilename = await loadSoftware(baseName(url), blob);
+  let discFilename = await loadSoftware(baseName(url), blob, insert);
   window.screenshots = 0;
   return discFilename;
 }

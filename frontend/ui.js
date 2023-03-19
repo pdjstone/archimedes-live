@@ -314,7 +314,11 @@ async function loadMachineConfig(_opts=null) {
       if ('sound-filter' in softwareMeta && opts.soundFilter == -1) {
         opts.soundFilter = softwareMeta['sound-filter'];
       }
-    } else if (autoboot == '') {
+    } else {
+      autoboot = opts.autoboot;
+    }
+    
+    if (autoboot == '') {
       console.warn(`Empty autoboot URL specified`);
     }
   }
