@@ -218,6 +218,7 @@ function getPageBootParams() {
       showBasicEditor(prog, createAutobootFile=true);
       opts.autoboot = true;
       opts.fastForward = BASIC_RUN_FAST_FORWARD;
+      opts.basic = true;
     }
   }
   if (searchParams.has('preset')) {
@@ -266,7 +267,8 @@ async function loadMachineConfig(_opts=null) {
     preset: 'a3000',
     fastForward: 0,
     basic: null,
-    soundFilter: -1
+    soundFilter: -1,
+    basic: false
   }
   if (_opts) {
     Object.assign(opts, _opts);
@@ -338,6 +340,7 @@ async function loadMachineConfig(_opts=null) {
   if (opts.soundFilter >= 0 && opts.soundFilter <= 2) {
     builder.soundFilter(opts.soundFilter);
   }
+  window.bootedToBasic = opts.basic;
 
   let machineConfig = builder.build();
   updateConfigUI(machineConfig);
@@ -384,9 +387,8 @@ async function showBooleanDialog(title, text, trueText='OK', falseText='Cancel')
   return val;
 }
 
-async function changeMachine(presetName, autoboot=false) {
-  machinePreset = presetName;
-  let config = await loadMachineConfig({preset:presetName, autoboot:autoboot});
+async function changeMachine(opts) {
+  let config = await loadMachineConfig(opts);
   arc_load_config_and_reset(config.getMachineType());
 }
 
@@ -451,7 +453,7 @@ function previewMachine(e) {
  */
 function bootSelected() {
   let presetId = document.querySelector('#machine-list .selected').getAttribute('machine-id');
-  changeMachine(presetId);
+  changeMachine({preset:presetId});
   closeModal('machine-picker');
 }
 
