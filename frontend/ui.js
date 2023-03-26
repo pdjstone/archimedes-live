@@ -340,7 +340,7 @@ async function loadMachineConfig(_opts=null) {
   if (opts.soundFilter >= 0 && opts.soundFilter <= 2) {
     builder.soundFilter(opts.soundFilter);
   }
-  window.bootedToBasic = opts.basic;
+  bootedToBasic = opts.basic;
 
   let machineConfig = builder.build();
   updateConfigUI(machineConfig);
@@ -354,7 +354,7 @@ async function loadMachineConfig(_opts=null) {
   }
   if (autoboot && !opts.basic) {
     console.log('UI: create !boot:' + autoboot);
-    putDataAtPath(autoboot, '/hostfs/!boot,feb');
+    createHostfsBootFile(autoboot, FILETYPE_OBEY);
   }
   window.currentMachineConfig = machineConfig;
   return machineConfig;
