@@ -10,6 +10,8 @@
         'disc=arthur-welcome',
         'disc=arthur-welcome&preset=a3000',
         'disc=bs-django01&autoboot',
+        'disc=bs-django01&autoboot&soundfilter=0',
+        'disc=bs-django01&autoboot&soundfilter=1',
         'disc=bs-popular-demand&autoboot',
         'disc=bs-popular-demand',
         'preset=a5000',
@@ -17,8 +19,8 @@
         'preset=a3020&ff=14400',
         'basic=10%20MODE%2013%0A20%20REPEAT%0A30%20COLOUR%20RND%2864%29%0A40%20PRINT%20%22HELLO%20WORLD%22%0A50%20UNTIL0',
         'autoboot=basic&ff=6500',
-        'autoboot=desktop%20filer_run%20Resources:$.Apps&ff=14400'
-
+        'autoboot=desktop%20filer_run%20Resources:$.Apps&ff=14400',
+        'showsoftwarebrowser',
     ];
     let loc = document.location
     let base = loc.protocol + '//' + loc.hostname + ':' + (loc.port == 443 ? '' : loc.port) + '/';
@@ -33,3 +35,8 @@
         ul.appendChild(li);
     }
 </script>
+<ul>
+    <li>Fresh boot -> Arthur (check disc)</li>
+    <li>Fresh boot -> Chip Django autoboot (check sound)</li>
+    <li>Fresh boot -> Lander autoboot</li>
+</ul>

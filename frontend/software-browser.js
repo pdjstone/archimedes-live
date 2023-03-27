@@ -40,8 +40,10 @@ function showSoftware(softwareId) {
     details.querySelector('.description').style.display = 'none';
   }
 
+  let canAutoBoot = 'autoboot' in meta || 'app-path' in meta;
   let archiveButton = details.querySelector('button.archive');
   let discButton = details.querySelector('button.disc');
+  let launchButton = details.querySelector('button.launch');
 
   let currentOs = currentMachineConfig.getOs();
   let currentCpu = currentMachineConfig.getCpuName();
@@ -49,6 +51,9 @@ function showSoftware(softwareId) {
   let bootRecommended = document.querySelector('.boot-recommended');
   let changeMachineCheckbox = bootRecommended.querySelector('input[type=checkbox]');
   let changeMachineLabel = bootRecommended.querySelector('label');
+  let autoBootLabel = details.querySelector('.autoboot');
+  let autoBootCheckbox = details.querySelector('.autoboot input');
+  
   let bestPreset = '';
 
   let updateActionButtonLabel = () => {
@@ -95,25 +100,52 @@ function showSoftware(softwareId) {
     closeModal('software-browser');
     if (changeMachineCheckbox.checked) {
       console.log(`Rebooting to ${bestPreset}`);
-      await changeMachine({preset:bestPreset});
+      await changeMachine({preset:bestPreset, disc:softwareId});
+    } else {
+      await loadFromSoftwareCatalogue(softwareId);
     }
-    await loadFromSoftwareCatalogue(softwareId);
-    console.log(`Software ${softwareId} loaded!`);
   }
 
-  if ('archive' in meta) {  
-    archiveButton.style.display = 'inline-block';
-    discButton.style.display = 'none';
-    archiveButton.onclick = loadFn;
-  } 
+  let updateManualLoadButtons = () => {
+    if (!canAutoBoot || canAutoBoot && !autoBootCheckbox.checked) {
+      if ('archive' in meta) {  
+        archiveButton.style.display = 'inline-block';
+        discButton.style.display = 'none';
+        archiveButton.onclick = loadFn;
+      } 
 
-  if ('disc' in meta) {
-    discButton.style.display = 'inline-block';
-    archiveButton.style.display = 'none';
-    discButton.onclick = loadFn;
-  } 
+      if ('disc' in meta) {
+        discButton.style.display = 'inline-block';
+        archiveButton.style.display = 'none';
+        discButton.onclick = loadFn;
+      } 
+      launchButton.style.display = 'none';
+      bootRecommended.style.display = bestPreset == '' ? 'none' : 'block';
+    } else {
+      launchButton.style.display = 'inline-block';
+      discButton.style.display = 'none';
+      archiveButton.style.display = 'none';
+      bootRecommended.style.display = 'none';
+    }
+  }
 
-  details.querySelector('.autoboot').style.display = ('autoboot' in meta) ? 'inline' : 'none';
+  if (canAutoBoot) {
+    launchButton.onclick = async () => {
+      closeModal('software-browser');
+      let machineConfig = await changeMachine({disc:softwareId, autoboot:true});
+      if (machineConfig.fastForward) {
+        arc_fast_forward(machineConfig.fastForward);
+      }
+    }
+    autoBootCheckbox.onchange = updateManualLoadButtons;
+    autoBootLabel.style.display = 'inline';
+    autoBootCheckbox.checked = true;
+  } else {
+    autoBootLabel.style.display = 'none';
+  }
+  
+  updateManualLoadButtons();
+
   details.style.display = 'block';
   document.getElementById('software-intro').style.display = 'none';
 }

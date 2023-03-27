@@ -163,6 +163,7 @@ function arc_do_reset() {
 }
 
 function arc_load_config_and_reset(configName) {
+  console.log(`arc_load_config_and_reset ${configName}`);
   ccall('arc_load_config_and_reset', null, ['string'], [configName]);
 }
 
@@ -283,7 +284,7 @@ async function loadMachineConfig(_opts=null) {
         console.log(`UI: Loading disc URL ${opts.disc}`);
         discFile = await loadSoftwareFromUrl(opts.disc, insert=false);
     } else { // assume it's an ID from the software catalog
-      console.log(`UI: load software id ${opts.disc}`);
+      console.log(`UI: Load software ID ${opts.disc}`);
       discFile = await loadFromSoftwareCatalogue(opts.disc, insert=false);
       softwareMeta = software[opts.disc];
       let recommendedPreset = recommendMachinePreset(softwareMeta);
@@ -390,6 +391,7 @@ async function showBooleanDialog(title, text, trueText='OK', falseText='Cancel')
 async function changeMachine(opts) {
   let config = await loadMachineConfig(opts);
   arc_load_config_and_reset(config.getMachineType());
+  return config;
 }
 
 function sleep(ms) {
