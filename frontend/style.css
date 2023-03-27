@@ -66,7 +66,6 @@ header {
   font-size: 58px;
   background-position: top center;
 }
-#logo img { height: 2ex; margin-right: 4px}
 
 /* controls are buttons next to the header */
 #controls {
@@ -416,6 +415,12 @@ dd {
 @media screen and (max-width: 600px) {
   h1 { font-size: 20pt; margin: 0 .5em}
   
+  #logo h1::first-letter { 
+    padding: 0 5px 0 0.5ex;
+    background-size: 25pt 25pt;
+    font-size: 25pt;
+  }
+
   header { flex-direction:  column;}
 
 
