@@ -95,8 +95,7 @@ function showSoftware(softwareId) {
     closeModal('software-browser');
     if (changeMachineCheckbox.checked) {
       console.log(`Rebooting to ${bestPreset}`);
-      machinePreset = bestPreset;
-      await changeMachine(bestPreset);
+      await changeMachine({preset:bestPreset});
     }
     await loadFromSoftwareCatalogue(softwareId);
     console.log(`Software ${softwareId} loaded!`);

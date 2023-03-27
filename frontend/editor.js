@@ -10,21 +10,24 @@ function wrapProg(prog) {
   return '*KEY1 *!boot |M\n*basic\n' + prog + '\nRUN\n';
 }
   
+let bootedToBasic = false;
+
 async function runProgram() {
   let prog = document.getElementById('editor').value;
-  if (!currentMachineConfig.autoboot) {
+  saveProgramToLocalStorage();
+  createHostfsBootFile(wrapProg(prog), FILETYPE_COMMAND);
+  if (!bootedToBasic) {
     let reboot = await showBooleanDialog(
       'Run BASIC program', 
       'Reboot emulator to BASIC prompt?', 
       'Reboot', 'Cancel');
     if (reboot) {
-      await changeMachine(machinePreset, autoboot=true);
+      await changeMachine({preset:machinePreset, autoboot:true, basic:true});
       arc_fast_forward(BASIC_RUN_FAST_FORWARD);
     }
+  } else {
+    rerunProg();
   }
-  putDataAtPath(wrapProg(prog), '/hostfs/!boot,ffe');
-  rerunProg();
-  saveProgramToLocalStorage();
 }
 
 function saveProgramToLocalStorage() {
@@ -51,7 +54,7 @@ function showBasicEditor(program = '', createAutobootFile=false) {
     editor.setSelectionRange(editor.value.length, editor.value.length);
   }, 20);
   if (createAutobootFile) {
-    putDataAtPath(wrapProg(program), '/hostfs/!boot,ffe');
+    createHostfsBootFile(wrapProg(program), FILETYPE_COMMAND);
   }
   return program;
 }

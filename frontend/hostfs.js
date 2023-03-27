@@ -296,3 +296,19 @@ async function loadDisc(filename, blob, insert=true) {
   }
   return currentDiscFile;
 }
+
+const FILETYPE_OBEY = 0xfeb // normal boot
+const FILETYPE_COMMAND = 0xffe // basic boot
+
+function createHostfsBootFile(content, fileType) {
+  try {
+    for (const filename of FS.readdir('/hostfs/')) {
+      if (filename.toLowerCase().startsWith('!boot,')) {
+        FS.unlink('/hostfs/' + filename);
+      }
+    }
+  } catch (e) {
+    console.log(e);
+  }
+  putDataAtPath(content, '/hostfs/!Boot,' + fileType.toString(16));
+}
