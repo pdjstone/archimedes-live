@@ -390,6 +390,13 @@ async function showBooleanDialog(title, text, trueText='OK', falseText='Cancel')
 
 async function changeMachine(opts) {
   let config = await loadMachineConfig(opts);
+
+  // Work aroud a (SDL?) bug where we get a 'divide by zero' error in
+  // the SDL function HandleAudioProcess after closing the audio device
+  // when changing machines
+  if (typeof Module.SDL2 != 'undefined') {
+    await Module.SDL2.audioContext.suspend();
+  }
   arc_load_config_and_reset(config.getMachineType());
   return config;
 }
@@ -479,12 +486,10 @@ function appendDl(dl, title, description) {
 async function monitorAudioContext() {
   let audioContext = null;
   while (audioContext == null) {
-    let contexts = Object.keys(AL.contexts);
-    if (contexts.length < 1) {
-      console.log('Audio state: waiting for context');
-      await sleep(200);
-    } else {
-      audioContext = AL.contexts[contexts[0]].audioCtx;
+    console.log('Audio state: waiting for context');
+    await sleep(200);
+    if (typeof Module.SDL2 != 'undefined') {
+      audioContext = Module.SDL2.audioContext;
     }
   }
   
