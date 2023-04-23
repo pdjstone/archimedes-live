@@ -175,7 +175,7 @@ async function identifyZipFile(filename, size, blob) {
     return FileTypes.DISC_IMAGE_ZIPPED;
   } else if (numDiskImages > 1) {
     return FileTypes.DISC_IMAGE_MULTI_ZIPPED;
-  } else if (numCommaExts > 1) {
+  } else if (numCommaExts >= 1) {
     return FileTypes.ZIP_WITH_COMMA_FILETYPES;
   } else if (zip.isRiscOs) {
     return FileTypes.RISCOS_ZIP_ARCHIVE;
@@ -226,7 +226,7 @@ function downloadHostFSfile(path) {
     return
   }
   let a = document.createElement("a");
-  let buf = f.contents.buffer.slice(0, f.object.usedBytes);
+  let buf = f.object.contents.buffer.slice(0, f.object.usedBytes);
   a.href = window.URL.createObjectURL(new Blob([buf], {type: "application/octet-stream"}));
   a.download = baseName(path);
   a.click(); 
@@ -311,4 +311,24 @@ function createHostfsBootFile(content, fileType) {
     console.log(e);
   }
   putDataAtPath(content, '/hostfs/!Boot,' + fileType.toString(16));
+}
+
+function readHostFsTextFile(filepath) {
+  let s = filepath.lastIndexOf('/');
+  let dir = '/hostfs/';
+  let filename = filepath;
+  if (s>=0) {
+    dir += filepath.substring(0,s);
+    filename = filepath.substr(s)
+  }
+  hostfsFilename = '';
+  for (const f of FS.readdir(dir)) {
+    if (f.startsWith(filename+',') || f == filename)
+      hostfsFilename = f;
+  }
+  if (!hostfsFilename) {
+    console.warn(`Couldn't find file ${filename} in ${dir}`);
+    return;
+  }
+  return new TextDecoder().decode(FS.open(dir+hostfsFilename).node.contents);
 }
