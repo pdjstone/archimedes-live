@@ -149,18 +149,31 @@ function recommendMachinePreset(req) {
   return null;
 }
 
+const CLICK_ICON_BASIC = 'DQAKDd4gYiUgMTAyNA0AFCnImSAiV2ltcF9Jbml0aWFsaXNlIiwzMTAsJjRiNTM0MTU0LCIiDQAeCiFiJT0tMg0AKB/ImSAiV2ltcF9HZXRXaW5kb3dJbmZvIiwsYiUNADIN3iBtc2clIDIwDQA8E2ljb25ubyU9YiUhODgtMQ0ARgxtc2clITg9NA0AUA5tc2clITEyPS0yDQBaE21zZyUhMTY9aWNvbm5vJQ0AZCvImSAiV2ltcF9TZW5kTWVzc2FnZSIsNixtc2clLC0yLGljb25ubyUN/w==';
+
 function getAutobootScript(softwareMeta) {
   if ('autoboot' in softwareMeta) {
     return softwareMeta['autoboot'];
   }
-  let bootCmd = 'desktop filer_run ';
+  
   if ('app-path' in softwareMeta) {
+    let bootCmd = 'desktop filer_run ';
     if ('archive' in softwareMeta) { // will be unpacked to HostFS
-      return bootCmd + 'HostFS:$.' + softwareMeta['app-path'];
-    } else {
-      return bootCmd + 'ADFS::0.$.' + softwareMeta['app-path'];
+      bootCmd += `HostFS:$.${softwareMeta['app-path']}\n`;
+    } else if ('disc' in softwareMeta) {
+      bootCmd += `ADFS::0.$.${softwareMeta['app-path']}\n`;
+    } else{
+      return null;
     }
+    if (softwareMeta['click-icon']) { 
+      console.log('auto-click iconbar icon'); 
+      putDataAtPath(atob(CLICK_ICON_BASIC), '/hostfs/click,ffb');
+      putDataAtPath(bootCmd + "filer_run HostFS:$.click\n", "/hostfs/deskboot,feb");
+      bootCmd = 'desktop -file HostFS:$.deskboot';
+    }
+    return bootCmd;
   }
+  
   return null;
 }
 

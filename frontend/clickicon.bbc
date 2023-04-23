@@ -1,0 +1,17 @@
+REM Click the most recently created icon on the icon bar
+REM HostFS:3, Floppy:1, Apps:2, 4:Palette, 0:Switcher
+DIM b% 1024
+!b%=-2
+SYS "Wimp_Initialise",310,&4b534154,""
+SYS "Wimp_GetWindowInfo",,b%
+num_icons%=b%!88
+DIM msg% 20
+iconno%=num_icons%-1
+msg%!0=0:REM x
+msg%!4=0:REM y
+msg%!8=4:REM buttons
+msg%!12=-2:REM window handle
+msg%!16=iconno%:REM icon handle
+REM R0=msg code (6=click), R1=ptr to msg block, R2=window handle, R3=icon handle
+SYS "Wimp_SendMessage",6,msg%,-2,iconno%
+
