@@ -168,7 +168,7 @@ function getAutobootScript(softwareMeta) {
     if (softwareMeta['click-icon']) { 
       console.log('auto-click iconbar icon'); 
       putDataAtPath(atob(CLICK_ICON_BASIC), '/hostfs/click,ffb');
-      putDataAtPath(bootCmd + "filer_run HostFS:$.click\n", "/hostfs/deskboot,feb");
+      putDataAtPath("filer_run HostFS:$\n" + bootCmd + "filer_run HostFS:$.click\n", "/hostfs/deskboot,feb");
       bootCmd = 'desktop -file HostFS:$.deskboot';
     }
     return bootCmd;
