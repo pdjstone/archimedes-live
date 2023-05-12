@@ -188,6 +188,10 @@ function arc_get_emulation_ms() {
   return ccall('arc_get_emulation_ms', 'int', []);
 }
 
+function arc_enable_sound(enable) {
+  ccall('arc_enable_sound', null, ['int'], [enable ? 1 : 0]);
+}
+
 
 function closeModal(id, event = null) {
   if (!event || event && (event.target.classList.contains('modal')  || event.target.classList.contains('modal-content')))
