@@ -188,7 +188,7 @@ var softwareBrowserFirstOpen = true;
 async function showSoftwareBrowser() {
   showModal('software-browser');
   await fetchSoftwareCatalogue();
-  populateSoftwareList();
+  filterSoftware();
   if (softwareBrowserFirstOpen) {
     softwareBrowserFirstOpen = false;
     if (window.currentSoftwareId) {
