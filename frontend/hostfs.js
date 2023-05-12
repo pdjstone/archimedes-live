@@ -1,7 +1,7 @@
 
 
 const ROS_FileType_Map = Object.freeze({
-  '.zip': 0xddc,
+  '.zip': 0xa91,
   '.arc': 0x3fb,
   '.txt': 0xfff,
   '.bas': 0xffb,
@@ -220,15 +220,14 @@ async function identifyFileType(filename, size, blob) {
 
 
 function downloadHostFSfile(path) {
-  let f = FS.analyzePath('/hostfs/' + path);
-  if (!f.exists) {
-    console.error("path not found: " + path);
-    return
+  let filepath = findHostFsFilePath(path);
+  if (!filepath) {
+    console.error(`HostFS file not found: ${path}`);
+    return;
   }
-  let a = document.createElement("a");
-  let buf = f.object.contents.buffer.slice(0, f.object.usedBytes);
+  let buf = FS.readFile(filepath, {encoding: 'binary'});
   a.href = window.URL.createObjectURL(new Blob([buf], {type: "application/octet-stream"}));
-  a.download = baseName(path);
+  a.download = baseName(filepath);
   a.click(); 
 }
 
@@ -313,22 +312,31 @@ function createHostfsBootFile(content, fileType) {
   putDataAtPath(content, '/hostfs/!Boot,' + fileType.toString(16));
 }
 
-function readHostFsTextFile(filepath) {
-  let s = filepath.lastIndexOf('/');
+// Return the full path of a file under hostfs (with ,ext)
+function findHostFsFilePath(path) {
+  let s = path.lastIndexOf('/');
   let dir = '/hostfs/';
-  let filename = filepath;
+  let filename = path;
   if (s>=0) {
     dir += filepath.substring(0,s);
     filename = filepath.substr(s)
   }
-  hostfsFilename = '';
+  let hostfsFilename = '';
   for (const f of FS.readdir(dir)) {
     if (f.startsWith(filename+',') || f == filename)
       hostfsFilename = f;
   }
   if (!hostfsFilename) {
     console.warn(`Couldn't find file ${filename} in ${dir}`);
-    return;
+    return null;
   }
-  return new TextDecoder().decode(FS.open(dir+hostfsFilename).node.contents);
+  return dir+hostfsFilename;
+}
+
+function readHostFsTextFile(filepath) {
+  let filename = findHostFsFilePath(filepath);
+  if (!filename)
+    return '';
+  let fileBytes = FS.readFile(filename, {encoding: 'binary'});
+  return new TextDecoder('iso-8859-1').decode(fileBytes);
 }
