@@ -164,6 +164,12 @@ async function loadFromSoftwareCatalogue(softwareId, insert=true) {
   } else if ('disc' in meta) {
     discFile = await loadSoftwareFromUrl(SOFTWARE_BASE + meta['disc'], insert);
   }
+  if ('depends' in meta) {
+    for (let depId of meta['depends']) {
+      console.log(`${softwareId} depends on ${depId}`);
+      await loadFromSoftwareCatalogue(depId);
+    }
+  }
   document.title = meta['title'] + " - Archimedes Live!";
   window.currentSoftwareId = meta.id;
   return discFile;
