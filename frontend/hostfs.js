@@ -342,3 +342,7 @@ function readHostFsTextFile(filepath) {
   let fileBytes = FS.readFile(filename, {encoding: 'binary'});
   return new TextDecoder('iso-8859-1').decode(fileBytes);
 }
+
+function roDirname(roFilepath) {
+  return roFilepath.substring(0, roFilepath.lastIndexOf('.'));
+}

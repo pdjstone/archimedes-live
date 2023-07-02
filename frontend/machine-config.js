@@ -155,16 +155,24 @@ function getAutobootScript(softwareMeta) {
   if ('autoboot' in softwareMeta) {
     return softwareMeta['autoboot'];
   }
-  
+  let bootCmd = '';
+  if ('depends' in softwareMeta) {
+    for (let dep of softwareMeta['depends']) {
+      console.log('Getting autoboot script for dependency ', softwareMeta['id']);
+      bootCmd += getAutobootScript(software[dep]);
+    }
+  }
   if ('app-path' in softwareMeta) {
-    let bootCmd;
+    let appPath;
     if ('archive' in softwareMeta) { // will be unpacked to HostFS
-      bootCmd = `filer_run HostFS:$\nfiler_run HostFS:$.${softwareMeta['app-path']}\n`;
+      appPath = `HostFS:$.${softwareMeta['app-path']}`;
     } else if ('disc' in softwareMeta) {
-      bootCmd = `filer_run ADFS::0.$\nfiler_run ADFS::0.$.${softwareMeta['app-path']}\n`;
-    } else{
+      appPath = `ADFS::0.$.${softwareMeta['app-path']}`;
+    } else {
       return null;
     }
+    let dirPath = roDirname(appPath);
+    bootCmd += `filer_run ${dirPath}\nfiler_run ${appPath}\n`;
     if (softwareMeta['click-icon']) { 
       console.log('auto-click iconbar icon'); 
       putDataAtPath(atob(CLICK_ICON_BASIC), '/hostfs/click_icon,ffb');
