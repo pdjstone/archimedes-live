@@ -298,6 +298,7 @@ async function loadDisc(filename, blob, insert=true) {
 
 const FILETYPE_OBEY = 0xfeb // normal boot
 const FILETYPE_COMMAND = 0xffe // basic boot
+const FILETYPE_DESKTOP = 0xfea 
 
 function createHostfsBootFile(content, fileType) {
   try {
@@ -325,6 +326,7 @@ function findHostFsFilePath(path) {
   for (const f of FS.readdir(dir)) {
     if (f.startsWith(filename+',') || f == filename)
       hostfsFilename = f;
+      console.log('Found hostfs file ', f);
   }
   if (!hostfsFilename) {
     console.warn(`Couldn't find file ${filename} in ${dir}`);
@@ -339,4 +341,8 @@ function readHostFsTextFile(filepath) {
     return '';
   let fileBytes = FS.readFile(filename, {encoding: 'binary'});
   return new TextDecoder('iso-8859-1').decode(fileBytes);
+}
+
+function roDirname(roFilepath) {
+  return roFilepath.substring(0, roFilepath.lastIndexOf('.'));
 }

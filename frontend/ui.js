@@ -304,7 +304,7 @@ async function loadMachineConfig(_opts=null) {
       if (recommendedPreset != machinePreset) {
         console.log(`UI: Recommended machine for ${opts.disc} is ${recommendedPreset}`);
         if ('preset' in _opts) {
-          console.warn("ignoring recommended preset and using ", _opts.preset);
+          console.warn("Ignoring recommended machine preset and using ", _opts.preset);
         } else {
           machinePreset = recommendedPreset;
           opts.preset = machinePreset;
@@ -331,7 +331,7 @@ async function loadMachineConfig(_opts=null) {
         opts.soundFilter = softwareMeta['sound-filter'];
       }
     } else {
-      autoboot = opts.autoboot;
+      autoboot = opts.autoboot + '\n';
     }
     
     if (autoboot == '') {
@@ -368,7 +368,7 @@ async function loadMachineConfig(_opts=null) {
   }
   if (autoboot && !opts.basic) {
     console.log('UI: create !boot:' + autoboot);
-    createHostfsBootFile(autoboot, FILETYPE_OBEY);
+    createHostfsBootFile(autoboot, FILETYPE_DESKTOP);
   }
   window.currentMachineConfig = machineConfig;
   return machineConfig;
