@@ -142,12 +142,21 @@ function resumeEmulator() {
   document.body.classList.remove('emu-paused');
 }
 
+const DISPLAY_MODES = {
+		0: 'DISPLAY_MODE_NO_BORDERS',
+    1: 'DISPLAY_MODE_NATIVE_BORDERS',
+    2: 'DISPLAY_MODE_TV'
+}
+
 function arc_set_display_mode(display_mode) {
-  ccall('arc_set_display_mode', null, ['number'], display_mode);
+  if (typeof display_mode != "number" || display_mode > 2 || display_mode < 0)
+    throw "display_mode must be 0, 1 or 2";
+  console.log(`arc_set_display_mode: ${DISPLAY_MODES[display_mode]}`);
+  ccall('arc_set_display_mode', null, ['number'], [display_mode]);
 }
 
 function arc_set_dblscan(dbl_scan) {
-  ccall('arc_set_dblscan', null, ['number'], dbl_scan);
+  ccall('arc_set_dblscan', null, ['number'], [dbl_scan]);
 }
 
 function arc_enter_fullscreen() {
