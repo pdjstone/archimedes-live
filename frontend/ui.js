@@ -292,14 +292,12 @@ async function loadMachineConfig(_opts=null) {
       discFile = await loadFromSoftwareCatalogue(opts.disc, insert=false);
       softwareMeta = software[opts.disc];
       let recommendedPreset = recommendMachinePreset(softwareMeta);
-      if (recommendedPreset != machinePreset) {
-        console.log(`UI: Recommended machine for ${opts.disc} is ${recommendedPreset}`);
-        if ('preset' in _opts) {
-          console.warn("Ignoring recommended machine preset and using ", _opts.preset);
-        } else {
-          machinePreset = recommendedPreset;
-          opts.preset = machinePreset;
-        }
+      console.log(`UI: Recommended machine for ${opts.disc} is ${recommendedPreset}`);
+      if ('preset' in _opts) {
+        console.warn("Ignoring recommended machine preset and using ", _opts.preset);
+      } else {
+        machinePreset = recommendedPreset;
+        opts.preset = machinePreset;
       }
     }
   }
