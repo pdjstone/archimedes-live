@@ -94,8 +94,6 @@ header {
 .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
 div.emscripten { text-align: center; }      
 
-/* the canvas *must not* have any border or padding, or mouse coords will be wrong */
-
 .spinner {
   height: 20px;
   width: 20px;
@@ -176,19 +174,56 @@ body:not(.audio-suspended) #audio-warning {
 /* -- Emulator canvas ---------------------------------------------- */
 
 canvas:focus { outline: none }
+canvas { 
+  /* Padding required so (non-captured) mouse can still work even if
+     cursor is just outside emulator window*/
+  padding: 30px; 
+  cursor: none !important;
+}
 
 #display-container {
   position: relative;
   /* div that contains ONLY the canvas */
-  -background-color: red;
+  --background-color: darkcyan;
+}
+
+/* prompt to let the user know the emulator needs to capture the mouse cursor
+   (usually for better control during a game) */
+#mouse-capture-prompt { display: none }
+#display-container.fullscreen #mouse-capture-info { display: none }
+
+body.rel-mouse-needed #mouse-capture-prompt { 
+  display: block;
+  padding: 5px;
+  background-color: green;
+  margin: -30px 30px 0 30px;
+}
+
+body.mouse-captured.rel-mouse-needed #mouse-capture-prompt {
+  display: none;
+}
+
+#mouse-capture-prompt p { margin: 0}
+
+/* Let the user know how to exit pointer lock */
+
+#mouse-capture-info { display: none }
+body.mouse-captured #mouse-capture-info { 
+  display: block;
+  padding: 5px;
+  background-color: blue;
+  margin: -30px 30px 0 30px;
 }
 
 #display-container.fullscreen {
   background-color: black;
+  text-align: center;
 }
 
 #display-container.fullscreen canvas {
   height: 100%;
+  padding: 0;
+
 }
 
 
