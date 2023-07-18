@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<title>Offscreen canvas latency test</title>
+<h1>Offscreen canvas latency test</h1>
+
+<style>
+    body.keydown { background-color: magenta }
+    body.mouseclick { background-color: red }
+    #outer { 
+        text-align: center; 
+        background-color: lightblue;
+    }
+    body.hide-cursor canvas { cursor: none }
+    canvas { padding: 30px }
+</style>
+
+<p>
+    <label>Delay <input type="number" id="delay" onchange="updateDelay()" value="0"></label>
+    <label><input type="checkbox" onchange="styleBg=this.checked">Style background on key/mouse click</label>
+    <label><input type="checkbox" checked onchange="document.body.classList.toggle('hide-cursor', this.checked)">Hide cursor</label>
+</p>
+
+<div id="outer">
+<canvas id="canvas" width=640 height=512></canvas>
+</div>
+
+<p>hello</p> 
+<script>
+
+const keyConfig = Object.freeze({
+    'Space': 1,
+    'KeyF': 2,
+    'ArrowLeft': 3,
+    'ArrowRight': 4,
+    'ArrowUp': 5,
+    'ArrowDown': 6,
+    'mouse-buttons': 7,
+    'Quote': 8
+});
+
+const KEY_ID_MOUSE_BUTTONS = keyConfig['mouse-buttons'];
+const numKeys = Object.keys(keyConfig).length;
+
+class SharedBufferAllocator {
+    constructor(sharedbuffer) {
+        this.sab = sab;
+        this.pointer = 0;
+        this.size = sab.byteLength;
+    }
+
+    get(cls, n) {
+        if (this.pointer % cls.BYTES_PER_ELEMENT != 0) {
+            this.pointer += cls.BYTES_PER_ELEMENT - (this.pointer % cls.BYTES_PER_ELEMENT);
+        }
+        const needed =  cls.BYTES_PER_ELEMENT * n;
+        const remaining = this.sab.byteLength - this.pointer;
+        if (needed > remaining)
+            throw `Cannot allocate a ${cls.name} with ${n} elements. Need ${needed} bytes, only ${remaining} left`;
+        let arr = new cls(this.sab, this.pointer, n);
+        this.pointer += needed;
+        return arr;
+    }
+}
+const sab = new SharedArrayBuffer(64);
+const alloc = new SharedBufferAllocator(sab);
+
+const coords = alloc.get(Int32Array, 3);
+const timing = alloc.get(Float64Array, 1);
+const keystate = alloc.get(Uint8Array, numKeys+1);
+
+// map of KeyboardEvent.keyCode to key ID
+const keymap = new Int32Array(256);
+for (let i=0;i<keymap.length; i++) {
+    keymap[i] = -1;
+    keystate[i] = 0;
+}
+
+var styleBg = false;
+
+const canvas = document.querySelector("canvas");
+const offscreen = canvas.transferControlToOffscreen();
+const worker = new Worker("offscreenworker.js");
+worker.postMessage({ canvas: offscreen, sab: sab}, [offscreen]);
+const canvasPaddingX = (canvas.clientWidth - canvas.width)/2;
+const canvasPaddingY = (canvas.clientHeight - canvas.height)/2;
+var cursor = new Image();
+cursor.src = 'images/arclive.png';
+cursor.onload = async (evt) => {
+    let bmp = await createImageBitmap(evt.target);
+    worker.postMessage({cursor: bmp});
+}
+
+setTimeout(syncWorker, 500);
+
+let cx, cy, buttons;
+
+function sendMouseCoords(x,y) {
+    cx = x;
+    cy = y;
+    Atomics.store(coords, 0, x)
+    coords[1] = y;
+    Atomics.add(coords, 2, 1);
+}
+
+canvas.onmousemove = evt => {
+    let x = evt.offsetX - canvasPaddingX;
+    let y = evt.offsetY - canvasPaddingY;
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x > canvas.width) x = canvas.width;
+    if (y > canvas.heigt) y = canvas.height;
+    sendMouseCoords(x,y);
+    evt.stopPropagation();
+}
+
+/**
+ * snap cursor to canvas edge on mouseleave
+ */
+canvas.onmouseleave = evt => {
+    const snapBorder = 50;
+    let x = cx;
+    let y = cy;
+
+    if (x == 0 || y == 0 || x == canvas.width || y == canvas.height)
+        return;
+
+    if (x < snapBorder) {
+        x = 0;
+        console.log('snap cursor left');
+    }
+    if (x > canvas.width - snapBorder) {
+        x = canvas.width;
+        console.log('snap cursor right');
+    }
+    if (y < snapBorder) {
+        y = 0;
+        console.log('snap cursor top');
+    }
+    if (y > canvas.height - snapBorder) {
+        y = canvas.height;
+        console.log('snap cursor bottom');
+    }
+    sendMouseCoords(x,y);
+}
+
+canvas.onmousedown = evt => {
+    buttons = evt.buttons;
+    Atomics.store(keystate, KEY_ID_MOUSE_BUTTONS, buttons);
+    timing[0] = evt.timeStamp;
+    if (styleBg && (buttons & 1))
+        document.body.classList.add('mouseclick');
+}
+
+document.onmouseup = evt => {
+    // bitwise-and with buttons pressed in canvas to
+    // avoid buttons pressed-but-not-released outside
+    // canvas being sent to canvas
+    buttons = buttons & evt.buttons;
+    Atomics.store(keystate, KEY_ID_MOUSE_BUTTONS, buttons);
+    if (styleBg && (buttons & 1) == 0)
+        document.body.classList.remove('mouseclick');
+}
+
+canvas.oncontextmenu = evt => {
+    evt.preventDefault();
+}
+
+document.body.onkeydown = evt => {
+    let keyId = keymap[evt.keyCode];
+    if (keyId == -1 && evt.code in keyConfig) {
+        keyId = keyConfig[evt.code];
+        console.log(`new mapping ${evt.code} => ${evt.keyCode} => ${keyId}`);
+        keymap[evt.keyCode] = keyId;
+    }
+    if (keyId >= 0) {
+        timing[0] = evt.timeStamp;
+        Atomics.store(keystate, keyId, 1);
+    }
+    if (styleBg && keyId == 1) {
+        document.body.classList.add('keydown');
+    }
+}
+
+document.body.onkeyup = evt => {
+    let keyId = keymap[evt.keyCode];
+    if (keyId >= 0)
+        Atomics.store(keystate, keyId, 0);
+    if (styleBg && keyId == 1) {
+        document.body.classList.remove('keydown');
+    }
+}
+
+function updateDelay() {
+    worker.postMessage({delay:parseInt(document.getElementById('delay').value)});
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function syncWorker() {
+    const sync = new SharedArrayBuffer(64);
+    let sig = new Int32Array(sync, 0, 2);
+    let timestamp = new Float64Array(sync, 8, 1);
+    let iters = 10;
+    sig[0] = iters;
+    worker.postMessage({now:sync});
+    
+    for (let i=0; i<iters; i++) { 
+        await sleep(100);
+        Atomics.sub(sig, 0, 1);
+        timestamp[0] = performance.now();
+        Atomics.notify(sig, 0);
+    }
+    console.log('main: sync done')
+}
+updateDelay();
+</script>

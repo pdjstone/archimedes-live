@@ -9,7 +9,7 @@ SOFTWARE_BUILD_TAG := $(shell cd arclive-software && ${BUILD_TAG_CMD})
 all: build/index.html build/arculator.js build/nspark/nspark.js build/emu build/software/software.json
 
 serve:
-	python3 -m http.server -d build
+	python3 testserver.py -d build
 
 clean:
 	cd arculator-wasm && make clean && rm -rf emscripten_out
