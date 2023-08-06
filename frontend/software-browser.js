@@ -8,7 +8,7 @@ const SOFTWARE_BASE_DEV = 'software/';
 
 let SOFTWARE_BASE = (document.domain == 'archi.medes.live') ? SOFTWARE_BASE_PROD : SOFTWARE_BASE_DEV;
 
-const SOFTWARE_CATGORIES = Object.freeze({
+const SOFTWARE_CATGORIES = {
   'Category: All': [],
   'Demoscene': ['demoscene'],
   //'Education': ['education'],
@@ -17,8 +17,11 @@ const SOFTWARE_CATGORIES = Object.freeze({
   'Public Domain': ['public-domain'],
   'Music': ['music'],
   'Utilities': ['utility']
-});
+};
 
+for (let [k,v] of Object.entries(SOFTWARE_CATGORIES))
+  v.push('!hidden')
+Object.freeze(SOFTWARE_CATGORIES);
 
 function showSoftware(softwareId) {
   let meta = window.software[softwareId];
