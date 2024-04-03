@@ -1,10 +1,11 @@
 const BASIC_RUN_FAST_FORWARD = 7500;
 
-function rerunProg() {
-    sendKeyCode(KEY_ESCAPE);
-    setTimeout(() => sendKeyCode(KEY_F1), 200);
-    setTimeout(() => document.getElementById('editor').focus(), 200);
-  }
+async function rerunProg() {
+  getEmuInput().simulateKey('ArcEscape');
+  await sleep(100);
+  getEmuInput().simulateKey('ArcF1');
+  document.getElementById('editor').focus();
+}
   
 function wrapProg(prog) {
   return '*KEY1 *!boot |M\n*basic\n' + prog + '\nRUN\n';

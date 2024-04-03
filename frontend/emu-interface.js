@@ -2,48 +2,15 @@
  * Functions to integrate browser interaction and events with emulator
  */
 
-
-const KEY_ESCAPE = 27;
-const KEY_F1 = 112;
-
-function sendKeyCode(keycode) {
-  simulateKeyEvent('keydown', keycode, 0);
-  setTimeout(() => simulateKeyEvent('keyup', keycode, 0), 100);
-}
-
-
-function simulateKeyEvent(eventType, keyCode, charCode) {
-  let e = document.createEventObject ? document.createEventObject() : document.createEvent("Events");
-  if (e.initEvent)
-    e.initEvent(eventType, true, true);
-
-  e.keyCode = keyCode;
-  e.which = keyCode;
-  e.charCode = charCode;
-
-  // Dispatch directly to Emscripten's html5.h API (use this if page uses emscripten/html5.h event handling):
-  if (typeof JSEvents !== 'undefined' && JSEvents.eventHandlers && JSEvents.eventHandlers.length > 0) {
-    for (let i = 0; i < JSEvents.eventHandlers.length; ++i) {
-      if ((JSEvents.eventHandlers[i].target == Module['canvas'] || JSEvents.eventHandlers[i].target == window)
-       && JSEvents.eventHandlers[i].eventTypeString == eventType) {
-         JSEvents.eventHandlers[i].handlerFunc(e);
-      }
-    }
-  } else {
-    // Dispatch to browser for real (use this if page uses SDL or something else for event handling):
-    Module['canvas'].dispatchEvent ? Module['canvas'].dispatchEvent(e) : Module['canvas'].fireEvent("on" + eventType, e);
-  }
-}
-
 function lockChangeAlert() {
-  if (document.pointerLockElement === canvas) {
+  let locked = document.pointerLockElement === canvas;
+  document.body.classList.toggle('mouse-captured', locked);
+
+  if (locked) {
     console.log('The pointer lock status is now locked');
-    sdl_enable_mouse_capture();
-    document.getElementById('canvas').addEventListener('keydown', captureKeyShortcuts);
+    
   } else {
     console.log('The pointer lock status is now unlocked');
-    sdl_disable_mouse_capture();
-    document.getElementById('canvas').removeEventListener('keydown', captureKeyShortcuts);
   }
 }
 
@@ -73,7 +40,7 @@ function captureKeyShortcuts(event) {
     arc_capture_screenshot();
   } else if (event.ctrlKey && event.code == 'Backquote') {
     console.log('simulate escape');
-    setTimeout(() => sendKeyCode(KEY_ESCAPE), 20);
+    getEmuInput().simulateKey('ArcEscape');
   } 
 }
 
@@ -261,3 +228,5 @@ function capture_frame(bptr, bw, bh, sx, sy, sw, sh, ww, wh) {
     videoWorker.postMessage(pixels.buffer, pixels.buffer);
   }
 }
+
+document.getElementById('canvas').addEventListener('keydown', captureKeyShortcuts);
