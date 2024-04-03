@@ -1,9 +1,9 @@
 const BASIC_RUN_FAST_FORWARD = 7500;
 
 async function rerunProg() {
-  emukeys.simulateKey('ArcEscape');
+  getEmuInput().simulateKey('ArcEscape');
   await sleep(100);
-  emukeys.simulateKey('ArcF1');
+  getEmuInput().simulateKey('ArcF1');
   document.getElementById('editor').focus();
 }
   

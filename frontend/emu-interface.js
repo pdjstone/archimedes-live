@@ -40,7 +40,7 @@ function captureKeyShortcuts(event) {
     arc_capture_screenshot();
   } else if (event.ctrlKey && event.code == 'Backquote') {
     console.log('simulate escape');
-    emukeys.simulateKey('ArcEscape');
+    getEmuInput().simulateKey('ArcEscape');
   } 
 }
 
