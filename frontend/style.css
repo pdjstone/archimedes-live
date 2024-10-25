@@ -83,7 +83,7 @@ header {
 }
 
 #controls a:hover, button:hover, select:hover {
-  -background-color: #333;
+  XXbackground-color: #333;
   box-shadow: 0 0 3px #666;
   text-shadow: 0 0 5px #019ade;
 }
@@ -142,7 +142,7 @@ div.emscripten { text-align: center; }
   flex-direction: row; 
   width: 100%;
   justify-content: space-around;
-  -background-color: darkgreen;
+  XXbackground-color: darkgreen;
   align-items: center;
 }
 
@@ -173,46 +173,63 @@ body:not(.audio-suspended) #audio-warning {
 
 /* -- Emulator canvas ---------------------------------------------- */
 
-canvas:focus { outline: none }
-canvas { 
-  /* Padding required so (non-captured) mouse can still work even if
-     cursor is just outside emulator window*/
-  padding: 30px; 
-  cursor: none !important;
+:root {
+  --emulator-padding: 30px;
 }
 
 #display-container {
   position: relative;
   /* div that contains ONLY the canvas */
-  --background-color: darkcyan;
+  XXbackground-color: darkcyan;
+
 }
+
+canvas:focus { outline: none }
+canvas { 
+  /* Padding required so (non-captured) mouse can still work even if
+     cursor is just outside emulator window. This value is looked up
+     by EmulatorInput in emu_input.js in arculator-wasm */
+  padding: var(--emulator-padding); 
+  cursor: none !important;
+  display: block;
+}
+
 
 /* prompt to let the user know the emulator needs to capture the mouse cursor
    (usually for better control during a game) */
-#mouse-capture-prompt { display: none }
+#mouse-capture-prompt, #mouse-capture-info { 
+  padding: 5px;
+  box-sizing: border-box;
+  width: calc(100% - var(--emulator-padding) * 2);
+  margin: calc(0px - var(--emulator-padding)) /* revert bottom padding of canvas */
+          var(--emulator-padding) 
+          0 
+          var(--emulator-padding);
+  transform: translate(0, -100%); /* by default, div is slid 'up' behind canvas */
+  z-index: -1;
+  position: absolute;
+  transition: all 250ms;
+  transition-delay: 500ms;
+}
+
+/* hide mouse capture info when full screen */
 #display-container.fullscreen #mouse-capture-info { display: none }
 
 body.rel-mouse-needed #mouse-capture-prompt { 
-  display: block;
-  padding: 5px;
   background-color: green;
-  margin: -30px 30px 0 30px;
+  transform: translate(0);
 }
 
 body.mouse-captured.rel-mouse-needed #mouse-capture-prompt {
-  display: none;
+  transform: translate(0, -100%);
 }
 
-#mouse-capture-prompt p { margin: 0}
+#mouse-capture-prompt p,  #mouse-capture-info p { margin: 0}
 
 /* Let the user know how to exit pointer lock */
-
-#mouse-capture-info { display: none }
 body.mouse-captured #mouse-capture-info { 
-  display: block;
-  padding: 5px;
   background-color: blue;
-  margin: -30px 30px 0 30px;
+  transform: translate(0);
 }
 
 #display-container.fullscreen {
@@ -286,7 +303,7 @@ body.emu-paused #display-container .emulator-overlay { display: flex }
   /* Editor is hidden by default */
   display: none;
   flex:2;
-  -background-color: blue;
+  XXbackground-color: blue;
   margin: 1em;
   max-width: 80ch;
 }
@@ -400,7 +417,7 @@ ul.vert-list li.selected {
 #software-browser-cols .listing {
   /* Left panel of software browser
      contains category dropdown, search box and software list */
-  -background-color: red;
+  XXbackground-color: red;
   display: flex;
   flex-direction: column;
   flex-basis: 0;
@@ -473,7 +490,7 @@ dd {
     width: 100%;
     display: block; 
     text-align: center; 
-    -background-color: red;
+    XXbackground-color: red;
   }
 
   #editor { 
@@ -481,7 +498,7 @@ dd {
     height: 20vh;
   }
 
-  body { -background-color: green;}
+  body { XXbackground-color: green;}
 
   #main { flex-direction: column; }
   #canvas { width: 100% }
