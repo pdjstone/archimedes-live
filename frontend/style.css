@@ -240,6 +240,7 @@ body.mouse-captured #mouse-capture-info {
 #display-container.fullscreen canvas {
   height: 100%;
   padding: 0;
+  margin: auto;
 
 }
 
