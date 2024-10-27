@@ -2,3 +2,4 @@ toml
 tomlkit
 s3cmd
 jinja2-cli
+requests
