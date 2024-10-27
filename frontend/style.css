@@ -195,9 +195,10 @@ canvas {
 }
 
 
-/* prompt to let the user know the emulator needs to capture the mouse cursor
+/* prompts to let the user know the emulator needs to capture the mouse cursor
    (usually for better control during a game) */
-#mouse-capture-prompt, #mouse-capture-info { 
+.canvas-dropdown,
+body.mouse-captured.rel-mouse-needed #mouse-capture-prompt { 
   padding: 5px;
   box-sizing: border-box;
   width: calc(100% - var(--emulator-padding) * 2);
@@ -207,34 +208,30 @@ canvas {
           var(--emulator-padding);
   transform: translate(0, -100%); /* by default, div is slid 'up' behind canvas */
   z-index: -1;
+  opacity: 0;
   position: absolute;
   transition: all 250ms;
   transition-delay: 500ms;
 }
 
-/* hide mouse capture info when full screen */
-#display-container.fullscreen #mouse-capture-info { display: none }
+.canvas-dropdown p { margin: 0 }
 
-body.rel-mouse-needed #mouse-capture-prompt { 
+body.rel-mouse-needed #mouse-capture-prompt,
+body.mouse-captured #mouse-capture-info { 
   background-color: green;
   transform: translate(0);
+  opacity: 100%;
 }
 
-body.mouse-captured.rel-mouse-needed #mouse-capture-prompt {
-  transform: translate(0, -100%);
+/* hide mouse capture info when full screen */
+#display-container.fullscreen #mouse-capture-info,
+#display-container.fullscreen #mouse-capture-prompt { 
+  display: none 
 }
 
-#mouse-capture-prompt p,  #mouse-capture-info p { margin: 0}
-
-/* Let the user know how to exit pointer lock */
-body.mouse-captured #mouse-capture-info { 
-  background-color: blue;
-  transform: translate(0);
-}
 
 #display-container.fullscreen {
   background-color: black;
-  text-align: center;
 }
 
 #display-container.fullscreen canvas {
