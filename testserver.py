@@ -19,4 +19,4 @@ if __name__ == '__main__':
             self.RequestHandlerClass(request, client_address, self,
                                         directory='build')
 
-    server.test(ServerClass=MyServer, HandlerClass=MyHTTPRequestHandler)
+    server.test(ServerClass=MyServer, HandlerClass=MyHTTPRequestHandler, bind='localhost')

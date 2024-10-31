@@ -12,6 +12,7 @@ Web frontend for [Arculator WASM](https://github.com/pdjstone/arculator-wasm). S
   * Archive files (e.g. [SparkFS/ArcFS](https://github.com/pdjstone/nspark-wasm)) - will automatically unpack onto HostFS
 * Fullscreen
 * Save screenshots using Alt+\ (backslash)
+* Improve mouse support
 
 ## Supported URL options
 
@@ -29,6 +30,10 @@ Some features can be accessed using the hash portion of the URL (e.g. `https://a
 * **showsoftwarebrowser** - Show the software browser when the page loads.
 * **ff** - "Fast-forward" the emulator the specified number of milliseconds from boot time. When fast-forwarding, video and sound rendering are skipped, so the emulator will appear to start at the specified time. This is handy when autobooting to skip the boot and software loading time, and jump straight into the game/software. e.g. `http://archi.medes.live#ff=14400` will skip the RISC OS boot sequence and take you straight to the desktop.
 * **soundfilter** - Adjust the low-pass sound filter. 0 keeps the the 'original' low-pass filter. 1 reduces the filtering and 2 sounds 'best', particularly for good-quality tracker music.
+* **mouse-capture** - Controls how the mouse is handled by the emulator. One of:
+  * `auto` (default) - The emulator will use to heuristics to decide when to capture the mouse, and when to use absolute mouse positioning.
+  * `force` - The emulator will always capture the mouse pointer. This is useful on some games where `auto` causes problems.
+  * `never`. Never capture mouse, this could be useful to avoid false-positives in the mouse capture heuristics. This will break mouse input on some games.
 
 ### Building
 

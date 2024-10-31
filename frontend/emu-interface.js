@@ -220,6 +220,7 @@ function capture_frame(bptr, bw, bh, sx, sy, sw, sh, ww, wh) {
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(bitmap, 0, 0, ww, wh);
       saveEmulatorScreenshot(canvas);
+      // TODO: delete canvas after it's been saved
     });
   } else if (capturingVideo) {
     window.videoFrames++;

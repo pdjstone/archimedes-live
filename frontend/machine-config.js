@@ -46,10 +46,12 @@ Object.freeze(machineInfo)
 let CPU_DESCRIPTIONS = {};
 CPU_DESCRIPTIONS[CPU_ARM2] = "ARM2 @ 8 MHz";
 CPU_DESCRIPTIONS[CPU_ARM250] ="ARM250 @ 12 MHz";
+CPU_DESCRIPTIONS[CPU_ARM3_24] = "ARM3 @ 24 MHz";
 CPU_DESCRIPTIONS[CPU_ARM3_25] = "ARM3 @ 25 MHz";
 CPU_DESCRIPTIONS[CPU_ARM3_26] = "ARM3 @ 26 MHz";
 CPU_DESCRIPTIONS[CPU_ARM3_33] = "ARM3 @ 33 MHz";
-CPU_DESCRIPTIONS[CPU_ARM3_24] = "ARM3 @ 24 MHz";
+CPU_DESCRIPTIONS[CPU_ARM3_35] = "ARM3 @ 35 MHz";
+
 Object.freeze(CPU_DESCRIPTIONS);
 
 
@@ -347,6 +349,10 @@ class MachineConfig {
     return `cmos/${cmos}/cmos.bin`;
   }
 
+  dumpCmos() {
+    return arrayBufferToBase64(FS.readFile(this.getMachineCmosPath()));
+  }
+
   getOs() {
     return this.configParams['rom_set'];
   }
@@ -462,6 +468,9 @@ function putCmosFile(machineConfig) {
       console.warn("No autoboot CMOS for " + cmosName);
     }
   }
+  //if (machineConfig.getMachineType() == 'a5000')
+  //  cmosData = atob(CMOS_A5000);
+
   putDataAtPath(cmosData, cmosPath);
 }
 

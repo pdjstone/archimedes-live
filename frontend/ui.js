@@ -132,6 +132,10 @@ window.onerror = function(event) {
   };
 };
 
+window.onhashchange = (evt) => {
+  console.log('onhashchange', evt.newURL);
+  document.location.reload();
+}
 
 function pauseEmulator() {
   ccall('arc_pause_main_thread', null, []);
@@ -145,11 +149,13 @@ function resumeEmulator() {
   document.body.classList.remove('emu-paused');
 }
 
-const DISPLAY_MODES = {
+const DISPLAY_MODES = Object.freeze({
 		0: 'DISPLAY_MODE_NO_BORDERS',
     1: 'DISPLAY_MODE_NATIVE_BORDERS',
     2: 'DISPLAY_MODE_TV'
-}
+});
+
+const MOUSE_CAPTURE_MODES = Object.freeze(['auto', 'force', 'never']);
 
 function arc_set_display_mode(display_mode) {
   if (typeof display_mode != "number" || display_mode > 2 || display_mode < 0)
@@ -270,6 +276,14 @@ function getPageBootParams() {
       console.warn(`Invalid value for sound-filter - must be 0 (full), 1 (reduced) or 2 (more reduced)`);
     }
   }
+  if (searchParams.has('mouse-capture')) {
+    let mouseVal = searchParams.get('mouse-capture');
+    if (MOUSE_CAPTURE_MODES.includes(mouseVal)) {
+      opts.mouseCapture = mouseVal;
+    } else {
+      console.warn('Invalid value for mouse-capture parameter - must be one of: auto, force, never')
+    }
+  }
   return opts;
 }
 
@@ -285,7 +299,8 @@ async function loadMachineConfig(_opts=null) {
     fastForward: 0,
     basic: null,
     soundFilter: -1,
-    basic: false
+    basic: false,
+    mouseCapture: null
   }
   if (_opts) {
     Object.assign(opts, _opts);
@@ -331,6 +346,9 @@ async function loadMachineConfig(_opts=null) {
       if ('sound-filter' in softwareMeta && opts.soundFilter == -1) {
         opts.soundFilter = softwareMeta['sound-filter'];
       }
+      if ('mouse-capture' in softwareMeta && opts.mouseCapture == null) {
+        opts.mouseCapture = softwareMeta['mouse-capture'];
+      }
     } else {
       autoboot = opts.autoboot + '\n';
     }
@@ -354,6 +372,13 @@ async function loadMachineConfig(_opts=null) {
   }
   if (opts.soundFilter >= 0 && opts.soundFilter <= 2) {
     builder.soundFilter(opts.soundFilter);
+  }
+  if (opts.mouseCapture) {
+    if (MOUSE_CAPTURE_MODES.includes(opts.mouseCapture)) {
+      getEmuInput().setCaptureMode(MOUSE_CAPTURE_MODES.indexOf(opts.mouseCapture)+1);
+    } else {
+      console.warn('Invalid value for mouse-capture parameter - must be one of: auto, force, never')
+    }
   }
   bootedToBasic = opts.basic;
 

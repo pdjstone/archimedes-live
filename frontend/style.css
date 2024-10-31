@@ -184,14 +184,19 @@ body:not(.audio-suspended) #audio-warning {
 
 }
 
+
 canvas:focus { outline: none }
 canvas { 
   /* Padding required so (non-captured) mouse can still work even if
      cursor is just outside emulator window. This value is looked up
      by EmulatorInput in emu_input.js in arculator-wasm */
   padding: var(--emulator-padding); 
-  cursor: none !important;
+  cursor: none !important; /* SDL sets style="cursor: default" on the canvas element */
   display: block;
+}
+
+body.force-mouse-capture canvas { 
+  cursor: default !important 
 }
 
 

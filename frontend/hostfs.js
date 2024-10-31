@@ -226,6 +226,7 @@ function downloadHostFSfile(path) {
     return;
   }
   let buf = FS.readFile(filepath, {encoding: 'binary'});
+  let a = document.createElement('a');
   a.href = window.URL.createObjectURL(new Blob([buf], {type: "application/octet-stream"}));
   a.download = baseName(filepath);
   a.click(); 
@@ -234,7 +235,7 @@ function downloadHostFSfile(path) {
 
 
 // Disc image extensions that Arculator handles (see loaders struct in disc.c)
-const validDiscExts = Object.freeze(['.ssd','.dsd','.adf','.adl', '.fdi', '.apd', '.hfe']);
+const validDiscExts = Object.freeze(['.adf','.adl', '.fdi', '.apd', '.hfe']);
 
 let currentDiscFile = null;
 

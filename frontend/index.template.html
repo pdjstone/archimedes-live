@@ -61,7 +61,12 @@
   <div id="display-container">
     <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
     <div id="mouse-capture-prompt" class="canvas-dropdown"><p>Emulator needs full control of mouse cursor, click to capture</p>
-       <label><input type="checkbox" onchange="getEmuInput().setAllowMouseCapture(!this.checked)"> Don't capture mouse (may cause issues in some games)</label>
+       <!-- Hide this for now, not needed?
+         <label>
+         <input type="checkbox" onchange="getEmuInput().setCaptureMode(this.checked ? 3 : 1)">
+         Don't capture mouse (may cause issues in some games)
+        </label>
+      -->
     </div>
     <div id="mouse-capture-info" class="canvas-dropdown"><p>Press [Escape] to release mouse cursor from emulator window</p></div>
     <div class="emulator-overlay">
