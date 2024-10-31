@@ -205,6 +205,11 @@ body.force-mouse-capture canvas {
 .canvas-dropdown,
 body.mouse-captured.rel-mouse-needed #mouse-capture-prompt { 
   padding: 5px;
+  background-color: #111;
+  color: #aaa;
+  font-size: 10pt;
+  text-align: center;
+  border-radius: 0 0 5px 5px;
   box-sizing: border-box;
   width: calc(100% - var(--emulator-padding) * 2);
   margin: calc(0px - var(--emulator-padding)) /* revert bottom padding of canvas */
@@ -223,7 +228,7 @@ body.mouse-captured.rel-mouse-needed #mouse-capture-prompt {
 
 body.rel-mouse-needed #mouse-capture-prompt,
 body.mouse-captured #mouse-capture-info { 
-  background-color: green;
+  
   transform: translate(0);
   opacity: 100%;
 }
