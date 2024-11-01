@@ -112,7 +112,7 @@ if (searchParams.has('showsoftwarebrowser')) {
 }
 
 Module.preRun.push(() => ENV.SDL_EMSCRIPTEN_KEYBOARD_ELEMENT ="#canvas" );
-//Module.preRun.push(monitorAudioContext);
+Module.preRun.push(monitorAudioContext);
 
 Module.preRun.push(() => {
   let opts = getPageBootParams();

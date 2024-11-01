@@ -146,18 +146,6 @@ div.emscripten { text-align: center; }
   align-items: center;
 }
 
-body.audio-suspended #audio-warning {
-  display: block;
-  background-color: darkorange;
-  color: white;
-  margin: 0;
-  padding: .5em;
-}
-
-body:not(.audio-suspended) #audio-warning { 
-  display: none;
-}
-
 #machine-status {
   display: block;
   position: fixed;
@@ -183,7 +171,6 @@ body:not(.audio-suspended) #audio-warning {
   XXbackground-color: darkcyan;
 
 }
-
 
 canvas:focus { outline: none }
 canvas { 
@@ -227,18 +214,24 @@ body.mouse-captured.rel-mouse-needed #mouse-capture-prompt {
 .canvas-dropdown p { margin: 0 }
 
 body.rel-mouse-needed #mouse-capture-prompt,
-body.mouse-captured #mouse-capture-info { 
-  
+body.mouse-captured #mouse-capture-info,
+body.audio-suspended #audio-warning { 
   transform: translate(0);
   opacity: 100%;
 }
 
 /* hide mouse capture info when full screen */
 #display-container.fullscreen #mouse-capture-info,
-#display-container.fullscreen #mouse-capture-prompt { 
+#display-container.fullscreen #mouse-capture-prompt, 
+#display-container.fullscreen #audio-warning { 
   display: none 
 }
 
+#audio-warning { 
+  background-color: rgb(160, 89, 1);
+  color: white;
+  font-weight: bold;
+}
 
 #display-container.fullscreen {
   background-color: black;

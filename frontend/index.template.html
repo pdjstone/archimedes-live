@@ -24,9 +24,7 @@
     <a role="button" onclick="showModal('about-box')">About</a>
   </span>
 </header>
-   
-<div id="audio-warning">Your browser has suspended audio - click mouse or press key for sound</div>
-
+  
 <!-- Default emscripted-generated loading UI, need to revise -->
 
 <div class="spinner" id='spinner'></div>
@@ -60,6 +58,9 @@
 
   <div id="display-container">
     <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+     
+    <div id="audio-warning" class="canvas-dropdown">Your browser has suspended audio - click mouse or press key for sound</div>
+
     <div id="mouse-capture-prompt" class="canvas-dropdown"><p>Emulator needs full control of mouse cursor, click to capture</p>
        <!-- Hide this for now, not needed?
          <label>
