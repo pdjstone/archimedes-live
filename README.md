@@ -12,7 +12,6 @@ Web frontend for [Arculator WASM](https://github.com/pdjstone/arculator-wasm). S
   * Archive files (e.g. [SparkFS/ArcFS](https://github.com/pdjstone/nspark-wasm)) - will automatically unpack onto HostFS
 * Fullscreen
 * Save screenshots using Alt+\ (backslash)
-* Improve mouse support
 
 ## Supported URL options
 
