@@ -212,8 +212,12 @@ function arc_enable_sound(enable) {
 
 
 function closeModal(id, event = null) {
-  if (!event || event && (event.target.classList.contains('modal')  || event.target.classList.contains('modal-content')))
+  if (!event || event && 
+    (event.target.classList.contains('modal') || event.target.classList.contains('modal-content'))) {
     document.getElementById(id).style.display = 'none';
+    document.getElementById('canvas').focus(); // ensure canvas has keyboard focus after closing modal
+  }
+
 }
 
 
