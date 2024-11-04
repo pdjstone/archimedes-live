@@ -81,6 +81,7 @@ document.getElementById('display-container').addEventListener('fullscreenchange'
   let el = document.getElementById('display-container');
   if (el == document.fullscreenElement) {
     el.classList.add('fullscreen');
+    document.getElementById('canvas').focus(); // ensure keyboard focus after fullscreen
     tryCapture();
   } else {
     el.classList.remove('fullscreen');
