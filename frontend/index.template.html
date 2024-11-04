@@ -265,11 +265,10 @@
 <script>
   BUILD_TAG='{{ BUILD_TAG }}';
   ARCULATOR_BUILD_TAG='{{ ARCULATOR_BUILD_TAG }}';
-  NSPARK_BUILD_TAG='{{ NSPARK_BUILD_TAG }}';
   SOFTWARE_BUILD_TAG='{{ SOFTWARE_BUILD_TAG }}';
 </script>
 <script type="module">
-  import {NSpark} from './nspark/nspark-helper.js?{{ NSPARK_BUILD_TAG }}';
+  import {NSpark} from './nspark/nspark-helper.js?{{ BUILD_TAG }}';
   window.NSpark = NSpark;
 </script>  
 
