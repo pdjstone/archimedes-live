@@ -377,6 +377,11 @@ async function loadMachineConfig(_opts=null) {
   if (opts.soundFilter >= 0 && opts.soundFilter <= 2) {
     builder.soundFilter(opts.soundFilter);
   }
+  if (builder.getRom().includes('arthur')) {
+    // TODO: can we fix doosmouse() for Arthur?
+    console.log('Setting mouse-capture=force for Arthur');
+    opts.mouseCapture = 'force';
+  }
   if (opts.mouseCapture) {
     if (MOUSE_CAPTURE_MODES.includes(opts.mouseCapture)) {
       getEmuInput().setCaptureMode(MOUSE_CAPTURE_MODES.indexOf(opts.mouseCapture)+1);
