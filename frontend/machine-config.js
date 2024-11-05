@@ -36,6 +36,7 @@ let machineInfo = {
   'a310': {name: 'Archimedes 310', released: 'July 1987', price: '£875'},
   'a410/1': {name: 'Archimedes 410/1', released: 'June 1989', price: '£999'},
   'a3000': {name: 'A3000', released: 'May 1989', price: '£649'},
+  'a540': {name: 'A540', released: 'June 1990', price: '£2495 + VAT'},
   'a5000': {name: 'A5000', released: 'September 1991', price: '£999 (25 MHz) or £1,499 (33 MHz) including monitor'},
   'a3010': {name: 'A3010', released: 'September 1992', price: '£499'},
   'a3020': {name: 'A3020', released: 'September 1992', price: '£800 including monitor'},
@@ -60,7 +61,8 @@ let MEM_SIZE_NAMES = {
   1024: '1 MB',
   2048: '2 MB',
   4096: '4 MB',
-  8192: '8 MB'
+  8192: '8 MB',
+  16384: '16 MB'
 };
 Object.freeze(MEM_SIZE_NAMES);
 
@@ -94,7 +96,7 @@ let presetMachines = {
     .rom('arthur120'),
   'a310-ro2':  () => new MachineConfigBuilder('a310', "A310 (RISC OS 2)")
     .cpu(CPU_ARM2)
-    .memory(1024)
+    .memory(4096)
     .memc(MEMC_MEMC1)
     .fdc(FDC_WD1770)
     .rom('riscos201'),
@@ -119,7 +121,12 @@ let presetMachines = {
     .memory(2048)
     .memc(MEMC_MEMC1A_12)
     .rom('riscos311')
-    .monitor('lcd')*/
+    .monitor('lcd'),*/
+  'a540': () => new MachineConfigBuilder('a540', "A540")
+    .cpu(CPU_ARM3_26)
+    .memory(16384)
+    .memc(MEMC_MEMC1A_12)
+    .rom('riscos311')
 };
 Object.freeze(presetMachines);
 
