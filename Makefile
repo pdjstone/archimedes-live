@@ -28,6 +28,7 @@ build/index.html: frontend build
 
 build/arculator.js: arculator-wasm/build/wasm/arculator.js build
 	cp arculator-wasm/build/wasm/arculator.{js,data,data.js,wasm} build
+	#cp arculator-wasm/build/wasm/arculator.{js,data,data.js,aw.js,ww.js,worker.js,wasm} build
 ifdef DEBUG
 	cp arculator-wasm/build/wasm/arculator.wasm.map build
 endif

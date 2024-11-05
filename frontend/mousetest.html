@@ -7,6 +7,7 @@
     body.fullscreen #canvas { height: 100%}
     body.mouseclick  #outer { background-color: red}
     body.keypress #outer { background-color: magenta }
+    #canvas { cursor: none}
 </style>
 </head>
 <body>
@@ -14,7 +15,7 @@
     <p id="coords"></p>
     <p id="fps"></p>
     <p><button onclick="capture()">Capture</button> <button onclick="fs()">Fullscreen</button> 
-    Delay <input type=number onchange="delay=parseInt(this.value)" value="5"></p>
+    Delay <input type=number onchange="delay=parseInt(this.value)" value="0" min="0" max="100"></p>
 <div id="outer">
 <canvas id="canvas" width=640 height=512></canvas>
 </div>
@@ -24,6 +25,8 @@ let px = 0;
 let py = 0;
 let b = 0;
 let k = 0;
+let lastTs = 0;
+let minTd = 100;
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -75,14 +78,19 @@ canvas.addEventListener('mouseup', e => {
 document.body.addEventListener('keydown', e => {
     document.body.classList.add('keypress');
     k = 1;
+    console.log(e.code);
 });
 
 document.body.addEventListener('keyup', e => {
     document.body.classList.remove('keypress');
     k = 0;
 });
+
 canvas.onmousemove = function(e) {
     let text;
+    let td = e.timeStamp - lastTs;
+    lastTs = e.timeStamp;
+    if (td < minTd) minTd = td;
 
     if (locked) {
         
@@ -99,14 +107,14 @@ canvas.onmousemove = function(e) {
         if (py > canvas.height) py = canvas.height;
         if (px < 0) px = 0;
         if (py < 0) py = 0;
-        text = `mx: ${mx}  my: ${my}  | x: ${px} y: ${py}` 
+        text = `mx: ${mx}  my: ${my}  | x: ${px} y: ${py} | td: ${minTd}`;
     } else {
         px = e.offsetX;
         py = e.offsetY; 
-        text = "x: " + px + " y:" + py;
+        text = "x: " + px + " y:" + py + " d:" + minTd;
     }
-   
-    //document.getElementById('coords').textContent = text;
+
+    document.getElementById('coords').textContent = text;
 }
 
 function updateFPS() {
@@ -124,7 +132,7 @@ cursor.src = 'images/arclive.png';
 
 var start = performance.now();
 var frames = 0;
-var delay = 5;
+var delay = 0;
 function syncdelay(ms) {
     let t = performance.now() + ms;
     while (performance.now() < t) {}
