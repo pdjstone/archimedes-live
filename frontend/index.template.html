@@ -10,18 +10,18 @@
   <link rel="stylesheet" href="style.css?{{ BUILD_TAG }}">
 </head>
 
-<body onclick="if (event.target.tabIndex == -1) document.getElementById('canvas').focus()">
+<body>
 
 <header>
   <div id="logo"><h1>Archimedes Live!</h1></div>
 
   <div id='controls'>
-    <a role="button" onclick="showBasicEditor()">Open BASIC editor</a>
-    <a role="button" onclick="showMachinePicker()" class="dropdown-button">Choose Machine</a>
-    <a role="button" onclick="showSoftwareBrowser()" class="dropdown-button">Load Software</a>
+    <a role="button" onclick="showBasicEditor()" tabindex="0">Open BASIC editor</a>
+    <a role="button" onclick="showMachinePicker()" class="dropdown-button" tabindex="0">Choose Machine</a>
+    <a role="button" onclick="showSoftwareBrowser()" class="dropdown-button" tabindex="0">Load Software</a>
   
-    <button onclick="fullscreen()">Fullscreen</button>
-    <a role="button" onclick="showModal('about-box')">About</a>
+    <button onclick="fullscreen()" tabindex="0">Fullscreen</button>
+    <a role="button" onclick="showModal('about-box')" tabindex="0">About</a>
   </span>
 </header>
   
@@ -57,7 +57,7 @@
   </div>
 
   <div id="display-container">
-    <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+    <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1" autofocus></canvas>
      
     <div id="audio-warning" class="canvas-dropdown">Your browser has suspended audio - click mouse or press key for sound</div>
 
