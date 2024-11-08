@@ -317,23 +317,24 @@ function createHostfsBootFile(content, fileType) {
 // Return the full path of a file under hostfs (with ,ext)
 function findHostFsFilePath(path) {
   let s = path.lastIndexOf('/');
-  let dir = '/hostfs/';
+  let dir = '/hostfs';
   let filename = path;
   if (s>=0) {
-    dir += filepath.substring(0,s);
-    filename = filepath.substr(s)
+    dir += path.substring(0,s);
+    filename = path.substr(s+1);
   }
   let hostfsFilename = '';
   for (const f of FS.readdir(dir)) {
-    if (f.startsWith(filename+',') || f == filename)
-      hostfsFilename = f;
-      console.log('Found hostfs file ', f);
+    if (f.startsWith(filename+',') || f == filename) {
+      hostfsFilename = dir+'/'+f;
+    }
   }
   if (!hostfsFilename) {
     console.warn(`Couldn't find file ${filename} in ${dir}`);
     return null;
   }
-  return dir+hostfsFilename;
+  console.log('Found hostfs file ', hostfsFilename);
+  return hostfsFilename;
 }
 
 function readHostFsTextFile(filepath) {
