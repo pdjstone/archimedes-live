@@ -132,9 +132,24 @@ window.onerror = function(event) {
   };
 };
 
-window.onhashchange = (evt) => {
-  console.log('onhashchange', evt.newURL);
-  document.location.reload();
+scriptTriggeredHashChange = false;
+
+addEventListener('hashchange', (e) => {
+  // If the user changes the URL (hash) then we should reload the page so the new parameters take effect
+  // But we don't want to reload if the change was triggerd by our own code
+  if (!scriptTriggeredHashChange) {
+      console.log(`user changed location hash to ${location.hash}, reloading page`);
+      location.reload();
+  }
+  scriptTriggeredHashChange = false;
+});
+
+function changeLocationHash(hash) {
+  scriptTriggeredHashChange = true;
+  if (hash[0] == '#')
+    hash = hash.substr(1);
+  // Use assign so that we create a new history entry the use can go back to
+  document.location.assign('#' + hash);
 }
 
 function pauseEmulator() {
@@ -231,7 +246,7 @@ function updateConfigUI(config) {
 }
 
 function getPageBootParams() {
-  let opts = {};
+  let opts = {pageBoot:true};
 
   if (searchParams.has('disc')) {
     opts.disc = searchParams.get('disc');
@@ -297,6 +312,7 @@ function getPageBootParams() {
  */
 async function loadMachineConfig(_opts=null) {
   let opts = {
+    pageBoot: false, // did these options come from the URL hash?
     autoboot: false,
     disc: null,
     preset: 'a3000',
@@ -338,6 +354,12 @@ async function loadMachineConfig(_opts=null) {
 
   if (opts.autoboot) {
     if (opts.autoboot === true && softwareMeta) {
+   
+      if (!opts.pageBoot) { 
+        changeLocationHash(`#disc=${softwareMeta.id}&autoboot`);
+      }
+      document.title = `${softwareMeta.title} - Archimedes Live!`;
+     
       autoboot = getAutobootScript(softwareMeta);
       if (!autoboot) {
         console.warn(`Empty autoboot URL param specified but software ${softwareMeta.id} does not have autoboot app`)

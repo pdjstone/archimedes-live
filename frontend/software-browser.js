@@ -173,7 +173,7 @@ async function loadFromSoftwareCatalogue(softwareId, insert=true) {
       await loadFromSoftwareCatalogue(depId);
     }
   }
-  document.title = meta['title'] + " - Archimedes Live!";
+
   window.currentSoftwareId = meta.id;
   return discFile;
 }
