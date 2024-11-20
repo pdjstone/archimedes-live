@@ -5,3 +5,4 @@ jinja2-cli
 requests
 ADFSlib @ git+https://github.com/pdjstone/adfslib.git
 markdown-it-py[plugins]
+pillow
