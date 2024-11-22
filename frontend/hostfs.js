@@ -192,7 +192,8 @@ async function identifyZipFile(filename, size, blob) {
 async function identifyArchiveType(filename, size, blob) {
   let header = await blob.slice(0,8).arrayBuffer();
   let data = new Uint8Array(header);
-  if (data[0] == 0x1a && (data[1] & 0xf0) == 0x80) {
+  const SPK_STARTBYTE = 0x1a; // From spark.h in NSpark
+  if (data[0] == SPK_STARTBYTE && ((data[1] & 0xf0) == 0x80 || data[1] == 0xff)) {
     return FileTypes.RISCOS_SPARK_ARCHIVE;
   }
   if (new TextDecoder().decode(header) == 'Archive\00') {
