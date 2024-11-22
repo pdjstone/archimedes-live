@@ -330,6 +330,12 @@ async function loadMachineConfig(_opts=null) {
   let autoboot = '';
   let softwareMeta = null;
 
+  try {
+    FS.mkdir('/hostfs');
+  } catch (e) {
+    console.log('hostfs dir already exists');
+  }
+  
   if (opts.disc) {
     if (opts.disc.includes('/')) { // it's a URL
         console.log(`UI: Loading disc URL ${opts.disc}`);
@@ -418,11 +424,7 @@ async function loadMachineConfig(_opts=null) {
   putConfigFile(machineConfig);
   putCmosFile(machineConfig);
   await loadRoms(machineConfig);
-  try {
-    FS.mkdir('/hostfs');
-  } catch (e) {
-    console.log('hostfs dir already exists');
-  }
+  
   if (autoboot && !opts.basic) {
     console.log('UI: create !boot:' + autoboot);
     createHostfsBootFile(autoboot, FILETYPE_DESKTOP);

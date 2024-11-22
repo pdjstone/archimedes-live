@@ -92,8 +92,12 @@ async function putFileOnHostFs(filename, blob, dst='/') {
   let buf = await blob.arrayBuffer();
   let data = new Uint8Array(buf);
   filename = convertDotExtToHostfsExt(filename);
-  console.log('putting ' + filename + ' onto HostFS at' + dst);
-  FS.createDataFile('/hostfs' + dst, filename, data, true, true);
+  console.log('Putting ' + filename + ' onto HostFS at ' + dst);
+  try {
+    FS.createDataFile('/hostfs' + dst, filename, data, true, true);
+  } catch (e) {
+    console.log('Failed to write HosrFS file', e);
+  }
 }
 
 async function loadSoftware(filename, blob, insert=true) {
