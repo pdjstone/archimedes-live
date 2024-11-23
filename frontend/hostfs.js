@@ -1,7 +1,7 @@
 
 
 const ROS_FileType_Map = Object.freeze({
-  '.zip': 0xa91,
+  '.zip': 0xddc, // ZIP is 0xa91, but older SparkFS/SparkPlug recognises 0xddc for ZIP
   '.arc': 0x3fb,
   '.txt': 0xfff,
   '.bas': 0xffb,
