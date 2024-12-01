@@ -161,15 +161,16 @@ function recommendMachinePreset(req) {
 const CLICK_ICON_BASIC = 'DQAKDd4gYiUgMTAyNA0AFCnImSAiV2ltcF9Jbml0aWFsaXNlIiwzMTAsJjRiNTM0MTU0LCIiDQAeCiFiJT0tMg0AKB/ImSAiV2ltcF9HZXRXaW5kb3dJbmZvIiwsYiUNADIN3iBtc2clIDIwDQA8E2ljb25ubyU9YiUhODgtMQ0ARgxtc2clITg9NA0AUA5tc2clITEyPS0yDQBaE21zZyUhMTY9aWNvbm5vJQ0AZCvImSAiV2ltcF9TZW5kTWVzc2FnZSIsNixtc2clLC0yLGljb25ubyUN/w==';
 
 function getAutobootScript(softwareMeta) {
-  if ('autoboot' in softwareMeta) {
-    return softwareMeta['autoboot'];
-  }
+
   let bootCmd = '';
   if ('depends' in softwareMeta) {
     for (let dep of softwareMeta['depends']) {
       console.log('Getting autoboot script for dependency ', softwareMeta['id']);
       bootCmd += getAutobootScript(software[dep]);
     }
+  }
+  if ('autoboot' in softwareMeta) {
+    bootCmd += softwareMeta['autoboot'] + '\n';
   }
   if ('app-path' in softwareMeta) {
     let appPath;
@@ -178,7 +179,7 @@ function getAutobootScript(softwareMeta) {
     } else if ('disc' in softwareMeta) {
       appPath = `ADFS::0.$.${softwareMeta['app-path']}`;
     } else {
-      return null;
+      return '';
     }
     let dirPath = roDirname(appPath);
     bootCmd += `filer_run ${dirPath}\nfiler_run ${appPath}\n`;
@@ -187,10 +188,9 @@ function getAutobootScript(softwareMeta) {
       putDataAtPath(atob(CLICK_ICON_BASIC), '/hostfs/click_icon,ffb');
       bootCmd += "filer_run HostFS:$.click_icon\n";
     }
-    return bootCmd;
   }
   
-  return null;
+  return bootCmd;
 }
 
 class MachineConfigBuilder {
