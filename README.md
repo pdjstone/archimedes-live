@@ -13,6 +13,14 @@ Web frontend for [Arculator WASM](https://github.com/pdjstone/arculator-wasm). S
 * Fullscreen
 * Save screenshots using Alt+\ (backslash)
 
+## Mouse/Keyboard shortcuts
+
+**Escape**: In some browsers pressing `Escape` while full-screen will quit fullscreen. Instead you can press <code>Ctrl-\`</code> (Backtick) to send `Escape`.
+
+**Middle click**: Some touchpads will send a middle-click if you tap with three fingers. If your touchpad doesn't support this you can use `Cmd+Click` (on MacOS) or `Alt+Click` (on Windows/Linux) to send a middle click. 
+
+
+
 ## Supported URL options
 
 Some features can be accessed using the hash portion of the URL (e.g. `https://archi.medes.live#foo=bar`). These are useful when linking to Archimedes Live:
