@@ -46,13 +46,13 @@ nspark-wasm/emscripten_out/nspark.js:
 	emcmake cmake -S nspark-wasm -B nspark-wasm/build
 	emmake cmake --build nspark-wasm/build
 
-build/emu: dlcache/arculator21.tar.gz
+build/emu: dlcache/arculator22.tar.gz
 	mkdir -p build/emu
-	tar xzf dlcache/arculator21.tar.gz -C build/emu/ roms cmos
+	tar xzf dlcache/arculator22.tar.gz -C build/emu/ roms cmos
 
-dlcache/arculator21.tar.gz:
+dlcache/arculator22.tar.gz:
 	mkdir -p dlcache
-	curl -s http://b-em.bbcmicro.com/arculator/Arculator_V2.1_Linux.tar.gz --output dlcache/arculator21.tar.gz
+	curl -s https://b-em.bbcmicro.com/arculator/Arculator_V2.2_Linux.tar.gz --output dlcache/arculator22.tar.gz
 
 build/software/software.json:
 	arclive-software/toml2json.py arclive-software/catalogue/ build/software/
