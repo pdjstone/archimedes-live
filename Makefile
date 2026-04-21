@@ -9,7 +9,7 @@ SOFTWARE_BUILD_TAG := $(shell cd arclive-software && ${BUILD_TAG_CMD})
 all: build/index.html build/arculator.js build/nspark/nspark.js build/emu build/software/software.json
 
 serve:
-	python3 testserver.py -d build
+	python3 testserver.py
 
 clean:
 	cd arculator-wasm && make clean && rm -rf emscripten_out
@@ -27,21 +27,22 @@ build/index.html: frontend build
 	rm build/index.template.html
 
 build/arculator.js: arculator-wasm/build/wasm/arculator.js build
-	cp arculator-wasm/build/wasm/arculator.{js,data,data.js,wasm} build
-	#cp arculator-wasm/build/wasm/arculator.{js,data,data.js,aw.js,ww.js,worker.js,wasm} build
+	cp arculator-wasm/build/wasm/arculator.{js,wasm} build
+	#cp arculator-wasm/build/wasm/sound_processor.js build
+	#cp arculator-wasm/build/wasm/arculator.{js,aw.js,ww.js,worker.js,wasm} build
 ifdef DEBUG
 	cp arculator-wasm/build/wasm/arculator.wasm.map build
 endif
 
-build/nspark/nspark.js: nspark-wasm/emscripten_out/nspark.js build
+build/nspark/nspark.js: nspark-wasm/build/nspark.js build
 	mkdir -p build/nspark
 	cp nspark-wasm/build/*.{js,wasm} build/nspark
 	cp nspark-wasm/emscripten/*.js build/nspark
 
 arculator-wasm/build/wasm/arculator.js:
-	cd arculator-wasm && make wasm
+	cd arculator-wasm && make -j8 wasm
 
-nspark-wasm/emscripten_out/nspark.js:
+nspark-wasm/build/nspark.js:
 	mkdir -p nspark-wasm/build
 	emcmake cmake -S nspark-wasm -B nspark-wasm/build
 	emmake cmake --build nspark-wasm/build

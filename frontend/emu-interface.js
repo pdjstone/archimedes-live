@@ -91,7 +91,7 @@ document.getElementById('display-container').addEventListener('fullscreenchange'
 
 function fullscreen() {
   //tryCapture();
-  document.getElementById('display-container').requestFullscreen();
+  document.getElementById('display-container').requestFullscreen({'keyboardLock': true});
   if ('keyboard' in navigator) {
     navigator.keyboard.lock().then(() => console.log('keyboard locked'));
   }

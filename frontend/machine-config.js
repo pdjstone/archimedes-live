@@ -1,7 +1,12 @@
+let buildTag = new URL(import.meta.url).search;  
+import { putDataAtPath, putUrlAtPath } from './fsutil.js' 
+import { CMOS_BOOT_HOSTFS, DEFAULT_CMOS }  from './cmos.js' 
+import { roDirname } from './hostfs.js'
+
 const ROM_BASE_PROD = 'https://files-archi.medes.live/roms/';
 const ROM_BASE_DEV = 'emu/roms/';
 
-let ROM_BASE = (document.domain == 'archi.medes.live') ? ROM_BASE_PROD : ROM_BASE_DEV;
+let ROM_BASE = (new URL(import.meta.url).domain == 'archi.medes.live') ? ROM_BASE_PROD : ROM_BASE_DEV;
 
 // These constants match Arculator
 const CPU_ARM2 = 0;
@@ -24,7 +29,9 @@ const FDC_82C711 = 1;
 const FDC_WD1793_A500 = 2;
 
 
-let OS_NAMES = {
+
+
+export const OS_NAMES = {
   'arthur030': 'Arthur 0.3',
   'arthur120': 'Arthur 1.2',
   'riscos311': 'RISC OS 3.11',
@@ -44,7 +51,7 @@ let machineInfo = {
 }
 Object.freeze(machineInfo)
 
-let CPU_DESCRIPTIONS = {};
+export const CPU_DESCRIPTIONS = {};
 CPU_DESCRIPTIONS[CPU_ARM2] = "ARM2 @ 8 MHz";
 CPU_DESCRIPTIONS[CPU_ARM250] ="ARM250 @ 12 MHz";
 CPU_DESCRIPTIONS[CPU_ARM3_24] = "ARM3 @ 24 MHz";
@@ -56,7 +63,7 @@ CPU_DESCRIPTIONS[CPU_ARM3_35] = "ARM3 @ 35 MHz";
 Object.freeze(CPU_DESCRIPTIONS);
 
 
-let MEM_SIZE_NAMES = {
+export const MEM_SIZE_NAMES = {
   512: '512 KB',
   1024: '1 MB',
   2048: '2 MB',
@@ -87,7 +94,7 @@ Object.freeze(rom_list);
 
 
 // Configurations available in the Machine Config dialog
-let presetMachines = {
+export const presetMachines = {
   'a310-arthur':  () => new MachineConfigBuilder('a310', "A310 (Arthur 1.20)")
     .cpu(CPU_ARM2)
     .memory(1024)
@@ -130,7 +137,7 @@ let presetMachines = {
 };
 Object.freeze(presetMachines);
 
-function recommendMachinePreset(req) {
+export function recommendMachinePreset(req) {
   
   let mem = 0;
   let os = 'riscos311';
@@ -160,7 +167,7 @@ function recommendMachinePreset(req) {
 
 const CLICK_ICON_BASIC = 'DQAKDd4gYiUgMTAyNA0AFCnImSAiV2ltcF9Jbml0aWFsaXNlIiwzMTAsJjRiNTM0MTU0LCIiDQAeCiFiJT0tMg0AKB/ImSAiV2ltcF9HZXRXaW5kb3dJbmZvIiwsYiUNADIN3iBtc2clIDIwDQA8E2ljb25ubyU9YiUhODgtMQ0ARgxtc2clITg9NA0AUA5tc2clITEyPS0yDQBaE21zZyUhMTY9aWNvbm5vJQ0AZCvImSAiV2ltcF9TZW5kTWVzc2FnZSIsNixtc2clLC0yLGljb25ubyUN/w==';
 
-function getAutobootScript(softwareMeta) {
+export function getAutobootScript(softwareMeta) {
 
   let bootCmd = '';
   if ('depends' in softwareMeta) {
@@ -446,10 +453,19 @@ disc_noise_gain = 0
   joystick_1_nr = 0
   `;
   }
+
+  getUIInfo() {
+      return {
+        name: this.getMachineName(),
+        memory: MEM_SIZE_NAMES[this.getMemory()],
+        os: OS_NAMES[this.getOs()],
+        processor: CPU_DESCRIPTIONS[this.getProcessor()]
+      };
+  }
 }
   
 
-function putConfigFile(machineConfig) {
+export function putConfigFile(machineConfig) {
   let configName = machineConfig.getMachineType();
   let machineConfigFileData = machineConfig.getMachineConfigFile();
   let configPath = '/configs/' + configName + '.cfg';
@@ -462,7 +478,7 @@ function putConfigFile(machineConfig) {
   putDataAtPath(arcCfgFileData, 'arc.cfg');
 }
 
-function putCmosFile(machineConfig) {
+export function putCmosFile(machineConfig) {
   let cmosPath = machineConfig.getMachineCmosPath();
   let cmosName = machineConfig.getCmosName();
   console.log(`cmos path=${cmosPath} cmos name=${cmosName}`)
@@ -482,7 +498,7 @@ function putCmosFile(machineConfig) {
 }
 
 
-async function loadRoms(machineConfig) {
+export async function loadRoms(machineConfig) {
   let romUrls = machineConfig.getRomUrls();
   for (const [fsPath, romUrl] of Object.entries(romUrls)) {
    await putUrlAtPath(romUrl, fsPath);

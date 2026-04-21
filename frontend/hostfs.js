@@ -1,4 +1,6 @@
-
+import { putDataAtPath, baseName } from './fsutil.js'
+import { RiscOsUnzip, ZIP_EXT_ACORN} from'./riscosunzip.js'
+import { NSpark } from './nspark/nspark-helper.js'
 
 const ROS_FileType_Map = Object.freeze({
   '.zip': 0xddc, // ZIP is 0xa91, but older SparkFS/SparkPlug recognises 0xddc for ZIP
@@ -96,7 +98,7 @@ async function putFileOnHostFs(filename, blob, dst='/') {
   try {
     FS.createDataFile('/hostfs' + dst, filename, data, true, true);
   } catch (e) {
-    console.log('Failed to write HosrFS file', e);
+    console.log('Failed to write HostFS file', e);
   }
 }
 
@@ -107,7 +109,7 @@ async function loadSoftware(filename, blob, insert=true) {
     return await filetype.loadDisc(filename, blob, insert);
   } else if ('unpackFn' in filetype) {
     //console.log('unpack', filetype.unpackFn);
-    if (unpackArchivesToHostFS)
+    if (true || window.unpackArchivesToHostFS)
       await filetype.unpackFn(blob);
     else 
       await putFileOnHostFs(filename, blob);
@@ -117,12 +119,12 @@ async function loadSoftware(filename, blob, insert=true) {
 }
 
 
-async function loadSoftwareFromUrl(url, insert=true) {
+export async function loadSoftwareFromUrl(url, insert=true) {
   if (url == "") return;
   let response = await fetch(url, {mode:'cors'});
   let blob = await response.blob();
   let discFilename = await loadSoftware(baseName(url), blob, insert);
-  window.screenshots = 0;
+  //window.screenshots = 0;
   return discFilename;
 }
 
@@ -168,12 +170,12 @@ async function identifyZipFile(filename, size, blob) {
   
   let numDiskImages = 0;
   let numCommaExts = 0;
-  for (const filename of zip.getFilenames()) {
-    if (isDiscImageFilename(filename)) 
+  for await (const entry of zip.getEntriesGenerator()) {
+    if (isDiscImageFilename(entry.filename)) 
       numDiskImages++;
-    if (filename.match(RE_COMMA_EXT))
+    if (entry.filename.match(RE_COMMA_EXT))
       numCommaExts++;
-    //console.log('ZIP entry: ' + filename);
+    console.log('ZIP entry: ' + entry.filename);
   }
   if (numDiskImages == 1) {
     return FileTypes.DISC_IMAGE_ZIPPED;
@@ -196,7 +198,7 @@ async function identifyArchiveType(filename, size, blob) {
   if (data[0] == SPK_STARTBYTE && ((data[1] & 0xf0) == 0x80 || data[1] == 0xff)) {
     return FileTypes.RISCOS_SPARK_ARCHIVE;
   }
-  if (new TextDecoder().decode(header) == 'Archive\00') {
+  if (new TextDecoder().decode(header) == 'Archive\x00') {
     return FileTypes.RISCOS_ARCFS_ARCHIVE;
   }
   return FileTypes.UNKNOWN;
@@ -302,11 +304,11 @@ async function loadDisc(filename, blob, insert=true) {
   return currentDiscFile;
 }
 
-const FILETYPE_OBEY = 0xfeb // normal boot
-const FILETYPE_COMMAND = 0xffe // basic boot
-const FILETYPE_DESKTOP = 0xfea 
+export const FILETYPE_OBEY = 0xfeb // normal boot
+export const FILETYPE_COMMAND = 0xffe // basic boot
+export const FILETYPE_DESKTOP = 0xfea 
 
-function createHostfsBootFile(content, fileType) {
+export function createHostfsBootFile(content, fileType) {
   try {
     for (const filename of FS.readdir('/hostfs/')) {
       if (filename.toLowerCase().startsWith('!boot,')) {
@@ -350,6 +352,6 @@ function readHostFsTextFile(filepath) {
   return new TextDecoder('iso-8859-1').decode(fileBytes);
 }
 
-function roDirname(roFilepath) {
+export function roDirname(roFilepath) {
   return roFilepath.substring(0, roFilepath.lastIndexOf('.'));
 }

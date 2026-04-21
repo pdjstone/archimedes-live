@@ -1,13 +1,20 @@
 /**
 * Software browser UI
 */
+ 
+import { loadSoftwareFromUrl } from './hostfs.js'
+import { recommendMachinePreset } from './machine-config.js'
 
-const SOFTWARE_INDEX = 'software.json?' + SOFTWARE_BUILD_TAG;
+let SOFTWARE_CATALOG = null;
+
+
+const SOFTWARE_INDEX = 'software.json?';
 const SOFTWARE_BASE_PROD = 'https://files-archi.medes.live/software/';
 const SOFTWARE_BASE_DEV = 'software/';
 
-let SOFTWARE_BASE = (document.domain == 'archi.medes.live') ? SOFTWARE_BASE_PROD : SOFTWARE_BASE_DEV;
+let SOFTWARE_BASE = (new URL(import.meta.url).domain == 'archi.medes.live') ? SOFTWARE_BASE_PROD : SOFTWARE_BASE_DEV;
 
+/*
 const SOFTWARE_CATGORIES = {
   'Category: All': [],
   'Demoscene': ['demoscene'],
@@ -152,8 +159,8 @@ function showSoftware(softwareId) {
   details.style.display = 'block';
   document.getElementById('software-intro').style.display = 'none';
 }
-
-async function loadFromSoftwareCatalogue(softwareId, insert=true) {
+*/
+export async function loadFromSoftwareCatalogue(softwareId, insert=true) {
   console.debug(`loadFromSoftwareCatalogue ${softwareId} insert=${insert}`);
   let software = await fetchSoftwareCatalogue();
   if (!softwareId in software) {
@@ -174,27 +181,27 @@ async function loadFromSoftwareCatalogue(softwareId, insert=true) {
     }
   }
 
-  window.currentSoftwareId = meta.id;
+  //window.currentSoftwareId = meta.id;
   return discFile;
 }
 
-async function fetchSoftwareCatalogue() {
-  if (typeof window.software == 'undefined') {
+export async function fetchSoftwareCatalogue() {
+  if (SOFTWARE_CATALOG === null) {
     try {
       let response = await fetch(SOFTWARE_BASE + SOFTWARE_INDEX);
       let json = await response.json();
-      window.software = json;
-      populateSoftwareCategories();
+      SOFTWARE_CATALOG = json;
+      //populateSoftwareCategories();
     } catch (e) {
       console.error("failed to fetch software catalogue: " + e);
     }
   }
-  return window.software;
+  return SOFTWARE_CATALOG;
 }
-
+/*
 var softwareBrowserFirstOpen = true;
 
-async function showSoftwareBrowser() {
+export async function showSoftwareBrowser() {
   showModal('software-browser');
   await fetchSoftwareCatalogue();
   filterSoftware();
@@ -277,4 +284,10 @@ function handleFileButton() {
   });
 }
 
-document.getElementById('filebutton').addEventListener('change', handleFileButton, false);
+export function removeAllChildNodes(parent) {
+  while (parent.firstChild) {
+      parent.removeChild(parent.firstChild);
+  }
+}
+//document.getElementById('filebutton').addEventListener('change', handleFileButton, false);
+*/

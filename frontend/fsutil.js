@@ -17,7 +17,7 @@ function mkdirsForFile(filePath) {
   }
 }
   
-function baseName(path) {
+export function baseName(path) {
   if (path.indexOf('/') >= 0)
     return path.substr(path.lastIndexOf('/')+1);
   return path;
@@ -29,7 +29,7 @@ function dirName(path) {
   return '/';
 }
   
-function putDataAtPath(data, path, timestampMillis=0) {
+export function putDataAtPath(data, path, timestampMillis=0) {
   mkdirsForFile(path);
   try {
     FS.stat(path);
@@ -44,7 +44,7 @@ function putDataAtPath(data, path, timestampMillis=0) {
   }
 }
 
-async function putUrlAtPath(url, path) {
+export async function putUrlAtPath(url, path) {
   let response = await fetch(url, {mode:'cors'});
   let buf = await response.arrayBuffer();
   let data = new Uint8Array(buf);

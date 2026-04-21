@@ -1,109 +1,63 @@
+let buildTag = new URL(import.meta.url).search;  
+
+
+const { createHostfsBootFile, FILETYPE_DESKTOP } = await import('./hostfs.js' + buildTag);
+const { loadFromSoftwareCatalogue, loadSoftwareFromUrl, removeAllChildNodes, showSoftwareBrowser} = await import('./software-browser.js' + buildTag);
+
+
+const DISPLAY_MODES = Object.freeze({
+		0: 'DISPLAY_MODE_NO_BORDERS',
+    1: 'DISPLAY_MODE_NATIVE_BORDERS',
+    2: 'DISPLAY_MODE_TV'
+});
+
+const MOUSE_CAPTURE_MODES = Object.freeze(['auto', 'force', 'never']);
+
+
 var statusElement = document.getElementById('status');
 var progressElement = document.getElementById('progress');
 var spinnerElement = document.getElementById('spinner');
-
-var Module = {
-  noInitialRun: true,
-  onRuntimeInitialized: function() {
-    console.log('runtime initialised');
-    setWindowTitle=()=>{}; //prevent SDL changing window title
-    preload.then(machineConfig => {
-      let configName = machineConfig.getMachineType();
-      console.log('calling main...(' + fps + ',' + configName + ')');
-      callMain([fps.toString(), configName]);
-      console.log('calling main done');
-      if (machineConfig.fastForward) {
-        arc_fast_forward(machineConfig.fastForward);
-      }
-    })
-  },
-  preRun: [],
-  postRun: [],
-  logReadFiles: true,
-  locateFile: file => file + '?' + ARCULATOR_BUILD_TAG,
-  print: (function() {
-    var element = document.getElementById('output');
-    if (element) element.value = ''; // clear browser cache
-    return function(text) {
-      if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
-      // These replacements are necessary if you render to raw HTML
-      //text = text.replace(/&/g, "&amp;");
-      //text = text.replace(/</g, "&lt;");
-      //text = text.replace(/>/g, "&gt;");
-      //text = text.replace('\n', '<br>', 'g');
-      console.log(text);
-      if (element) {
-        element.value += text + "\n";
-        element.scrollTop = element.scrollHeight; // focus on bottom
-      }
-    };
-  })(),
-
-  canvas: (function() {
-    var canvas = document.getElementById('canvas');
-
-    // As a default initial behavior, pop up an alert when webgl context is lost. To make your
-    // application robust, you may want to override this behavior before shipping!
-    // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
-    canvas.addEventListener("webglcontextlost", function(e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
-
-    return canvas;
-  })(),
-
-  setStatus: function(text) {
-    if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
-    if (text === Module.setStatus.last.text) return;
-    var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
-    var now = Date.now();
-    if (m && now - Module.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
-    Module.setStatus.last.time = now;
-    Module.setStatus.last.text = text;
-    if (m) {
-      text = m[1];
-      progressElement.value = parseInt(m[2])*100;
-      progressElement.max = parseInt(m[4])*100;
-      progressElement.hidden = false;
-      spinnerElement.hidden = false;
-    } else {
-      progressElement.value = null;
-      progressElement.max = null;
-      progressElement.hidden = true;
-      if (!text) {
-        spinnerElement.style.display = 'none';
-        statusElement.style.display = 'none';
-      }
-    }
-    statusElement.innerHTML = text;
-  },
-
-  totalDependencies: 0,
-
-  monitorRunDependencies: function(left) {
-    this.totalDependencies = Math.max(this.totalDependencies, left);
-    Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
-  }
-
-};
 
 let queryString = '';
 if (location.hash)
   queryString = '?' + location.hash.substr(1);
 
 let searchParams = new URLSearchParams(queryString);
-let unpackArchivesToHostFS = true;
+
 let firstBoot = true;
 let machinePreset = 'a3000';
 let fps = 0;
+let preload = null;
 
-if (searchParams.has('fixedfps')) {
-  fps = searchParams.get('fixedfps');
-  if (fps != null) {
-    fps = parseInt(fps);
-  } else {
-    fps = 60;
-  }
-  console.log('UI: Fixing frame rate to ' + fps + ' FPS');
+const offscreenCanvas = document.getElementById('canvas').transferControlToOffscreen();
+
+const arculatorWorker = new Worker('arculator-worker.js' + buildTag + Math.random(), { type: 'module' });
+
+arculatorWorker.onerror = (event) => {
+  console.log('main thread arculatorWorker onerror', event);
 }
+arculatorWorker.onmessageerror = (event) => {
+  console.log('main thread arculatorWorker onmessageerror', event);
+}
+arculatorWorker.onmessage = (event) => {
+  // todo: maybe register functions or use worker proxy?
+  if ('currentSoftware' in event.data) {
+    setCurrentSoftware(event.data.currentSoftware)
+  } else if ('updateConfigUI' in event.data) {
+    updateConfigUI(event.data.updateConfigUI);
+  } else {
+    console.log('main thread arculatorWorker onmessage', event.data);
+  }
+
+}
+
+
+arculatorWorker.postMessage({ 
+  type: 'init', 
+  pageBootParams: getPageBootParams(), 
+  canvas: offscreenCanvas 
+}, [offscreenCanvas]);
+
 
 if (searchParams.has('showsoftwarebrowser')) {
   addEventListener('load', event => {
@@ -111,28 +65,23 @@ if (searchParams.has('showsoftwarebrowser')) {
   });
 }
 
-Module.preRun.push(() => ENV.SDL_EMSCRIPTEN_KEYBOARD_ELEMENT ="#canvas" );
-Module.preRun.push(monitorAudioContext);
-
-Module.preRun.push(() => {
-  let opts = getPageBootParams();
-  console.log('page boot params:', opts);
-  preload = loadMachineConfig(opts);
-});
 
 
-Module.setStatus('Downloading...');
+function setCurrentSoftware(softwareMeta) {
+    document.title = `${softwareMeta.title} - Archimedes Live!`;
+}
 
-window.onerror = function(event) {
+/*window.onerror = function(event) {
+  console.log('window.onerror', event);
   // TODO: do not warn on ok events like simulating an infinite loop or exitStatus
-  Module.setStatus('Exception thrown, see JavaScript console');
-  spinnerElement.style.display = 'none';
-  Module.setStatus = function(text) {
-    if (text) Module.printErr('[post-exception status] ' + text);
-  };
-};
+  // Module.setStatus('Exception thrown, see JavaScript console');
+  // spinnerElement.style.display = 'none';
+  // Module.setStatus = function(text) {
+  //   if (text) Module.printErr('[post-exception status] ' + text);
+  // };
+};*/
 
-scriptTriggeredHashChange = false;
+let scriptTriggeredHashChange = false;
 
 addEventListener('hashchange', (e) => {
   // If the user changes the URL (hash) then we should reload the page so the new parameters take effect
@@ -153,77 +102,19 @@ function changeLocationHash(hash) {
 }
 
 function pauseEmulator() {
-  ccall('arc_pause_main_thread', null, []);
+  Module.ccall('arc_pause_main_thread', null, []);
   document.body.classList.add('emu-paused');
   let emulatorTime = arc_get_emulation_ms();
   console.log('Emulator paused at ', emulatorTime);
 }
 
 function resumeEmulator() {
-  ccall('arc_resume_main_thread', null, []);
+  Module.ccall('arc_resume_main_thread', null, []);
   document.body.classList.remove('emu-paused');
 }
 
-const DISPLAY_MODES = Object.freeze({
-		0: 'DISPLAY_MODE_NO_BORDERS',
-    1: 'DISPLAY_MODE_NATIVE_BORDERS',
-    2: 'DISPLAY_MODE_TV'
-});
 
-const MOUSE_CAPTURE_MODES = Object.freeze(['auto', 'force', 'never']);
 
-function arc_set_display_mode(display_mode) {
-  if (typeof display_mode != "number" || display_mode > 2 || display_mode < 0)
-    throw "display_mode must be 0, 1 or 2";
-  console.log(`arc_set_display_mode: ${DISPLAY_MODES[display_mode]}`);
-  ccall('arc_set_display_mode', null, ['number'], [display_mode]);
-}
-
-function arc_set_dblscan(dbl_scan) {
-  ccall('arc_set_dblscan', null, ['number'], [dbl_scan]);
-}
-
-function arc_enter_fullscreen() {
-  ccall('arc_enter_fullscreen', null, []);
-}
-
-function arc_renderer_reset() {
-  ccall('arc_renderer_reset', null, []);
-}
-
-function arc_do_reset() {
-  ccall('arc_do_reset', null, []);
-}
-
-function arc_load_config_and_reset(configName) {
-  console.log(`arc_load_config_and_reset ${configName}`);
-  ccall('arc_load_config_and_reset', null, ['string'], [configName]);
-}
-
-function arc_set_sound_filter(filter) {
-  ccall('arc_set_sound_filter', null, ['number'], [filter]);
-}
-
-function sdl_enable_mouse_capture() {
-  ccall('sdl_enable_mouse_capture', null, []);
-}
-
-function sdl_disable_mouse_capture() {
-  ccall('sdl_disable_mouse_capture', null, []);
-}
-
-function arc_fast_forward(ms) {
-  console.log(`Fast-forwaring emulator to ${ms}ms`);
-  ccall('arc_fast_forward', null, ['number'], [ms]);
-}
-
-function arc_get_emulation_ms() {
-  return ccall('arc_get_emulation_ms', 'int', []);
-}
-
-function arc_enable_sound(enable) {
-  ccall('arc_enable_sound', null, ['int'], [enable ? 1 : 0]);
-}
 
 
 function closeModal(id, event = null) {
@@ -239,10 +130,10 @@ function closeModal(id, event = null) {
 
 function updateConfigUI(config) {
   let el = document.getElementById('machine-status');
-  el.querySelector('.name').textContent = config.getMachineName();
-  el.querySelector('.memory').textContent = MEM_SIZE_NAMES[config.getMemory()];
-  el.querySelector('.os').textContent = OS_NAMES[config.getOs()];
-  el.querySelector('.processor').textContent = CPU_DESCRIPTIONS[config.getProcessor()];
+  el.querySelector('.name').textContent = config['name'];
+  el.querySelector('.memory').textContent = config['memory'];
+  el.querySelector('.os').textContent = config['os'];
+  el.querySelector('.processor').textContent = config['processor'];
 }
 
 function getPageBootParams() {
@@ -306,133 +197,6 @@ function getPageBootParams() {
   return opts;
 }
 
-/**
- * This is called both at page load and when we change machine from the UI
- * @returns
- */
-async function loadMachineConfig(_opts=null) {
-  let opts = {
-    pageBoot: false, // did these options come from the URL hash?
-    autoboot: false,
-    disc: null,
-    preset: 'a3000',
-    fastForward: 0,
-    basic: null,
-    soundFilter: -1,
-    basic: false,
-    mouseCapture: null
-  }
-  if (_opts) {
-    Object.assign(opts, _opts);
-  }
-
-  let discFile = ''; // if a floppy image is specifed this will be set
-  let autoboot = '';
-  let softwareMeta = null;
-
-  try {
-    FS.mkdir('/hostfs');
-  } catch (e) {
-    console.log('hostfs dir already exists');
-  }
-  
-  if (opts.disc) {
-    if (opts.disc.includes('/')) { // it's a URL
-        console.log(`UI: Loading disc URL ${opts.disc}`);
-        discFile = await loadSoftwareFromUrl(opts.disc, insert=false);
-    } else { // assume it's an ID from the software catalog
-      console.log(`UI: Load software ID ${opts.disc}`);
-      discFile = await loadFromSoftwareCatalogue(opts.disc, insert=false);
-      softwareMeta = software[opts.disc];
-      let recommendedPreset = recommendMachinePreset(softwareMeta);
-      console.log(`UI: Recommended machine for ${opts.disc} is ${recommendedPreset}`);
-      if ('preset' in _opts) {
-        console.warn("Ignoring recommended machine preset and using ", _opts.preset);
-      } else {
-        machinePreset = recommendedPreset;
-        opts.preset = machinePreset;
-      }
-    }
-  }
-  if (opts.preset) {
-    machinePreset = opts.preset;
-  }
-
-  if (opts.autoboot) {
-    if (opts.autoboot === true && softwareMeta) {
-   
-      if (!opts.pageBoot) { 
-        changeLocationHash(`#disc=${softwareMeta.id}&autoboot`);
-      }
-      document.title = `${softwareMeta.title} - Archimedes Live!`;
-     
-      autoboot = getAutobootScript(softwareMeta);
-      if (!autoboot) {
-        console.warn(`Empty autoboot URL param specified but software ${softwareMeta.id} does not have autoboot app`)
-      }
-      if ('ff-ms' in softwareMeta && opts.fastForward == 0) {
-        let ff = softwareMeta['ff-ms'];
-        console.log(`${softwareMeta.id} specified a fast-forward of ${ff}ms`);
-        opts.fastForward = ff;
-      }
-      if ('sound-filter' in softwareMeta && opts.soundFilter == -1) {
-        opts.soundFilter = softwareMeta['sound-filter'];
-      }
-      if ('mouse-capture' in softwareMeta && opts.mouseCapture == null) {
-        opts.mouseCapture = softwareMeta['mouse-capture'];
-      }
-    } else {
-      autoboot = opts.autoboot + '\n';
-    }
-    
-    if (autoboot == '') {
-      console.warn(`Empty autoboot URL specified`);
-    }
-  }
-  console.log('Loading preset machine: ' + opts.preset);
-  let builder = presetMachines[opts.preset]();
-
-  if (discFile) {
-    console.log('UI: configure machine with disc', discFile);
-    builder.disc(discFile);
-  }
-  if (autoboot || opts.autoboot === true) { // autoboot URL parameter was specified
-    builder.autoboot();
-  }
-  if (opts.fastForward) {
-    builder.fastForward(opts.fastForward);
-  }
-  if (opts.soundFilter >= 0 && opts.soundFilter <= 2) {
-    builder.soundFilter(opts.soundFilter);
-  }
-  if (builder.getRom().includes('arthur')) {
-    // TODO: can we fix doosmouse() for Arthur?
-    console.log('Setting mouse-capture=force for Arthur');
-    opts.mouseCapture = 'force';
-  }
-  if (opts.mouseCapture) {
-    if (MOUSE_CAPTURE_MODES.includes(opts.mouseCapture)) {
-      getEmuInput().setCaptureMode(MOUSE_CAPTURE_MODES.indexOf(opts.mouseCapture)+1);
-    } else {
-      console.warn('Invalid value for mouse-capture parameter - must be one of: auto, force, never')
-    }
-  }
-  bootedToBasic = opts.basic;
-
-  let machineConfig = builder.build();
-  updateConfigUI(machineConfig);
-  putConfigFile(machineConfig);
-  putCmosFile(machineConfig);
-  await loadRoms(machineConfig);
-  
-  if (autoboot && !opts.basic) {
-    console.log('UI: create !boot:' + autoboot);
-    createHostfsBootFile(autoboot, FILETYPE_DESKTOP);
-  }
-  window.currentMachineConfig = machineConfig;
-  return machineConfig;
-}
-
 
 function showModal(id) {
   let el = document.getElementById(id);
@@ -466,9 +230,9 @@ async function changeMachine(opts) {
   // Work aroud a (SDL?) bug where we get a 'divide by zero' error in
   // the SDL function HandleAudioProcess after closing the audio device
   // when changing machines
-  if (typeof Module.SDL2 != 'undefined') {
-    await Module.SDL2.audioContext.suspend();
-  }
+  // if (typeof Module.SDL2 != 'undefined') {
+  //   await Module.SDL2.audioContext.suspend();
+  // }
   arc_load_config_and_reset(config.getMachineType());
   return config;
 }
@@ -539,11 +303,6 @@ function bootSelected() {
 }
 
 
-function removeAllChildNodes(parent) {
-  while (parent.firstChild) {
-      parent.removeChild(parent.firstChild);
-  }
-}
 
 
 function appendDl(dl, title, description) {

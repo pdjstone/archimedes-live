@@ -1,4 +1,6 @@
-class ExtensibleUnzip extends Zlib.Unzip {
+import { Uint8ArrayReader, ZipReader } from './zip.js';
+
+/*class ExtensibleUnzip extends Zlib.Unzip {
 
     extraFieldParsers = {};
 
@@ -56,38 +58,38 @@ class ExtensibleUnzip extends Zlib.Unzip {
         }
         return extraFields;
     }
-}
+}*/
 
 
-const ZIP_EXT_ACORN = 0x4341; // 'AC' - SparkFS / Acorn
+export const ZIP_EXT_ACORN = 0x4341; // 'AC' - SparkFS / Acorn
 const ZIP_ID_ARC0 = 0x30435241; // 'ARC0'
 
-class RiscOsUnzip extends ExtensibleUnzip
-{
-    constructor(buf) {
-        super(buf);
-        this.isRiscOs = false;
-        this.registerZipExtension(ZIP_EXT_ACORN, this.parseRiscOsZipField);
-        this.parseExtraFields();
-        for (let f of this.fileHeaderList) {
-            if (f.extraFieldLength > 0 && f.extraFields.hasOwnProperty(ZIP_EXT_ACORN)) {
-                this.isRiscOs = true;
-            }
-        }
-    }
-
-    parseRiscOsZipField(buf, offset, len) {
-        // See https://www.davidpilling.com/wiki/index.php/SparkFS "A Comment on Zip files"
-        if (len == 24) len = 20;
-        let id2 = this.getInt(buf, offset + 4, 4);
-        if (id2 != ZIP_ID_ARC0)
-            return null;
-        this.isRiscOs = true;
-        return {
-            len: len,
-            loadAddr: this.getInt(buf, offset + 8, 4) >>> 0,
-            execAddr: this.getInt(buf, offset + 12, 4) >>> 0,
-            attr: this.getInt(buf, offset + 16, 4) >>> 0
-        };
-    }
+export function RiscOsUnzip(buf) {
+    
+        let zr = new ZipReader(new Uint8ArrayReader(buf));
+        return zr;
 }
+        // this.registerZipExtension(ZIP_EXT_ACORN, this.parseRiscOsZipField);
+        // this.parseExtraFields();
+        // for (let f of this.fileHeaderList) {
+        //     if (f.extraFieldLength > 0 && f.extraFields.hasOwnProperty(ZIP_EXT_ACORN)) {
+        //         this.isRiscOs = true;
+        //     }
+        // }
+    
+
+    // parseRiscOsZipField(buf, offset, len) {
+    //     // See https://www.davidpilling.com/wiki/index.php/SparkFS "A Comment on Zip files"
+    //     if (len == 24) len = 20;
+    //     let id2 = this.getInt(buf, offset + 4, 4);
+    //     if (id2 != ZIP_ID_ARC0)
+    //         return null;
+    //     this.isRiscOs = true;
+    //     return {
+    //         len: len,
+    //         loadAddr: this.getInt(buf, offset + 8, 4) >>> 0,
+    //         execAddr: this.getInt(buf, offset + 12, 4) >>> 0,
+    //         attr: this.getInt(buf, offset + 16, 4) >>> 0
+    //     };
+    // }
+

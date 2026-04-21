@@ -267,24 +267,11 @@
   ARCULATOR_BUILD_TAG='{{ ARCULATOR_BUILD_TAG }}';
   SOFTWARE_BUILD_TAG='{{ SOFTWARE_BUILD_TAG }}';
 </script>
-<script type="module">
-  import {NSpark} from './nspark/nspark-helper.js?{{ BUILD_TAG }}';
-  window.NSpark = NSpark;
-</script>  
 
-<script type='text/javascript' src="zlib.js?{{ BUILD_TAG }}"></script>
-<script type='text/javascript' src="riscosunzip.js?{{ BUILD_TAG }}"></script>
-<script type='text/javascript' src="cmos.js?{{ BUILD_TAG }}"></script>
-<script type='text/javascript' src="machine-config.js?{{ BUILD_TAG }}"></script>
+
 <script type='text/javascript' src="editor.js?{{ BUILD_TAG }}"></script>
-<script type='text/javascript' src="ui.js?{{ BUILD_TAG }}"></script>
+<script type="module" src="ui.js?{{ BUILD_TAG }}"></script>
 <script type='text/javascript' src="emu-interface.js?{{ BUILD_TAG }}"></script>
-<script type='text/javascript' src="fsutil.js?{{ BUILD_TAG }}"></script>
-<script type='text/javascript' src="software-browser.js?{{ BUILD_TAG }}"></script>
-<script type='text/javascript' src="hostfs.js?{{ BUILD_TAG }}"></script>
-
-<script type="text/javascript" src="arculator.data.js?{{ ARCULATOR_BUILD_TAG }}"></script>
-<script type="text/javascript" src="arculator.js?{{ ARCULATOR_BUILD_TAG }}"></script>
 
 </body>
 </html>
