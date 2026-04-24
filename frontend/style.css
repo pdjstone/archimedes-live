@@ -89,50 +89,6 @@ header {
 }
 
 
-/* -- Emscripten Loading UI ---------------------------------------- */
-
-.emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
-div.emscripten { text-align: center; }      
-
-.spinner {
-  height: 20px;
-  width: 20px;
-  margin: 0;
-  margin-top: 20px;
-  margin-left: 20px;
-  display: inline-block;
-  vertical-align: top;
-
-  animation: rotation 0.8s linear infinite;
-
-  border-left: 3px solid rgb(235, 235, 235);
-  border-right: 3px solid rgb(235, 235, 235);
-  border-bottom: 3px solid rgb(235, 235, 235);
-  border-top: 3px solid rgb(120, 120, 120);
-  
-  border-radius: 100%;
-  background-color: aqua;
-}
-
-@keyframes rotation {
-  from {transform: rotate(0deg);}
-  to {transform: rotate(360deg);}
-}
-
-#progress {
-  height: 20px;
-  width: 300px;
-}
-
-#status {
-  display: inline-block;
-  vertical-align: top;
-  margin-top: 30px;
-  margin-left: 20px;
-  font-weight: bold;
-  color: rgb(120, 120, 120);
-}
-
 
 /* -- Main UI ---------------------------------------------------- */  
 
@@ -178,6 +134,7 @@ canvas {
      cursor is just outside emulator window. This value is looked up
      by EmulatorInput in emu_input.js in arculator-wasm */
   padding: var(--emulator-padding); 
+  image-rendering: pixelated;
   cursor: none !important; /* SDL sets style="cursor: default" on the canvas element */
   display: block;
 }
