@@ -1,5 +1,5 @@
 import { putDataAtPath, baseName } from './fsutil.js'
-import { RiscOsUnzip, ZIP_EXT_ACORN} from'./riscosunzip.js'
+import { RiscOsUnzip } from'./riscosunzip.js'
 import { NSpark } from './nspark/nspark-helper.js'
 
 const ROS_FileType_Map = Object.freeze({
@@ -27,14 +27,12 @@ const FileTypes = Object.freeze({
 const RE_COMMA_EXT = /,[a-f0-9]{3}$/i; // 'filename,abc'
 
 
-function getHostFSPathForZipEntry(fileHeader, dstPath = '/') {
-  let hostFsPath = dstPath + fileHeader.filename;
-  if (fileHeader.hasOwnProperty('extraFields') && 
-    fileHeader['extraFields'].hasOwnProperty(ZIP_EXT_ACORN)) {
-      let filename = fileHeader['filename'];
-      let riscOsMeta = fileHeader['extraFields'][ZIP_EXT_ACORN];
-      let loadAddr = riscOsMeta['loadAddr'];
-      let execAddr = riscOsMeta['execAddr'];
+function getHostFSPathForZipEntry(entry, dstPath = '/') {
+  let hostFsPath = dstPath + entry.filename;
+  if (entry.hasOwnProperty('extraRiscOs')) {
+      let filename = entry.filename;
+      let loadAddr = entry.extraRiscOs['loadAddr'];
+      let execAddr = entry.extraRiscOs['execAddr'];
       
       // See http://www.riscos.com/support/developers/prm/fileswitch.html
       if (loadAddr >>> 20 == 0xfff) {
@@ -47,13 +45,10 @@ function getHostFSPathForZipEntry(fileHeader, dstPath = '/') {
   return hostFsPath;
 }
 
-function getZipEntryRiscOsTimestamp(fileHeader) {
-  if (fileHeader.hasOwnProperty('extraFields') && 
-    fileHeader['extraFields'].hasOwnProperty(ZIP_EXT_ACORN)) {
-
-    let riscOsMeta = fileHeader['extraFields'][ZIP_EXT_ACORN];
-    let loadAddr = riscOsMeta['loadAddr'];
-    let execAddr = riscOsMeta['execAddr'];
+function getZipEntryRiscOsTimestamp(entry) {
+  if (entry.hasOwnProperty('extraRiscOs')) {
+    let loadAddr = entry.extraRiscOs['loadAddr'];
+    let execAddr = entry.extraRiscOs['execAddr'];
     if (loadAddr >>> 20 == 0xfff) {
       let cs = parseInt((loadAddr & 0xff).toString(16).padStart(2,'0') + execAddr.toString(16).padStart(8,'0'), 16);
       let ts = new Date(1900,0,1).getTime() + cs*10;
@@ -144,12 +139,12 @@ async function unpackRiscOsZipToHostfs(blob, dst='/') {
   let data = new Uint8Array(buf);
   let zip = new RiscOsUnzip(data);
 
-  for (let h of zip.fileHeaderList) {
-    if (h.filename.endsWith('/'))
+  for await (const entry of zip.getEntriesGenerator()) {
+    if (entry.directory)
       continue;
-    let hostFsPath = getHostFSPathForZipEntry(h);
-    let data = zip.decompress(h.filename);
-    let timestamp = getZipEntryRiscOsTimestamp(h);
+    let hostFsPath = getHostFSPathForZipEntry(entry);
+    let data = await zip.extract(entry);
+    let timestamp = getZipEntryRiscOsTimestamp(entry);
     console.log('creating file at', hostFsPath);
     putDataAtPath(data, '/hostfs' + hostFsPath, timestamp);
   }
@@ -175,7 +170,6 @@ async function identifyZipFile(filename, size, blob) {
       numDiskImages++;
     if (entry.filename.match(RE_COMMA_EXT))
       numCommaExts++;
-    console.log('ZIP entry: ' + entry.filename);
   }
   if (numDiskImages == 1) {
     return FileTypes.DISC_IMAGE_ZIPPED;
