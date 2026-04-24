@@ -192,7 +192,7 @@ export function getAutobootScript(softwareMeta) {
     bootCmd += `filer_run ${dirPath}\nfiler_run ${appPath}\n`;
     if (softwareMeta['click-icon']) { 
       console.log('auto-click iconbar icon'); 
-      putDataAtPath(atob(CLICK_ICON_BASIC), '/hostfs/click_icon,ffb');
+      putDataAtPath(Uint8Array.fromBase64(CLICK_ICON_BASIC), '/hostfs/click_icon,ffb');
       bootCmd += "filer_run HostFS:$.click_icon\n";
     }
   }
@@ -482,17 +482,17 @@ export function putCmosFile(machineConfig) {
   let cmosPath = machineConfig.getMachineCmosPath();
   let cmosName = machineConfig.getCmosName();
   console.log(`cmos path=${cmosPath} cmos name=${cmosName}`)
-  let cmosData = atob(DEFAULT_CMOS[cmosName]);
+  let cmosData = Uint8Array.fromBase64(DEFAULT_CMOS[cmosName]);
   if (machineConfig.autoboot) { 
     if (CMOS_BOOT_HOSTFS.hasOwnProperty(cmosName)) {
       console.log('using autoboot CMOS for ' + cmosName);
-      cmosData = atob(CMOS_BOOT_HOSTFS[cmosName]);
+      cmosData = Uint8Array.fromBase64(CMOS_BOOT_HOSTFS[cmosName]);
     }  else {
       console.warn("No autoboot CMOS for " + cmosName);
     }
   }
   //if (machineConfig.getMachineType() == 'a5000')
-  //  cmosData = atob(CMOS_A5000);
+  //  cmosData = Uint8Array.fromBase64(CMOS_A5000);
 
   putDataAtPath(cmosData, cmosPath);
 }
