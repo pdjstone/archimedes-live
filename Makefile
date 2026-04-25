@@ -28,6 +28,7 @@ build/index.html: frontend build
 
 build/arculator.js: arculator-wasm/build/wasm/arculator.js build
 	cp arculator-wasm/build/wasm/arculator.{js,wasm} build
+	cp arculator-wasm/js/frontend/*.js build
 	#cp arculator-wasm/build/wasm/sound_processor.js build
 	#cp arculator-wasm/build/wasm/arculator.{js,aw.js,ww.js,worker.js,wasm} build
 ifdef DEBUG

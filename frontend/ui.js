@@ -3,7 +3,8 @@ let buildTag = new URL(import.meta.url).search;
 
 const { createHostfsBootFile, FILETYPE_DESKTOP } = await import('./hostfs.js' + buildTag);
 const { loadFromSoftwareCatalogue, loadSoftwareFromUrl, removeAllChildNodes, showSoftwareBrowser} = await import('./software-browser.js' + buildTag);
-
+import { presetMachines } from "./machine-config.js";
+import { getEmuInput } from "./emu_input.js";
 
 const DISPLAY_MODES = Object.freeze({
 		0: 'DISPLAY_MODE_NO_BORDERS',
@@ -31,7 +32,7 @@ let preload = null;
 
 const offscreenCanvas = document.getElementById('canvas').transferControlToOffscreen();
 
-const arculatorWorker = new Worker('arculator-worker.js' + buildTag + Math.random(), { type: 'module' });
+const arculatorWorker = new Worker('arculator-worker.js' + buildTag, { type: 'module' });
 
 arculatorWorker.onerror = (event) => {
   console.log('main thread arculatorWorker onerror', event);
@@ -45,6 +46,10 @@ arculatorWorker.onmessage = (event) => {
     setCurrentSoftware(event.data.currentSoftware)
   } else if ('updateConfigUI' in event.data) {
     updateConfigUI(event.data.updateConfigUI);
+  } else if ('type' in event.data && event.data.type == 'EmulatorInput') {
+    console.log('EmulatorInput', event.data);
+    let emu = getEmuInput();
+    emu[event.data.func].apply(emu, event.data.params);
   } else {
     console.log('main thread arculatorWorker onmessage', event.data);
   }
