@@ -260,21 +260,23 @@ async function loadDiscFromZip(filename, blob, insert=true) {
   let data = new Uint8Array(buf);
   let unzip = new RiscOsUnzip(data);
 
+  let zipDiscEntry = null;
   let zipDiscFile = null;
-
-  for (let filename of unzip.getFilenames()) {
-    if (isDiscImageFilename(filename)) {
-      zipDiscFile = filename;
+  for await (const entry of unzip.getEntriesGenerator()) {
+    if (isDiscImageFilename(entry.filename)) {
+      zipDiscEntry = entry;
+      zipDiscFile = entry.filename;
       break;
     }
   }
+
 
   if (!zipDiscFile) {
     console.warn("ZIP file did not contain a disc image with a valid extension");
     return;
   }
   console.log("Extracting " + zipDiscFile);
-  data = unzip.decompress(zipDiscFile);
+  data = await unzip.extract(zipDiscEntry);
   if (zipDiscFile.indexOf('/') >= 0) 
     zipDiscFile = baseName(zipDiscFile);
   //console.log('loadDiscFromZip', data);
