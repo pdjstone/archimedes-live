@@ -62,10 +62,9 @@ onmessage = async (e) => {
           self.FS = module.FS;
         
       }],
-      logReadFiles: true,
+      //logReadFiles: true,
       locateFile: file => file + '?' + ARCULATOR_BUILD_TAG,
       print: (function() { 
-      
         return function(text) {
           if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
           console.log('worker print', text);

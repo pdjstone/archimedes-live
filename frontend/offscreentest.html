@@ -101,7 +101,17 @@ function sendMouseCoords(x,y) {
     Atomics.add(coords, 2, 1);
 }
 
-canvas.onmousemove = evt => {
+canvas.onpointerrawupdate = evt => {
+
+    let ce = evt.getCoalescedEvents();
+    if (ce.length > 1) {
+        console.log('coalesced events len', ce.length);
+        let firstEvt = ce[0];
+        let lastEvt = ce[ce.length - 1];
+        console.log(firstEvt.timeStamp === evt.timeStamp, lastEvt.timeStamp == evt.timeStamp);
+    }
+
+
     let x = evt.offsetX - canvasPaddingX;
     let y = evt.offsetY - canvasPaddingY;
     if (x < 0) x = 0;

@@ -134,7 +134,7 @@ canvas {
      cursor is just outside emulator window. This value is looked up
      by EmulatorInput in emu_input.js in arculator-wasm */
   padding: var(--emulator-padding); 
-  image-rendering: pixelated;
+  XXimage-rendering: pixelated; /* this affects fullscreen canvas, actually looks better a bit blurry */
   cursor: none !important; /* SDL sets style="cursor: default" on the canvas element */
   display: block;
 }

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from http import server 
+import sys
 
 class MyHTTPRequestHandler(server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -19,4 +20,10 @@ if __name__ == '__main__':
             self.RequestHandlerClass(request, client_address, self,
                                         directory='build')
 
-    server.test(ServerClass=MyServer, HandlerClass=MyHTTPRequestHandler, bind='localhost')
+    bind = 'localhost'
+    if len(sys.argv) > 1:
+        bind = sys.argv[1]
+    port = 8000
+    if len(sys.argv) > 2:
+        port = int(sys.argv[2])
+    server.test(ServerClass=MyServer, HandlerClass=MyHTTPRequestHandler, bind=bind, port=port)
