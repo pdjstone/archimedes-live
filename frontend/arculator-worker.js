@@ -32,6 +32,29 @@ let arculatorModule = null;
 
 let machinePreset = null;
 
+// Emscripten calls setStatus unbound, so keep its state in the closure, not on `this`
+let totalDependencies = 0;
+const lastStatus = { time: 0, text: '' };
+function setStatus(text) {
+  if (text === lastStatus.text) return;
+  var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+  var now = Date.now();
+  if (m && now - lastStatus.time < 30) return; // if this is a progress update, skip it if too soon
+  lastStatus.time = now;
+  lastStatus.text = text;
+  if (m) {
+    text = m[1];
+    let progressVal = parseInt(m[2])*100;
+    let progressMax = parseInt(m[4])*100;
+    console.log(`worker status ${progressVal}/${progressMax}`)
+  } else {
+    console.log('hide status element');
+    // hide status elements
+  }
+  console.log('worker status', text);
+}
+
+
 
 onmessageerror = (event) => { console.log('worker message error', event); }
 
@@ -71,31 +94,11 @@ onmessage = async (e) => {
         };
       })(),
 
-      setStatus: function(text) {
-        if (!this.setStatus.last) this.setStatus.last = { time: Date.now(), text: '' };
-        if (text === this.setStatus.last.text) return;
-        var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
-        var now = Date.now();
-        if (m && now - this.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
-        this.setStatus.last.time = now;
-        this.setStatus.last.text = text;
-        if (m) {
-          text = m[1];
-          let progressVal = parseInt(m[2])*100;
-          let progressMax = parseInt(m[4])*100;
-          console.log(`worker status ${progressVal}/${progressMax}`)
-        } else {
-          console.log('hide status element');
-          // hide status elements
-        }
-        console.log('worker status', text);
-      },
-
-      totalDependencies: 0,
+      setStatus: setStatus,
 
       monitorRunDependencies: function(left) {
-        this.totalDependencies = Math.max(this.totalDependencies, left);
-        Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+        totalDependencies = Math.max(totalDependencies, left);
+        setStatus(left ? 'Preparing... (' + (totalDependencies-left) + '/' + totalDependencies + ')' : 'All downloads complete.');
       }
     });
   }
