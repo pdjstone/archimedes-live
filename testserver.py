@@ -20,7 +20,7 @@ if __name__ == '__main__':
             self.RequestHandlerClass(request, client_address, self,
                                         directory='build')
 
-    bind = 'localhost'
+    bind = '127.0.0.1'
     if len(sys.argv) > 1:
         bind = sys.argv[1]
     port = 8000
