@@ -15,6 +15,9 @@ var Module = {
       if (machineConfig.fastForward) {
         arc_fast_forward(machineConfig.fastForward);
       }
+      if (machineConfig.dumpAudio) {
+        arc_dump_audio(machineConfig.dumpAudio.delay, machineConfig.dumpAudio.duration);
+      }
     })
   },
   preRun: [],
@@ -217,6 +220,11 @@ function arc_fast_forward(ms) {
   ccall('arc_fast_forward', null, ['number'], [ms]);
 }
 
+function arc_dump_audio(delay, duration) {
+  console.log(`Dumping ${duration}s of audio to /audio_dump.wav after ${delay}s delay`);
+  ccall('arc_dump_audio', null, ['number', 'number'], [delay, duration]);
+}
+
 function arc_get_emulation_ms() {
   return ccall('arc_get_emulation_ms', 'int', []);
 }
@@ -224,6 +232,62 @@ function arc_get_emulation_ms() {
 function arc_enable_sound(enable) {
   ccall('arc_enable_sound', null, ['int'], [enable ? 1 : 0]);
 }
+
+function arc_get_audio_dump_state() {
+  return ccall('arc_get_audio_dump_state', 'number', []);
+}
+
+/*Branch-agnostic audio dump hook, used by selenium-scripts/fetch_audio_dump.py
+  so that one script works against both the main and worker-refactor branches.
+  Returns {state, size, base64}: state is 'off', 'waiting', 'recording' or
+  'finished'; size is the current size of the dump in bytes; base64 is the
+  complete WAV file and is only populated once state is 'finished', so polling
+  stays cheap. On this branch the dump is written into the Emscripten
+  filesystem by the emulator itself.*/
+const AUDIO_DUMP_PATH = '/audio_dump.wav';
+const AUDIO_DUMP_STATES = ['off', 'waiting', 'recording', 'finished'];
+
+window.arcGetAudioDump = function() {
+  let dump = {state: 'off', size: 0, base64: null};
+  // The wasm exports abort the runtime if called before it is initialised
+  // (and an abort stops the runtime initialising at all), so wait for it.
+  if (typeof runtimeInitialized === 'undefined' || !runtimeInitialized)
+    return dump;
+  try {
+    dump.state = AUDIO_DUMP_STATES[arc_get_audio_dump_state()] || 'off';
+  } catch (e) {
+    return {state: 'error', size: 0, base64: null, reason: 'dump state unavailable: ' + e};
+  }
+  try {
+    if (typeof FS !== 'undefined' && FS.analyzePath(AUDIO_DUMP_PATH).exists) {
+      let data = FS.readFile(AUDIO_DUMP_PATH);
+      dump.size = data.length;
+      if (dump.state == 'finished')
+        dump.base64 = arrayBufferToBase64(data);
+    }
+  } catch (e) {
+    return {state: 'error', size: dump.size, base64: null, reason: 'unable to read dump: ' + e};
+  }
+  return dump;
+};
+
+/*Audio glitch counters, so that selenium can assert e.g. "0 underruns during
+  the dump". The SDL audio backend on this branch does not report glitches, so
+  every counter is always zero here; the AudioWorklet branch returns live
+  counters from the emulator and the audio worklet.*/
+window.arcAudioStats = function() {
+  return {
+    underruns: 0,
+    silentFrames: 0,
+    overflows: 0,
+    framesDropped: 0,
+    recordsDropped: 0,
+    clips: 0,
+    minFillMs: null,
+    maxFillMs: null,
+    targetFillMs: null
+  };
+};
 
 
 function closeModal(id, event = null) {
@@ -295,6 +359,17 @@ function getPageBootParams() {
       console.warn(`Invalid value for sound-filter - must be 0 (full), 1 (reduced) or 2 (more reduced)`);
     }
   }
+  if (searchParams.has('dumpaudio')) {
+    // dumpaudio=<duration>,<delay> - both in seconds, delay defaults to 0
+    let parts = searchParams.get('dumpaudio').split(',');
+    let duration = parseFloat(parts[0]);
+    let delay = parts.length > 1 ? parseFloat(parts[1]) : 0;
+    if (duration > 0 && !isNaN(delay) && delay >= 0) {
+      opts.dumpAudio = {duration: duration, delay: delay};
+    } else {
+      console.warn(`Invalid dumpaudio value '${searchParams.get('dumpaudio')}' - expected duration,delay in seconds`);
+    }
+  }
   if (searchParams.has('mouse-capture')) {
     let mouseVal = searchParams.get('mouse-capture');
     if (MOUSE_CAPTURE_MODES.includes(mouseVal)) {
@@ -320,7 +395,8 @@ async function loadMachineConfig(_opts=null) {
     basic: null,
     soundFilter: -1,
     basic: false,
-    mouseCapture: null
+    mouseCapture: null,
+    dumpAudio: null
   }
   if (_opts) {
     Object.assign(opts, _opts);
@@ -405,6 +481,9 @@ async function loadMachineConfig(_opts=null) {
   if (opts.soundFilter >= 0 && opts.soundFilter <= 2) {
     builder.soundFilter(opts.soundFilter);
   }
+  if (opts.dumpAudio) {
+    builder.dumpAudio(opts.dumpAudio);
+  }
   if (builder.getRom().includes('arthur')) {
     // TODO: can we fix doosmouse() for Arthur?
     console.log('Setting mouse-capture=force for Arthur');
@@ -480,9 +559,12 @@ function sleep(ms) {
 
 
 function arrayBufferToBase64(buffer) {
+  // Chunked, so that multi-megabyte audio dumps encode quickly
+  let bytes = new Uint8Array(buffer);
   let binary = '';
-  let bytes = [].slice.call(new Uint8Array(buffer));
-  bytes.forEach((b) => binary += String.fromCharCode(b));
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK)
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
   return window.btoa(binary);
 }
 
