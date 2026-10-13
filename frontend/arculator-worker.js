@@ -78,6 +78,10 @@ onmessage = async (e) => {
           if (machineConfig.fastForward) {
               arc_fast_forward(machineConfig.fastForward);
           }
+          if (machineConfig.dumpAudio) {
+              arc_dump_audio(machineConfig.dumpAudio.delay, machineConfig.dumpAudio.duration);
+              watchAudioDump();
+          }
           })
       },
       preRun: [function(module) {
@@ -118,7 +122,8 @@ async function loadMachineConfig(_opts=null) {
     basic: null,
     soundFilter: -1,
     basic: false,
-    mouseCapture: null
+    mouseCapture: null,
+    dumpAudio: null
   }
   if (_opts) {
     Object.assign(opts, _opts);
@@ -203,6 +208,9 @@ async function loadMachineConfig(_opts=null) {
   if (opts.soundFilter >= 0 && opts.soundFilter <= 2) {
     builder.soundFilter(opts.soundFilter);
   }
+  if (opts.dumpAudio) {
+    builder.dumpAudio(opts.dumpAudio);
+  }
   if (builder.getRom().includes('arthur')) {
     // TODO: can we fix doosmouse() for Arthur?
     console.log('Setting mouse-capture=force for Arthur');
@@ -271,4 +279,56 @@ function arc_get_emulation_ms() {
 
 function arc_enable_sound(enable) {
   arculatorModule.ccall('arc_enable_sound', null, ['int'], [enable ? 1 : 0]);
+}
+
+function arc_dump_audio(delay, duration) {
+  console.log(`Dumping ${duration}s of audio to /audio_dump.wav after ${delay}s delay`);
+  arculatorModule.ccall('arc_dump_audio', null, ['number', 'number'], [delay, duration]);
+}
+
+function arc_get_audio_dump_state() {
+  return arculatorModule.ccall('arc_get_audio_dump_state', 'number', []);
+}
+
+const AUDIO_DUMP_PATH = '/audio_dump.wav';
+const AUDIO_DUMP_STATES = ['off', 'waiting', 'recording', 'finished'];
+
+/**
+ * The emulator writes the dump into our filesystem, which the main thread
+ * can't see, so report its progress to window.arcGetAudioDump() there. The
+ * complete file is only sent (as base64) once it's finished.
+ */
+function watchAudioDump() {
+  let lastKey = null;
+  const timer = setInterval(() => {
+    let dump = {state: 'off', size: 0, base64: null};
+    try {
+      dump.state = AUDIO_DUMP_STATES[arc_get_audio_dump_state()] || 'off';
+      if (FS.analyzePath(AUDIO_DUMP_PATH).exists) {
+        let data = FS.readFile(AUDIO_DUMP_PATH);
+        dump.size = data.length;
+        if (dump.state == 'finished')
+          dump.base64 = arrayBufferToBase64(data);
+      }
+    } catch (e) {
+      dump = {state: 'error', size: 0, base64: null, reason: 'unable to read dump: ' + e};
+    }
+    const key = dump.state + ':' + dump.size;
+    if (key !== lastKey) {
+      lastKey = key;
+      postMessage({type: 'AudioDump', dump: dump});
+    }
+    if (dump.state == 'finished' || dump.state == 'error')
+      clearInterval(timer);
+  }, 250);
+}
+
+function arrayBufferToBase64(buffer) {
+  // Chunked, so that multi-megabyte audio dumps encode quickly
+  let bytes = new Uint8Array(buffer);
+  let binary = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK)
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+  return btoa(binary);
 }

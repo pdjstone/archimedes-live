@@ -215,6 +215,7 @@ class MachineConfigBuilder {
     autoboot: false,
     fast_forward: 0,
     sound_filter: 0,
+    dump_audio: null,
     monitor_type: 'multisync'
   }
 
@@ -298,6 +299,10 @@ class MachineConfigBuilder {
     this.params['sound_filter'] = soundFilter;
   }
 
+  dumpAudio(dumpAudio = null) {
+    this.params['dump_audio'] = dumpAudio;
+  }
+
   build() {
     return new MachineConfig(this.configName, this.params);
   }
@@ -310,6 +315,7 @@ class MachineConfig {
     this.configParams = params;
     this.autoboot = params.autoboot;
     this.fastForward = params.fast_forward;
+    this.dumpAudio = params.dump_audio;
   }
 
   getMachineName() {

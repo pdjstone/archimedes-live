@@ -5,6 +5,7 @@ const { createHostfsBootFile, FILETYPE_DESKTOP } = await import('./hostfs.js' + 
 const { loadFromSoftwareCatalogue, loadSoftwareFromUrl, removeAllChildNodes, showSoftwareBrowser} = await import('./software-browser.js' + buildTag);
 import { presetMachines } from "./machine-config.js";
 import { getEmuInput } from "./emu_input.js";
+const { EmuAudio } = await import('./emu-audio.js' + buildTag);
 
 const DISPLAY_MODES = Object.freeze({
 		0: 'DISPLAY_MODE_NO_BORDERS',
@@ -32,6 +33,29 @@ let preload = null;
 
 const offscreenCanvas = document.getElementById('canvas').transferControlToOffscreen();
 
+const emuAudio = new EmuAudio(buildTag, searchParams.has('audiostats'));
+
+/*Branch-agnostic audio dump hook, used by selenium-scripts/fetch_audio_dump.py
+  so that one script works against both the main and worker-refactor branches.
+  Returns {state, size, base64}: state is 'off', 'waiting', 'recording' or
+  'finished'; size is the current size of the dump in bytes; base64 is the
+  complete WAV file and is only populated once state is 'finished', so polling
+  stays cheap. Here the emulator runs in the worker, which writes the dump into
+  its filesystem and posts progress to us (see watchAudioDump in
+  arculator-worker.js).*/
+let audioDump = {state: 'off', size: 0, base64: null};
+
+window.arcGetAudioDump = function() {
+  return audioDump;
+};
+
+/*Audio glitch counters, so that selenium can assert e.g. "0 underruns during
+  the dump". All are cumulative since page load. Returns null until the audio
+  has been set up.*/
+window.arcAudioStats = function(resetFill = false) {
+  return emuAudio.stats(resetFill);
+};
+
 const arculatorWorker = new Worker('arculator-worker.js' + buildTag, { type: 'module' });
 
 arculatorWorker.onerror = (event) => {
@@ -50,6 +74,10 @@ arculatorWorker.onmessage = (event) => {
     console.log('EmulatorInput', event.data);
     let emu = getEmuInput();
     emu[event.data.func].apply(emu, event.data.params);
+  } else if ('type' in event.data && event.data.type == 'AudioInit') {
+    emuAudio.init(event.data);
+  } else if ('type' in event.data && event.data.type == 'AudioDump') {
+    audioDump = event.data.dump;
   } else {
     console.log('main thread arculatorWorker onmessage', event.data);
   }
@@ -191,6 +219,17 @@ function getPageBootParams() {
       console.warn(`Invalid value for sound-filter - must be 0 (full), 1 (reduced) or 2 (more reduced)`);
     }
   }
+  if (searchParams.has('dumpaudio')) {
+    // dumpaudio=<duration>,<delay> - both in seconds, delay defaults to 0
+    let parts = searchParams.get('dumpaudio').split(',');
+    let duration = parseFloat(parts[0]);
+    let delay = parts.length > 1 ? parseFloat(parts[1]) : 0;
+    if (duration > 0 && !isNaN(delay) && delay >= 0) {
+      opts.dumpAudio = {duration: duration, delay: delay};
+    } else {
+      console.warn(`Invalid dumpaudio value '${searchParams.get('dumpaudio')}' - expected duration,delay in seconds`);
+    }
+  }
   if (searchParams.has('mouse-capture')) {
     let mouseVal = searchParams.get('mouse-capture');
     if (MOUSE_CAPTURE_MODES.includes(mouseVal)) {
@@ -317,27 +356,6 @@ function appendDl(dl, title, description) {
   dd.textContent = description;
   dl.appendChild(dt);
   dl.appendChild(dd);
-}
-
-async function monitorAudioContext() {
-  let audioContext = null;
-  while (audioContext == null) {
-    console.log('Audio state: waiting for context');
-    await sleep(200);
-    if (typeof Module.SDL2 != 'undefined') {
-      audioContext = Module.SDL2.audioContext;
-    }
-  }
-  
-  let updateAudioState = function() {
-    console.log("Audio state:", audioContext.state);
-    if (audioContext.state == 'suspended')
-      document.body.classList.add('audio-suspended');
-    else
-      document.body.classList.remove('audio-suspended');
-  }
-  audioContext.addEventListener('statechange', updateAudioState);
-  updateAudioState();
 }
 
 if (searchParams.has('dbglatency')) {
