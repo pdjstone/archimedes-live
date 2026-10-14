@@ -40,13 +40,10 @@ const emuAudio = new EmuAudio(buildTag, searchParams.has('audiostats'));
   Returns {state, size, base64}: state is 'off', 'waiting', 'recording' or
   'finished'; size is the current size of the dump in bytes; base64 is the
   complete WAV file and is only populated once state is 'finished', so polling
-  stays cheap. Here the emulator runs in the worker, which writes the dump into
-  its filesystem and posts progress to us (see watchAudioDump in
-  arculator-worker.js).*/
-let audioDump = {state: 'off', size: 0, base64: null};
-
+  stays cheap. Here the dump is captured by the audio worklet, so it only
+  starts once the AudioContext is running.*/
 window.arcGetAudioDump = function() {
-  return audioDump;
+  return emuAudio.getDump();
 };
 
 /*Audio glitch counters, so that selenium can assert e.g. "0 underruns during
@@ -76,8 +73,6 @@ arculatorWorker.onmessage = (event) => {
     emu[event.data.func].apply(emu, event.data.params);
   } else if ('type' in event.data && event.data.type == 'AudioInit') {
     emuAudio.init(event.data);
-  } else if ('type' in event.data && event.data.type == 'AudioDump') {
-    audioDump = event.data.dump;
   } else {
     console.log('main thread arculatorWorker onmessage', event.data);
   }
@@ -226,6 +221,8 @@ function getPageBootParams() {
     let delay = parts.length > 1 ? parseFloat(parts[1]) : 0;
     if (duration > 0 && !isNaN(delay) && delay >= 0) {
       opts.dumpAudio = {duration: duration, delay: delay};
+      // The audio worklet needs to allocate the dump's memory before it starts
+      emuAudio.expectDump(Math.trunc(duration * 48000));
     } else {
       console.warn(`Invalid dumpaudio value '${searchParams.get('dumpaudio')}' - expected duration,delay in seconds`);
     }

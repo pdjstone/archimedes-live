@@ -80,7 +80,6 @@ onmessage = async (e) => {
           }
           if (machineConfig.dumpAudio) {
               arc_dump_audio(machineConfig.dumpAudio.delay, machineConfig.dumpAudio.duration);
-              watchAudioDump();
           }
           })
       },
@@ -282,53 +281,6 @@ function arc_enable_sound(enable) {
 }
 
 function arc_dump_audio(delay, duration) {
-  console.log(`Dumping ${duration}s of audio to /audio_dump.wav after ${delay}s delay`);
+  console.log(`Dumping ${duration}s of audio after ${delay}s delay`);
   arculatorModule.ccall('arc_dump_audio', null, ['number', 'number'], [delay, duration]);
-}
-
-function arc_get_audio_dump_state() {
-  return arculatorModule.ccall('arc_get_audio_dump_state', 'number', []);
-}
-
-const AUDIO_DUMP_PATH = '/audio_dump.wav';
-const AUDIO_DUMP_STATES = ['off', 'waiting', 'recording', 'finished'];
-
-/**
- * The emulator writes the dump into our filesystem, which the main thread
- * can't see, so report its progress to window.arcGetAudioDump() there. The
- * complete file is only sent (as base64) once it's finished.
- */
-function watchAudioDump() {
-  let lastKey = null;
-  const timer = setInterval(() => {
-    let dump = {state: 'off', size: 0, base64: null};
-    try {
-      dump.state = AUDIO_DUMP_STATES[arc_get_audio_dump_state()] || 'off';
-      if (FS.analyzePath(AUDIO_DUMP_PATH).exists) {
-        let data = FS.readFile(AUDIO_DUMP_PATH);
-        dump.size = data.length;
-        if (dump.state == 'finished')
-          dump.base64 = arrayBufferToBase64(data);
-      }
-    } catch (e) {
-      dump = {state: 'error', size: 0, base64: null, reason: 'unable to read dump: ' + e};
-    }
-    const key = dump.state + ':' + dump.size;
-    if (key !== lastKey) {
-      lastKey = key;
-      postMessage({type: 'AudioDump', dump: dump});
-    }
-    if (dump.state == 'finished' || dump.state == 'error')
-      clearInterval(timer);
-  }, 250);
-}
-
-function arrayBufferToBase64(buffer) {
-  // Chunked, so that multi-megabyte audio dumps encode quickly
-  let bytes = new Uint8Array(buffer);
-  let binary = '';
-  const CHUNK = 0x8000;
-  for (let i = 0; i < bytes.length; i += CHUNK)
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
-  return btoa(binary);
 }
