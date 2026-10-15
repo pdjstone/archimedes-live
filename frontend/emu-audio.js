@@ -25,8 +25,11 @@ export class EmuAudio {
     this.running = false;
     this.lastLogged = null;
     this.dumpFrames = 0;  // size of the audio dump that's been asked for
+    this.dumpPost = false; // also capture what's played, after gain and disc noise
     this.dumpWav = null;  // the finished dump, as a WAV file
     this.dumpBase64 = null;
+    this.postWav = null;  // and the 'post' dump
+    this.postBase64 = null;
   }
 
   /**
@@ -80,7 +83,7 @@ export class EmuAudio {
       ddPtr: msg.ddPtr
     });
     if (this.dumpFrames)
-      this.node.port.postMessage({ type: 'dump', frames: this.dumpFrames });
+      this.node.port.postMessage({ type: 'dump', frames: this.dumpFrames, post: this.dumpPost });
     this.node.connect(ctx.destination);
 
     // Browsers won't let audio start until the user has interacted with the page
@@ -119,16 +122,20 @@ export class EmuAudio {
   onWorkletMessage(msg) {
     if (msg.type === 'dump')
       this.dumpWav = makeWav(new Int16Array(msg.samples), SAMPLE_RATE);
+    else if (msg.type === 'postdump')
+      this.postWav = makeWav(new Int16Array(msg.samples), SAMPLE_RATE);
   }
 
   /**
    * An audio dump of this many frames is going to be requested. The worklet
-   * needs the memory for it up front.
+   * needs the memory for it up front. With post, it also records what is
+   * actually played over the same frames.
    */
-  expectDump(frames) {
+  expectDump(frames, post = false) {
     this.dumpFrames = frames;
+    this.dumpPost = post;
     if (this.node)
-      this.node.port.postMessage({ type: 'dump', frames });
+      this.node.port.postMessage({ type: 'dump', frames, post });
   }
 
   /**
@@ -136,8 +143,23 @@ export class EmuAudio {
    * 'waiting', 'recording', 'finished' or 'error'; size is the size of the
    * WAV file so far in bytes, and base64 is the complete file once the state
    * is 'finished'.
+   *
+   * kind 'post' gets the dump of what was played, after gain and disc noise,
+   * if that was asked for. It finishes after the main one, as it's recorded
+   * when the audio is played rather than when it's made.
    */
-  getDump() {
+  getDump(kind = 'main') {
+    if (kind === 'post') {
+      if (this.postWav) {
+        if (!this.postBase64)
+          this.postBase64 = arrayBufferToBase64(this.postWav);
+        return { state: 'finished', size: this.postWav.length, base64: this.postBase64 };
+      }
+      if (!this.dumpPost)
+        return { state: 'off', size: 0, base64: null };
+      const main = this.getDump();
+      return { state: main.state === 'finished' ? 'recording' : main.state, size: 44, base64: null, reason: main.reason };
+    }
     if (this.dumpWav) {
       if (!this.dumpBase64)
         this.dumpBase64 = arrayBufferToBase64(this.dumpWav);
@@ -187,6 +209,8 @@ export class EmuAudio {
       eventsDropped: Atomics.load(c, CTRL.EVENTS_DROPPED),
       clips: Atomics.load(c, CTRL.CLIPS),
       ddUnderruns: Atomics.load(c, CTRL.DD_UNDERRUNS),
+      ddBlocksWritten: Atomics.load(c, CTRL.DD_WRITE), // 100ms disc noise blocks
+      ddBlocksPlayed: Atomics.load(c, CTRL.DD_READ),
       recordsWritten: Atomics.load(c, CTRL.REC_WRITE) >>> 0,
       recordsRead: Atomics.load(c, CTRL.REC_READ) >>> 0,
       ticksWritten: Atomics.load(c, CTRL.TICKS_WRITE) >>> 0,
@@ -200,6 +224,7 @@ export class EmuAudio {
       minFillMs: min === FILL_UNSET ? null : ms(min),
       maxFillMs: max === 0 ? null : ms(max),
       targetFillMs: target === 0 ? null : ms(target),
+      trimFillMs: Atomics.load(c, CTRL.TRIM_FILL) === 0 ? null : ms(Atomics.load(c, CTRL.TRIM_FILL)), // fill above which the worklet throws audio away
       ctxState: this.ctx ? this.ctx.state : null,
       sampleRate: this.ctx ? this.ctx.sampleRate : null,
       baseLatencyMs: this.ctx ? Math.round(this.ctx.baseLatency * 1000 * 10) / 10 : null,

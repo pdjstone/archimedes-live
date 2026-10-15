@@ -102,6 +102,8 @@ export class ArculatorDsp {
     this.dumpPos = 0;
     this.capturing = false;
     this.onDumpDone = null;
+    this.dumpJustStarted = false;
+    this.dumpStartAt = -1; // index in produce()'s output of the first frame of the dump, until the caller takes it
   }
 
   /** Provide the memory for an audio dump. This allocates, so can't be called from process() */
@@ -233,6 +235,7 @@ export class ArculatorDsp {
     this.dumpFrames = frames;
     this.dumpPos = 0;
     this.capturing = true;
+    this.dumpJustStarted = true;
   }
 
   capture(l, r) {
@@ -337,10 +340,12 @@ export class ArculatorDsp {
 
   /**
    * Make up to n output frames into out (interleaved left, right), starting at
-   * frame `at`. Returns the number made, which is fewer if the emulator hasn't
-   * sent enough audio yet.
+   * frame `at`. If ticks is given, ticks[at + i] gets the base clock tick (on
+   * the emulator's TICKS_WRITE count) that each frame was taken from, which is
+   * what disc noise is lined up against. Returns the number made, which is
+   * fewer if the emulator hasn't sent enough audio yet.
    */
-  produce(out, n, at = 0) {
+  produce(out, n, at = 0, ticks = null) {
     if (!this.valid)
       return 0;
 
@@ -350,6 +355,11 @@ export class ArculatorDsp {
       if (((this.wm - this.fr) | 0) <= 0)
         break;
       this.applyFrameEvents();
+      if (this.dumpJustStarted) {
+        // So that the caller can find this frame again when it's played
+        this.dumpJustStarted = false;
+        this.dumpStartAt = at + produced;
+      }
 
       const T = this.T;
       let l = 0, r = 0;
@@ -365,6 +375,8 @@ export class ArculatorDsp {
 
       out[(at + produced) * 2] = l;
       out[(at + produced) * 2 + 1] = r;
+      if (ticks)
+        ticks[at + produced] = (this.tick0 + T) | 0;
       produced++;
       if (this.capturing)
         this.capture(l, r);

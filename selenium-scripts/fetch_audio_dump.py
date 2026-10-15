@@ -29,27 +29,30 @@ DUMP_DIR = Path(__file__).resolve().parent.parent / 'build' / 'audio-dumps'
 
 # The branch-agnostic dump interface (see frontend/ui.js). Returns
 # {state, size, base64} where state is 'off', 'waiting', 'recording',
-# 'finished' or 'error'.
+# 'finished' or 'error'. The argument is the kind of dump: 'main', or 'post' for
+# what was played after gain and disc noise (worker-refactor branch only).
 JS_GET_DUMP = """
 if (typeof window.arcGetAudioDump !== 'function')
   return {state: 'error', size: 0, base64: null,
           reason: 'window.arcGetAudioDump is not defined - is the frontend up to date?'};
 try {
-  return window.arcGetAudioDump();
+  return window.arcGetAudioDump(arguments[0]);
 } catch (e) {
   return {state: 'error', size: 0, base64: null, reason: 'error: ' + e};
 }
 """
 
 
-def build_url(base, duration, delay):
-    """Merge dumpaudio=<duration>,<delay> into the URL's hash.
+def build_url(base, duration, delay, post=False):
+    """Merge dumpaudio=<duration>,<delay>[,post] into the URL's hash.
 
     The frontend reads its parameters from the hash fragment, not the query string."""
     parts = urlsplit(base)
     params = parse_qs(parts.fragment, keep_blank_values=True)
     if duration is not None:
-        params['dumpaudio'] = [f'{duration},{delay}']
+        params['dumpaudio'] = [f'{duration},{delay}' + (',post' if post else '')]
+    elif post and 'dumpaudio' in params and not params['dumpaudio'][0].endswith(',post'):
+        params['dumpaudio'] = [params['dumpaudio'][0] + ',post']
     return urlunsplit((parts.scheme, parts.netloc, parts.path,
                        parts.query, urlencode(params, doseq=True)))
 
@@ -76,12 +79,15 @@ def main():
     ap.add_argument('--delay', type=float, default=0,
                     help='seconds of emulation to wait before recording starts')
     ap.add_argument('--out', default='audio_dump', help='output name (without .wav)')
+    ap.add_argument('--post', action='store_true',
+                    help='also save what was played, after gain and disc noise, as NAME-post.wav '
+                         '(worker-refactor branch only)')
     ap.add_argument('--outdir', default=None, help=f'output directory (default: {DUMP_DIR})')
     ap.add_argument('--timeout', type=float, default=180,
                     help='seconds to wait for the dump to finish')
     args = ap.parse_args()
 
-    url = build_url(args.url, args.duration, args.delay)
+    url = build_url(args.url, args.duration, args.delay, args.post)
     expected = args.duration
     if expected is None:
         # Fall back to whatever the URL already asked for, so --timeout and the
@@ -111,7 +117,7 @@ def main():
         dump, deadline = None, time.monotonic() + args.timeout
         last_report = 0.0
         while time.monotonic() < deadline:
-            dump = driver.execute_script(JS_GET_DUMP)
+            dump = driver.execute_script(JS_GET_DUMP, 'main')
             if dump and dump.get('state') == 'finished':
                 break
             now = time.monotonic()
@@ -129,6 +135,21 @@ def main():
             return 1
         wav_bytes = base64.b64decode(dump['base64'])
         path.write_bytes(wav_bytes)
+
+        if args.post:
+            # Recorded as the audio is played, so it finishes a little after the main one
+            post = None
+            while time.monotonic() < deadline:
+                post = driver.execute_script(JS_GET_DUMP, 'post')
+                if post and post.get('state') in ('finished', 'error', 'off'):
+                    break
+                time.sleep(0.5)
+            if not post or not post.get('base64'):
+                print(f'no post dump: {describe(post)}', file=sys.stderr)
+                return 1
+            post_path = outdir / f'{args.out}-post.wav'
+            post_path.write_bytes(base64.b64decode(post['base64']))
+            print(f'saved {post_path}')
     finally:
         try:
             driver.quit()

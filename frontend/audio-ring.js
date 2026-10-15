@@ -10,19 +10,21 @@ export const RING = Object.freeze({
   EVENT_BYTES: 64,
   RECORD_COUNT: 16384, // power of two
   RECORD_BYTES: 72,
-  DD_FRAMES: 16384     // mono samples at 44.1kHz, power of two
+  DD_BLOCKS: 8,        // disc noise blocks, power of two
+  DD_BLOCK: 4410,      // mono 44.1kHz samples in each (100ms)
+  DD_BLOCK_BYTES: 8828 // int32 tick, int32 seq, then the samples
 });
 
 // Indices into the Int32 control block at the start of the ring
 export const CTRL = Object.freeze({
   REC_WRITE: 0,       // emulator: records written
   REC_READ: 1,        // worklet: records consumed
-  DD_WRITE: 2,        // emulator: ddnoise samples written
-  DD_READ: 3,         // worklet: ddnoise samples consumed
+  DD_WRITE: 2,        // emulator: disc noise blocks written
+  DD_READ: 3,         // worklet: disc noise blocks finished with
   CTX_RUNNING: 4,     // main thread: AudioContext is running and the worklet is attached
   GAIN: 5,            // emulator: sound_gain as a Q8 multiplier
   DD_GAIN: 6,         // emulator: disc noise gain as a Q8 multiplier
-  TARGET_FILL: 7,     // worklet: wanted fill, in output frames
+  TARGET_FILL: 7,     // worklet: wanted fill, in output frames. It adapts to how often playback runs dry
   DUMP_STATE: 8,      // DUMP_STATE below. Emulator sets WAITING and RECORDING, worklet FINISHED
   UNDERRUNS: 9,       // worklet: times playback ran dry
   SILENT_FRAMES: 10,  // worklet: frames of silence output because of underruns
@@ -33,7 +35,7 @@ export const CTRL = Object.freeze({
   MAX_FILL: 15,       // worklet: maximum fill (output frames) since last reset by the main thread
   RECORDS_DROPPED: 16, // emulator: records dropped because the ring was full
   EVENTS_DROPPED: 17, // emulator: events dropped because the ring was full
-  DD_UNDERRUNS: 18,   // worklet: times the ddnoise stream ran dry
+  DD_UNDERRUNS: 18,   // worklet: times the next disc noise block wasn't there when it was due
   LOOP_GAP_MAX: 19,   // emulator: longest gap (ms) between arcloop() calls since the main thread last reset it
   LOOP_LATE: 20,      // emulator: arcloop() calls that came more than 40ms after the previous one
   RUN_MAX: 21,        // emulator: longest wall time (ms) in arc_run() since the main thread last reset it
@@ -44,7 +46,8 @@ export const CTRL = Object.freeze({
   RESET_ACK: 26,      // worklet: the RESET_SEQ of the last reset it applied
   DUMP_FRAMES: 27,    // worklet: frames captured so far by the audio dump
   FRAME_WM: 28,       // emulator: output frame watermark - every event that applies to a frame before this has been published
-  RESET_SEQ: 29       // emulator: resets sent. The latest is in reset slot RESET_SEQ & 1
+  RESET_SEQ: 29,      // emulator: resets sent. The latest is in reset slot RESET_SEQ & 1
+  TRIM_FILL: 30       // worklet: fill (output frames) above which it throws audio away. Moves with the target
 });
 
 // Event codes

@@ -15,28 +15,50 @@ import { ArculatorDsp } from './audio-dsp.js';
 // frames, so that the emulator's records are freed as soon as possible: at
 // short sample periods the record ring holds very little time. The fill is
 // what's in the FIFO.
-const FIFO_FRAMES = 16384; // power of two (341ms)
+const FIFO_FRAMES = 32768; // power of two (683ms). Has to hold the largest trim level
 const FIFO_MASK = FIFO_FRAMES - 1;
 const MAX_PRODUCE = 4096;  // most frames to run stage 1 for in one process(), so that it doesn't take too long
-const TARGET_FILL = 7200;  // frames (150ms). Wanted fill, sets the latency. The emulator paces itself to this
-const PRIME_FILL = 3600;   // frames needed before (re)starting playback
-const MAX_FILL = 12000;    // frames. If we get fuller than this we drop audio to get back to TARGET_FILL
 
-// Disc noise arrives as mono 44.1kHz in 4410 sample blocks and has to be
-// delayed enough to be gapless
-const DD_PRIME = 8820;     // samples
-const DD_MAX_FILL = 13230; // samples
+// The target fill sets the latency, and the emulator paces itself to keep the
+// fill there. It adapts: each underrun raises it, and a long spell without one
+// lowers it again. The other levels follow it.
+const TARGET_START = 4800;     // frames (100ms)
+const TARGET_MIN = 2880;       // 60ms
+const TARGET_MAX = 14400;      // 300ms
+const TARGET_RAISE = 480;      // 10ms, on each underrun
+const TARGET_LOWER = 240;      // 5ms...
+const TARGET_LOWER_AFTER = 480000; // ...after this many frames (10s) played without an underrun
+const TRIM_HEADROOM_MIN = 2400; // 50ms. Trim at the target plus half the target, or plus this if more
+
+// Disc noise arrives as 100ms blocks of mono 44.1kHz, each tagged with the
+// base clock tick it starts at. Each block is made at the start of the time it
+// covers, so it's here before the main audio for the same moment, and it's
+// played from the frame whose tick reaches the block's. That locks it to the
+// main audio with no buffering of its own.
 const DD_STEP = 44100 / 48000;
+const DD_BLOCK = RING.DD_BLOCK;
+const DD_WORDS = RING.DD_BLOCK_BYTES / 4;  // Int32 words per block
+const DD_HALVES = RING.DD_BLOCK_BYTES / 2; // Int16 words per block
+const DD_HEADER = 4;                       // Int16 words before the samples
+const DD_BLOCK_MASK = RING.DD_BLOCKS - 1;
 
 const MAX_QUANTUM = 1024;  // frames. Web Audio uses 128
-const DD_MASK = RING.DD_FRAMES - 1;
 
 class ArculatorAudioProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.ready = false;
     this.dsp = null;
-    this.pendingDump = 0;
+    this.pendingDump = null;
+    // The 'post' audio dump: what actually reaches the speakers over the same
+    // frames as the main dump, after gain and disc noise, and with any fades
+    // and underrun silence
+    this.postBuf = null;
+    this.postFrames = 0;
+    this.postPos = 0;
+    this.postArmed = false;     // waiting for postStart to be played
+    this.postStart = 0;         // FIFO frame (free running) the main dump starts at
+    this.postCapturing = false;
     this.port.onmessage = (event) => {
       const msg = event.data;
       if (msg.type === 'init') {
@@ -44,9 +66,9 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
       } else if (msg.type === 'dump') {
         // Memory for an audio dump has to be allocated here, not when it starts
         if (this.dsp)
-          this.dsp.setDumpBuffer(msg.frames);
+          this.setDump(msg);
         else
-          this.pendingDump = msg.frames;
+          this.pendingDump = msg;
       }
     };
   }
@@ -56,39 +78,74 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
     if (checkRingLayout(msg))
       return;
     this.ctrl = new Int32Array(msg.heap, msg.ctrlPtr, RING.CTRL_WORDS);
-    this.dd = new Int16Array(msg.heap, msg.ddPtr, RING.DD_FRAMES);
+    this.ddHead = new Int32Array(msg.heap, msg.ddPtr, RING.DD_BLOCKS * DD_WORDS);
+    this.ddData = new Int16Array(msg.heap, msg.ddPtr, RING.DD_BLOCKS * DD_HALVES);
     this.dsp = new ArculatorDsp(msg.heap, msg);
     this.dsp.onDumpDone = (buf) => this.port.postMessage({ type: 'dump', samples: buf.buffer }, [buf.buffer]);
     if (this.pendingDump)
-      this.dsp.setDumpBuffer(this.pendingDump);
+      this.setDump(this.pendingDump);
 
     this.fifo = new Int16Array(FIFO_FRAMES * 2); // output of stage 1, interleaved left, right
+    this.fifoTick = new Int32Array(FIFO_FRAMES); // the tick each of those frames was taken from
     this.fifoR = 0;  // frames read from the FIFO, free running
     this.fifoW = 0;  // frames written to it
     this.seenResets = this.dsp.resetCount;
     this.playing = false;
     this.fadeIn = false;
-    this.ddR = 0;
-    this.ddFrac = 0;
-    this.ddPlaying = false;
+    this.ddActive = false; // a block is playing
+    this.ddCur = 0;        // the block playing, as a free running block count
+    this.ddNext = Atomics.load(this.ctrl, CTRL.DD_READ); // the next block to play
+    this.ddPos = 0;        // sample position in the block playing
     this.lastL = 0;
     this.lastR = 0;
 
-    Atomics.store(this.ctrl, CTRL.TARGET_FILL, TARGET_FILL);
+    this.quietFrames = 0;  // frames played since the last underrun, or the last time the target was lowered
+    this.setTarget(TARGET_START);
     Atomics.store(this.ctrl, CTRL.MIN_FILL, FILL_UNSET);
     Atomics.store(this.ctrl, CTRL.MAX_FILL, 0);
-    this.discardDD();
     this.ready = true;
   }
 
-  /** Drop whatever disc noise is queued */
-  discardDD() {
-    const c = this.ctrl;
-    this.ddR = Atomics.load(c, CTRL.DD_WRITE) >>> 0;
-    this.ddFrac = 0;
-    this.ddPlaying = false;
-    Atomics.store(c, CTRL.DD_READ, this.ddR | 0);
+  setDump(msg) {
+    this.dsp.setDumpBuffer(msg.frames);
+    if (msg.post) {
+      this.postBuf = new Int16Array(msg.frames * 2);
+      this.postFrames = msg.frames;
+    }
   }
+
+  /** Record n frames of what was played (as left, right floats) into the 'post' dump */
+  capturePost(outL, outR, from, n) {
+    const buf = this.postBuf;
+    for (let i = from; i < from + n && this.postCapturing; i++) {
+      let l = Math.round(outL[i] * 32768);
+      let r = Math.round(outR[i] * 32768);
+      buf[this.postPos * 2] = l > 32767 ? 32767 : l;
+      buf[this.postPos * 2 + 1] = r > 32767 ? 32767 : r;
+      if (++this.postPos >= this.postFrames) {
+        this.postCapturing = false;
+        this.postBuf = null;
+        this.port.postMessage({ type: 'postdump', samples: buf.buffer }, [buf.buffer]);
+      }
+    }
+  }
+
+  /**
+   * Set the target fill, and the levels that go with it: start playing at
+   * half of it, and throw audio away above trimFill. The emulator reads both.
+   */
+  setTarget(frames) {
+    if (frames < TARGET_MIN)
+      frames = TARGET_MIN;
+    if (frames > TARGET_MAX)
+      frames = TARGET_MAX;
+    this.target = frames;
+    this.primeFill = frames >> 1;
+    this.trimFill = frames + Math.max(frames >> 1, TRIM_HEADROOM_MIN);
+    Atomics.store(this.ctrl, CTRL.TRIM_FILL, this.trimFill);
+    Atomics.store(this.ctrl, CTRL.TARGET_FILL, frames);
+  }
+
 
   /** Run stage 1 into the FIFO, as far as the emulator has got and there's room */
   runStage1() {
@@ -103,7 +160,15 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
       let want = FIFO_FRAMES - at;
       if (want > room)
         want = room;
-      const got = dsp.produce(fifo, want, at);
+      const got = dsp.produce(fifo, want, at, this.fifoTick);
+      if (dsp.dumpStartAt >= 0) {
+        // The main dump starts in what we've just made. The 'post' dump starts when it's played
+        if (this.postBuf) {
+          this.postStart = (this.fifoW + (dsp.dumpStartAt - at)) | 0;
+          this.postArmed = true;
+        }
+        dsp.dumpStartAt = -1;
+      }
       this.fifoW = (this.fifoW + got) | 0;
       room -= got;
       if (got < want)
@@ -136,26 +201,28 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
       this.seenResets = dsp.resetCount;
       this.playing = false;
       this.fifoR = this.fifoW = 0;
-      this.discardDD();
+      this.ddActive = false; // blocks from the old stream are skipped below
     }
 
     this.runStage1();
 
     let fill = (this.fifoW - this.fifoR) | 0;
     if (!this.playing) {
-      if (fill < PRIME_FILL) {
+      if (fill < this.primeFill) {
         this.publish();
+        if (this.postCapturing)
+          this.capturePost(outL, outR, 0, n); // silence while it fills up again
         return true;
       }
       this.playing = true;
       this.fadeIn = true;
     }
 
-    if (fill > MAX_FILL) {
+    if (fill > this.trimFill) {
       // Too much queued
-      const drop = fill - TARGET_FILL;
+      const drop = fill - this.target;
       this.fifoR = (this.fifoR + drop) | 0;
-      fill = TARGET_FILL;
+      fill = this.target;
       Atomics.add(c, CTRL.TRIMS, 1);
       Atomics.add(c, CTRL.TRIM_FRAMES, drop);
     }
@@ -166,27 +233,29 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
 
     const gain = Atomics.load(c, CTRL.GAIN);
     const ddGain = Atomics.load(c, CTRL.DD_GAIN);
-    const dd = this.dd;
+    const ticks = this.fifoTick;
 
-    // Disc noise
-    const ddW = Atomics.load(c, CTRL.DD_WRITE) >>> 0;
-    let ddR = this.ddR;
-    let ddAvail = (ddW - ddR) >>> 0;
-    if (ddGain === 0 || ddAvail > RING.DD_FRAMES) {
-      ddR = ddW; // disabled (or corrupted): don't let a backlog build up
-      ddAvail = 0;
-      this.ddPlaying = false;
-    } else if (ddAvail > DD_MAX_FILL) {
-      ddR = (ddR + ddAvail - DD_PRIME) >>> 0;
-      ddAvail = DD_PRIME;
+    // Disc noise. Skip blocks that belong to an earlier stream, and all of
+    // them if it's turned off
+    const ddW = Atomics.load(c, CTRL.DD_WRITE);
+    const ddHead = this.ddHead;
+    const ddData = this.ddData;
+    const seq = dsp.seenSeq;
+    let ddNext = this.ddNext;
+    if (ddGain === 0) {
+      ddNext = ddW;
+      this.ddActive = false;
     }
-    if (!this.ddPlaying && ddAvail >= DD_PRIME) {
-      this.ddPlaying = true;
-      this.ddFrac = 0;
-    }
-    let ddPlaying = this.ddPlaying;
-    let ddFrac = this.ddFrac;
+    while (((ddW - ddNext) | 0) > 0 && ddHead[(ddNext & DD_BLOCK_MASK) * DD_WORDS + 1] !== seq)
+      ddNext = (ddNext + 1) | 0;
+    let ddActive = this.ddActive;
+    let ddCur = this.ddCur;
+    let ddPos = this.ddPos;
+    let ddBase = (ddCur & DD_BLOCK_MASK) * DD_HALVES + DD_HEADER;
     let ddUnderruns = 0;
+    // How far (in ticks) disc noise can drift from the main audio before it's
+    // pulled back into line: about 2ms
+    const ddSlack = (dsp.sampInc * 6) >> 10;
 
     const fadeIn = this.fadeIn;
     let lastL = this.lastL;
@@ -198,22 +267,39 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
       let l = (st[idx] * gain) >> 8;
       let rr = (st[idx + 1] * gain) >> 8;
 
-      if (ddPlaying) {
-        if (ddAvail < 2) {
-          ddPlaying = false;
+      if (ddGain !== 0) {
+        const hasNext = ((ddW - ddNext) | 0) > 0;
+        if (hasNext) {
+          // How far past the start of the next block this frame is
+          const late = (ticks[(fifoR + i) & FIFO_MASK] - ddHead[(ddNext & DD_BLOCK_MASK) * DD_WORDS]) | 0;
+          // Start it if it's time. Carry on into it from the end of the one
+          // playing, as long as that's about when it's due. Jump to it if we've
+          // fallen behind
+          if ((!ddActive && late >= 0) ||
+              (ddActive && ddPos >= DD_BLOCK && late >= -ddSlack) ||
+              (ddActive && late > ddSlack)) {
+            ddPos = ddActive && ddPos >= DD_BLOCK ? ddPos - DD_BLOCK : 0;
+            ddActive = true;
+            ddCur = ddNext;
+            ddNext = (ddNext + 1) | 0;
+            ddBase = (ddCur & DD_BLOCK_MASK) * DD_HALVES + DD_HEADER;
+          }
+        }
+        if (ddActive && ddPos >= DD_BLOCK) {
+          // The next block should have started by now
+          ddActive = false;
           ddUnderruns++;
-        } else {
-          const a = dd[ddR & DD_MASK];
-          const b = dd[(ddR + 1) & DD_MASK];
-          const d = ((a + (b - a) * ddFrac) | 0) * ddGain >> 8;
+        }
+        if (ddActive) {
+          const k = ddPos | 0;
+          const a = ddData[ddBase + k];
+          // The last sample of a block interpolates towards the next block's first
+          const b = k + 1 < DD_BLOCK ? ddData[ddBase + k + 1] :
+            (((ddW - ddNext) | 0) > 0 ? ddData[(ddNext & DD_BLOCK_MASK) * DD_HALVES + DD_HEADER] : a);
+          const d = ((a + (b - a) * (ddPos - k)) | 0) * ddGain >> 8;
           l += d;
           rr += d;
-          ddFrac += DD_STEP;
-          if (ddFrac >= 1) {
-            ddFrac -= 1;
-            ddR = (ddR + 1) >>> 0;
-            ddAvail--;
-          }
+          ddPos += DD_STEP;
         }
       }
 
@@ -245,18 +331,41 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
       this.playing = false;
       Atomics.add(c, CTRL.UNDERRUNS, 1);
       Atomics.add(c, CTRL.SILENT_FRAMES, rem);
+      // This much buffering wasn't enough
+      this.setTarget(this.target + TARGET_RAISE);
+      this.quietFrames = 0;
+    } else if ((this.quietFrames += n) >= TARGET_LOWER_AFTER) {
+      // Things have been calm for a while, so try a bit less latency
+      this.quietFrames = 0;
+      if (this.target > TARGET_MIN)
+        this.setTarget(this.target - TARGET_LOWER);
+    }
+
+    if (this.postArmed && ((fifoR + avail - this.postStart) | 0) > 0) {
+      // The start of the dump was played in this quantum (or trimmed away)
+      let first = (this.postStart - fifoR) | 0;
+      if (first < 0)
+        first = 0;
+      this.postArmed = false;
+      this.postCapturing = true;
+      this.postPos = 0;
+      this.capturePost(outL, outR, first, n - first);
+    } else if (this.postCapturing) {
+      this.capturePost(outL, outR, 0, n);
     }
 
     this.fifoR = (fifoR + avail) | 0;
     this.fadeIn = false;
     this.lastL = lastL;
     this.lastR = lastR;
-    this.ddR = ddR;
-    this.ddFrac = ddFrac;
-    this.ddPlaying = ddPlaying;
+    this.ddActive = ddActive;
+    this.ddCur = ddCur;
+    this.ddNext = ddNext;
+    this.ddPos = ddPos;
 
     this.publish();
-    Atomics.store(c, CTRL.DD_READ, ddR | 0);
+    // Blocks before the one playing (or the next one) can be reused
+    Atomics.store(c, CTRL.DD_READ, ddActive ? ddCur : ddNext);
     if (ddUnderruns)
       Atomics.add(c, CTRL.DD_UNDERRUNS, ddUnderruns);
     if (clips)
