@@ -14,7 +14,8 @@ import {
   putCmosFile, 
   loadRoms } from './machine-config.js'
 import { loadFromSoftwareCatalogue, fetchSoftwareCatalogue } from './software-browser.js'
-import { loadSoftwareFromUrl, createHostfsBootFile, FILETYPE_DESKTOP } from './hostfs.js'
+import { loadSoftwareFromUrl, createHostfsBootFile, FILETYPE_DESKTOP, FILETYPE_COMMAND } from './hostfs.js'
+import { putDataAtPath } from './fsutil.js'
 
 // if we await anything before setting the onmessage handler, messages posted to us 
 // aren't queued so get lost. a better alternative to using dynamic import to add the
@@ -60,6 +61,17 @@ onmessageerror = (event) => { console.log('worker message error', event); }
 
 onmessage = async (e) => {
   const data = e.data;
+  if (data.type === 'fs') {
+    handleFsRequest(data);
+    return;
+  }
+  if (data.type === 'fastForward') {
+    // arculatorModule is only set once the runtime is initialised
+    if (arculatorModule) {
+      arc_fast_forward(Number(arc_get_emulation_ms()) + data.ms);
+    }
+    return;
+  }
   console.log('worker message', data.type);
   if (data.type === 'init') {
     const { canvas, pageBootParams } = data;
@@ -105,6 +117,32 @@ onmessage = async (e) => {
       }
     });
   }
+}
+
+/**
+ * Access to the Emscripten FS (and so HostFS, under /hostfs) from the page,
+ * which doesn't have FS itself. Used by the window.arcFS hooks in ui.js.
+ * HostFS keeps open files in stdio buffers, so a file RISC OS is still
+ * writing may be incomplete until it's closed.
+ */
+function handleFsRequest({ id, op, path, data }) {
+  let reply = { type: 'fsReply', id };
+  try {
+    if (op === 'read') {
+      reply.result = FS.readFile(path, { encoding: 'binary' });
+    } else if (op === 'write') {
+      putDataAtPath(data, path);
+    } else if (op === 'list') {
+      reply.result = FS.readdir(path).filter(f => f != '.' && f != '..');
+    } else if (op === 'unlink') {
+      FS.unlink(path);
+    } else {
+      throw new Error(`Unknown fs op '${op}'`);
+    }
+  } catch (e) {
+    reply.error = String(e && e.code ? `${e.code} ${path}` : e);
+  }
+  postMessage(reply);
 }
 
 /**
@@ -230,7 +268,10 @@ async function loadMachineConfig(_opts=null) {
   putCmosFile(machineConfig);
   await loadRoms(machineConfig);
   
-  if (autoboot && !opts.basic) {
+  if (opts.basic && opts.basicBoot) {
+    console.log('UI: create BASIC !boot');
+    createHostfsBootFile(opts.basicBoot, FILETYPE_COMMAND);
+  } else if (autoboot && !opts.basic) {
     console.log('UI: create !boot:' + autoboot);
     createHostfsBootFile(autoboot, FILETYPE_DESKTOP);
   }

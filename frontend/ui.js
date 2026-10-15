@@ -56,6 +56,35 @@ window.arcAudioStats = function(resetFill = false) {
 
 const arculatorWorker = new Worker('arculator-worker.js' + buildTag, { type: 'module' });
 
+/*Read and write the emulator's Emscripten FS from scripts (selenium-scripts/
+  arcbasic.py). HostFS is under /hostfs, with RISC OS file types as ',xxx'
+  suffixes. All return Promises; read gives a Uint8Array (readText a string),
+  list gives the names in a directory. A file RISC OS still has open may be
+  incomplete, as HostFS buffers writes until it's closed.*/
+let fsRequests = new Map();
+let fsRequestId = 0;
+function fsRequest(op, path, data) {
+  return new Promise((resolve, reject) => {
+    let id = ++fsRequestId;
+    fsRequests.set(id, {resolve, reject});
+    arculatorWorker.postMessage({type: 'fs', id, op, path, data});
+  });
+}
+window.arcFS = {
+  read: path => fsRequest('read', path),
+  readText: async path => new TextDecoder('latin1').decode(await fsRequest('read', path)),
+  write: (path, data) => fsRequest('write', path, typeof data == 'string' ? new TextEncoder().encode(data) : data),
+  list: path => fsRequest('list', path),
+  unlink: path => fsRequest('unlink', path),
+};
+
+/*Run the emulator flat out, without video or sound, for the next `ms` of
+  emulated time (like the ff URL parameter, but from now). Calling it again
+  before it finishes moves the end point.*/
+window.arcFastForward = function(ms) {
+  arculatorWorker.postMessage({type: 'fastForward', ms});
+};
+
 arculatorWorker.onerror = (event) => {
   console.log('main thread arculatorWorker onerror', event);
 }
@@ -64,7 +93,15 @@ arculatorWorker.onmessageerror = (event) => {
 }
 arculatorWorker.onmessage = (event) => {
   // todo: maybe register functions or use worker proxy?
-  if ('currentSoftware' in event.data) {
+  if (event.data.type == 'fsReply') {
+    let req = fsRequests.get(event.data.id);
+    fsRequests.delete(event.data.id);
+    if ('error' in event.data) {
+      req.reject(new Error(event.data.error));
+    } else {
+      req.resolve(event.data.result);
+    }
+  } else if ('currentSoftware' in event.data) {
     setCurrentSoftware(event.data.currentSoftware)
   } else if ('updateConfigUI' in event.data) {
     updateConfigUI(event.data.updateConfigUI);
@@ -177,7 +214,9 @@ function getPageBootParams() {
     } else {
       let prog = searchParams.get('basic');
 
-      showBasicEditor(prog, createAutobootFile=true);
+      showBasicEditor(prog);
+      // The page has no FS, so the worker writes the !Boot that types in the program
+      opts.basicBoot = wrapProg(prog);
       opts.autoboot = true;
       opts.fastForward = BASIC_RUN_FAST_FORWARD;
       opts.basic = true;
