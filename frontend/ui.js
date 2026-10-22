@@ -6,6 +6,7 @@ const { initSoftwareBrowser, showSoftwareBrowser, filterSoftware, removeAllChild
 import { presetMachines, machineInfo, CPU_DESCRIPTIONS, OS_NAMES, MEM_SIZE_NAMES } from "./machine-config.js";
 import { getEmuInput } from "./emu_input.js";
 const { EmuAudio } = await import('./emu-audio.js' + buildTag);
+const { setCliWorker, handleCliMessage } = await import('./jscli-page.js' + buildTag);
 
 const DISPLAY_MODES = Object.freeze({
 		0: 'DISPLAY_MODE_NO_BORDERS',
@@ -57,6 +58,7 @@ window.arcAudioStats = function(resetFill = false) {
 };
 
 const arculatorWorker = new Worker('arculator-worker.js' + buildTag, { type: 'module' });
+setCliWorker(arculatorWorker);
 
 /*Read and write the emulator's Emscripten FS from scripts (selenium-scripts/
   arcbasic.py). HostFS is under /hostfs, with RISC OS file types as ',xxx'
@@ -111,6 +113,9 @@ arculatorWorker.onmessageerror = (event) => {
 }
 arculatorWorker.onmessage = (event) => {
   // todo: maybe register functions or use worker proxy?
+  if (handleCliMessage(event.data)) {
+    return;
+  }
   if (event.data.type == 'fsReply') {
     let req = fsRequests.get(event.data.id);
     fsRequests.delete(event.data.id);

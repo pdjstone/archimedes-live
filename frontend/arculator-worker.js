@@ -16,6 +16,7 @@ import {
 import { loadFromSoftwareCatalogue, fetchSoftwareCatalogue } from './software-browser.js'
 import { loadSoftware, loadSoftwareFromUrl, createHostfsBootFile, FILETYPE_DESKTOP, FILETYPE_COMMAND } from './hostfs.js'
 import { putDataAtPath } from './fsutil.js'
+import { handleCliRequest, setCliModule } from './jscli-worker.js'
 
 // if we await anything before setting the onmessage handler, messages posted to us 
 // aren't queued so get lost. a better alternative to using dynamic import to add the
@@ -65,6 +66,10 @@ onmessage = async (e) => {
   const data = e.data;
   if (data.type === 'fs') {
     handleFsRequest(data);
+    return;
+  }
+  if (data.type === 'cli') {
+    handleCliRequest(data);
     return;
   }
   if (data.type === 'screenshot') {
@@ -142,6 +147,7 @@ onmessage = async (e) => {
         setStatus(left ? 'Preparing... (' + (totalDependencies-left) + '/' + totalDependencies + ')' : 'All downloads complete.');
       }
     });
+    setCliModule(arculatorModule);
   }
 }
 
