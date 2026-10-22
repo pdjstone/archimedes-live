@@ -195,10 +195,13 @@ body.audio-suspended #audio-warning {
 }
 
 #display-container.fullscreen canvas {
+  /* Fill the screen but letterbox to keep the aspect ratio. Width must be
+     set here too, or the mobile #canvas width: 100% stretches it in portrait */
+  width: 100%;
   height: 100%;
+  object-fit: contain;
   padding: 0;
   margin: auto;
-
 }
 
 
