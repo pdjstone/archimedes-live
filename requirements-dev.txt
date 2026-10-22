@@ -6,3 +6,6 @@ requests
 ADFSlib @ git+https://github.com/pdjstone/adfslib.git
 markdown-it-py[plugins]
 pillow
+selenium
+pycurl
+riscos-conv==0.0.1
