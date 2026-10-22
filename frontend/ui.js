@@ -80,6 +80,22 @@ window.arcFS = {
   unlink: path => fsRequest('unlink', path),
 };
 
+/*Screenshot of the emulator display, taken from the next frame it presents.
+  Resolves with a PNG Blob, or with the PNG as a base64 string if `base64` is
+  set (handy for selenium). It's at the size the canvas shows, without the
+  page's overlays. Frames aren't presented while fast-forwarding, so it waits
+  until a fast-forward ends.*/
+let screenshotRequests = new Map();
+let screenshotRequestId = 0;
+window.arcScreenshot = async function({base64 = false} = {}) {
+  let blob = await new Promise((resolve, reject) => {
+    let id = ++screenshotRequestId;
+    screenshotRequests.set(id, {resolve, reject});
+    arculatorWorker.postMessage({type: 'screenshot', id});
+  });
+  return base64 ? new Uint8Array(await blob.arrayBuffer()).toBase64() : blob;
+};
+
 /*Run the emulator flat out, without video or sound, for the next `ms` of
   emulated time (like the ff URL parameter, but from now). Calling it again
   before it finishes moves the end point.*/
@@ -98,6 +114,14 @@ arculatorWorker.onmessage = (event) => {
   if (event.data.type == 'fsReply') {
     let req = fsRequests.get(event.data.id);
     fsRequests.delete(event.data.id);
+    if ('error' in event.data) {
+      req.reject(new Error(event.data.error));
+    } else {
+      req.resolve(event.data.result);
+    }
+  } else if (event.data.type == 'screenshotReply') {
+    let req = screenshotRequests.get(event.data.id);
+    screenshotRequests.delete(event.data.id);
     if ('error' in event.data) {
       req.reject(new Error(event.data.error));
     } else {

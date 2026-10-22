@@ -100,29 +100,25 @@ function fullscreen() {
 var screenshots = 0;
 
 
-function saveEmulatorScreenshot(canvas) {
-  canvas.toBlob(blob => {
-    let a = document.createElement("a");
-    a.href = window.URL.createObjectURL(blob);
-    window.screenshots++;
-    let prefix = "archimedes-live-";
-    if ('currentSoftwareId' in window) {
-      prefix = window.currentSoftwareId + '-';
-    }
-    let filename = prefix + window.screenshots.toString().padStart(2, '0') + '.png';
-    console.log('Saving screenshot to ' + filename);
-    a.download = filename;
-    a.click(); 
-  });
+function saveEmulatorScreenshot(blob) {
+  let a = document.createElement("a");
+  a.href = window.URL.createObjectURL(blob);
+  window.screenshots++;
+  let prefix = "archimedes-live-";
+  if ('currentSoftwareId' in window) {
+    prefix = window.currentSoftwareId + '-';
+  }
+  let filename = prefix + window.screenshots.toString().padStart(2, '0') + '.png';
+  console.log('Saving screenshot to ' + filename);
+  a.download = filename;
+  a.click(); 
 }
 
 window.capturingVideo = false;
-window.capturingScreenshot = false;
 window.videoFrames = 0;
 
 function arc_capture_screenshot() {
-  window.capturingScreenshot = true;
-  ccall('arc_capture_screenshot', null, []);
+  window.arcScreenshot().then(saveEmulatorScreenshot, e => console.log('screenshot failed', e));
 }
 
 function arc_capture_video(record) {
@@ -173,57 +169,18 @@ async function recordVideo(durationMS, pauseMS=1000) {
 }
 
 /**
- * This is called from video_renderer_update in video_sdl2.c when a 
- * screenshot has been requested. The simpler way of doing this is
- * to just call toBlob on the main emulator canvas. However, by default
- * that doesn't work with a WebGL context. You can specifc 
- * preserveDrawingBuffer when createing the WebGL context, however this 
- * can affect performance.
- * So instead this works by copying the display buffer out of WASM memory.
- * 
- * bptr is a pointer to the emulator display buffer. 
- * The buffer is in ARGB  format (i.e. 4 bytes per pixel) 
- * bw/bh is the size of the display buffer. 
+ * This is called from video_renderer_update in video_sdl2.c while a video is
+ * being recorded. (Screenshots are taken by window.arcScreenshot instead.)
+ *
+ * bptr is a pointer to the emulator display buffer.
+ * The buffer is in ARGB  format (i.e. 4 bytes per pixel)
+ * bw/bh is the size of the display buffer.
  * sx/sy/sw/sh describe the area within the buffer which contains the
  * screen display (this can change size/position depending on the
  * current mode/borders etc..)
- * ww/wh are the current size of the screen (i.e. canvas), which the 
- * screenshot must be scaled to fit
  */
 function capture_frame(bptr, bw, bh, sx, sy, sw, sh, ww, wh) {  
-  if (capturingScreenshot) {
-    capturingScreenshot = false;
-    let pixels = new Uint8ClampedArray(HEAPU8.subarray(bptr, bptr + bw*bh*4));
-    //console.log(`(${bw}x${bh}):(${sx},${sy}) ${sw}x${sh} => ${ww}x${wh}`);
-    // Flip endianness and convert ARGB to RGBA  
-    // This is probably slower than doing it in WebGL but it doesn't
-    // seem to add much overhead 
-    let dv = new DataView(pixels.buffer);
-    for (let y=0 ; y < sh; y++) {
-      for (let x=0; x < sw; x++) {
-        let p = (sy+y)*bw*4 + (sx+x)*4;
-        /*if (x==0 && y== 0) {
-          console.log(pixels.slice(p, p+8));
-        }*/
-        dv.setUint32(p, (dv.getUint32(p, true)<<8)|0xff, false);
-      }
-    }
-    let imgData = new ImageData(pixels, bw);
-
-    // We can scale the bitmap using resizeWidth/resizeWidth but Firefox 
-    // doesn't support resizeQuality: pixelated. Instead scale on canvas
-    createImageBitmap(imgData, sx, sy, sw, sh)
-    .then(bitmap => {
-      let canvas = document.createElement('canvas');
-      let ctx = canvas.getContext('2d');
-      canvas.width = ww;
-      canvas.height = wh;
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(bitmap, 0, 0, ww, wh);
-      saveEmulatorScreenshot(canvas);
-      // TODO: delete canvas after it's been saved
-    });
-  } else if (capturingVideo) {
+  if (capturingVideo) {
     window.videoFrames++;
     let offset = sy*bw*4 + sx*4;
     let pixels = new Uint8Array(HEAPU8.subarray(bptr+offset, bptr + bw*bh*4));

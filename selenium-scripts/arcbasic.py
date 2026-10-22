@@ -42,6 +42,7 @@ As a library:
       print(r.output, r.error, r.error_line)
 """
 import argparse
+import base64
 import re
 import sys
 import time
@@ -293,7 +294,13 @@ class ArcBasic:
         self.press('ArcF1')
 
     def screenshot(self, path):
-        self.driver.find_element('id', 'canvas').screenshot(str(path))
+        """Save the emulator display as a PNG, straight from its display
+        buffer (window.arcScreenshot), so without the page's overlays."""
+        png = self.driver.execute_async_script(
+            'arcScreenshot({base64: true}).then(arguments[0], e => arguments[0]("ERROR " + e.message));')
+        if png.startswith('ERROR '):
+            raise RuntimeError(f'screenshot failed: {png[6:]}')
+        Path(path).write_bytes(base64.b64decode(png))
         return str(path)
 
     # --- Running programs --------------------------------------------------
