@@ -6,7 +6,7 @@ ARCULATOR_BUILD_TAG := $(shell cd arculator-wasm && ${BUILD_TAG_CMD})
 NSPARK_BUILD_TAG := $(shell cd nspark-wasm && ${BUILD_TAG_CMD})
 SOFTWARE_BUILD_TAG := $(shell cd arclive-software && ${BUILD_TAG_CMD})
 
-all: build/index.html build/arculator.js build/nspark/nspark.js build/emu build/software/software.json
+all: build/index.html build/arculator.js build/nspark/nspark.js build/emu build/emu/roms/arcrom_ext build/software/software.json
 
 serve:
 	python3 testserver.py
@@ -51,6 +51,17 @@ nspark-wasm/build/nspark.js:
 build/emu: dlcache/arculator22.tar.gz
 	mkdir -p build/emu
 	tar xzf dlcache/arculator22.tar.gz -C build/emu/ roms cmos
+
+# Replace Arculator's extension ROM with the one built from arculator-wasm's
+# HostFS modules
+build/emu/roms/arcrom_ext: arculator-wasm/roms/arcrom_ext build/emu
+	cp $< $@
+
+# Always ask the submodule, which knows when the ROM is out of date
+arculator-wasm/roms/arcrom_ext: FORCE
+	cd arculator-wasm && make extnrom
+
+FORCE:
 
 dlcache/arculator22.tar.gz:
 	mkdir -p dlcache
