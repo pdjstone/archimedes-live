@@ -14,7 +14,7 @@ import {
   putCmosFile, 
   loadRoms } from './machine-config.js'
 import { loadFromSoftwareCatalogue, fetchSoftwareCatalogue } from './software-browser.js'
-import { loadSoftwareFromUrl, createHostfsBootFile, FILETYPE_DESKTOP, FILETYPE_COMMAND } from './hostfs.js'
+import { loadSoftware, loadSoftwareFromUrl, createHostfsBootFile, FILETYPE_DESKTOP, FILETYPE_COMMAND } from './hostfs.js'
 import { putDataAtPath } from './fsutil.js'
 
 // if we await anything before setting the onmessage handler, messages posted to us 
@@ -32,6 +32,8 @@ let arculatorModule = null;
 
 
 let machinePreset = null;
+
+const MOUSE_CAPTURE_MODES = Object.freeze(['auto', 'force', 'never']);
 
 // Emscripten calls setStatus unbound, so keep its state in the closure, not on `this`
 let totalDependencies = 0;
@@ -73,6 +75,26 @@ onmessage = async (e) => {
     return;
   }
   console.log('worker message', data.type);
+  if (data.type === 'changeMachine') {
+    // From the machine picker and software browser
+    await whilePaused(async () => {
+      let machineConfig = await loadMachineConfig(data.opts);
+      arc_load_config_and_reset(machineConfig.getMachineType());
+      if (machineConfig.fastForward) {
+        arc_fast_forward(machineConfig.fastForward); // the reset restarted emulation time
+      }
+    });
+    return;
+  }
+  if (data.type === 'loadSoftware') {
+    await whilePaused(() => loadFromSoftwareCatalogue(data.softwareId));
+    return;
+  }
+  if (data.type === 'loadFile') {
+    // A File from the software browser's upload button or drag and drop
+    await whilePaused(() => loadSoftware(data.file.name, data.file));
+    return;
+  }
   if (data.type === 'init') {
     const { canvas, pageBootParams } = data;
     arculatorModule = await ArculatorWasm({
@@ -116,6 +138,20 @@ onmessage = async (e) => {
         setStatus(left ? 'Preparing... (' + (totalDependencies-left) + '/' + totalDependencies + ')' : 'All downloads complete.');
       }
     });
+  }
+}
+
+/**
+ * Pause the emulator while loading software. The emulator loop shares this
+ * worker's event loop, so otherwise it runs a frame at every await in the
+ * fetch and unzip, and unpacking an archive takes many seconds
+ */
+async function whilePaused(fn) {
+  arculatorModule.ccall('arc_pause_main_thread', null, []);
+  try {
+    await fn();
+  } finally {
+    arculatorModule.ccall('arc_resume_main_thread', null, []);
   }
 }
 
@@ -255,7 +291,7 @@ async function loadMachineConfig(_opts=null) {
   }
   if (opts.mouseCapture) {
     if (MOUSE_CAPTURE_MODES.includes(opts.mouseCapture)) {
-      getEmuInput().setCaptureMode(MOUSE_CAPTURE_MODES.indexOf(opts.mouseCapture)+1);
+      postMessage({type: 'EmulatorInput', func: 'setCaptureMode', params: [MOUSE_CAPTURE_MODES.indexOf(opts.mouseCapture)+1]});
     } else {
       console.warn('Invalid value for mouse-capture parameter - must be one of: auto, force, never')
     }
@@ -264,6 +300,13 @@ async function loadMachineConfig(_opts=null) {
 
   let machineConfig = builder.build();
   postMessage({updateConfigUI: machineConfig.getUIInfo()});
+  postMessage({currentMachine: {
+    preset: machinePreset,
+    softwareId: softwareMeta ? softwareMeta.id : null,
+    os: machineConfig.getOs(),
+    cpu: machineConfig.getCpuName(),
+    memory: machineConfig.getMemory()
+  }});
   putConfigFile(machineConfig);
   putCmosFile(machineConfig);
   await loadRoms(machineConfig);

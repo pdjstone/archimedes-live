@@ -39,7 +39,7 @@ export const OS_NAMES = {
 };
 Object.freeze(OS_NAMES);
 
-let machineInfo = {
+export const machineInfo = {
   'a310': {name: 'Archimedes 310', released: 'July 1987', price: '£875'},
   'a410/1': {name: 'Archimedes 410/1', released: 'June 1989', price: '£999'},
   'a3000': {name: 'A3000', released: 'May 1989', price: '£649'},

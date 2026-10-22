@@ -97,7 +97,7 @@ async function putFileOnHostFs(filename, blob, dst='/') {
   }
 }
 
-async function loadSoftware(filename, blob, insert=true) {
+export async function loadSoftware(filename, blob, insert=true) {
   let filetype = await identifyFileType(filename, 0, blob);
   console.log('filetype', filetype.desc);
   if ('loadDisc' in filetype) {

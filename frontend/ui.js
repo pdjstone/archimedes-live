@@ -2,8 +2,8 @@ let buildTag = new URL(import.meta.url).search;
 
 
 const { createHostfsBootFile, FILETYPE_DESKTOP } = await import('./hostfs.js' + buildTag);
-const { loadFromSoftwareCatalogue, loadSoftwareFromUrl, removeAllChildNodes, showSoftwareBrowser} = await import('./software-browser.js' + buildTag);
-import { presetMachines } from "./machine-config.js";
+const { initSoftwareBrowser, showSoftwareBrowser, filterSoftware, removeAllChildNodes } = await import('./software-browser-ui.js' + buildTag);
+import { presetMachines, machineInfo, CPU_DESCRIPTIONS, OS_NAMES, MEM_SIZE_NAMES } from "./machine-config.js";
 import { getEmuInput } from "./emu_input.js";
 const { EmuAudio } = await import('./emu-audio.js' + buildTag);
 
@@ -28,6 +28,8 @@ let searchParams = new URLSearchParams(queryString);
 
 let firstBoot = true;
 let machinePreset = 'a3000';
+// Machine the worker last booted: {preset, softwareId, os, cpu, memory}
+let currentMachine = null;
 let fps = 0;
 let preload = null;
 
@@ -105,6 +107,11 @@ arculatorWorker.onmessage = (event) => {
     setCurrentSoftware(event.data.currentSoftware)
   } else if ('updateConfigUI' in event.data) {
     updateConfigUI(event.data.updateConfigUI);
+  } else if ('currentMachine' in event.data) {
+    currentMachine = event.data.currentMachine;
+    machinePreset = currentMachine.preset;
+  } else if ('changeLocationHash' in event.data) {
+    changeLocationHash(event.data.changeLocationHash);
   } else if ('type' in event.data && event.data.type == 'EmulatorInput') {
     console.log('EmulatorInput', event.data);
     let emu = getEmuInput();
@@ -124,6 +131,31 @@ arculatorWorker.postMessage({
   canvas: offscreenCanvas 
 }, [offscreenCanvas]);
 
+
+initSoftwareBrowser({
+  showModal,
+  closeModal,
+  changeMachine,
+  loadSoftware: softwareId => arculatorWorker.postMessage({type: 'loadSoftware', softwareId}),
+  loadFile,
+  getCurrentMachine: () => currentMachine,
+  getCurrentSoftwareId: () => currentMachine?.softwareId
+});
+
+/**
+ * Load a disc image or archive File into the emulator
+ */
+function loadFile(file) {
+  arculatorWorker.postMessage({type: 'loadFile', file});
+}
+
+// ui.js is a module, so its functions aren't globals. Expose the ones
+// called from inline event handlers in index.html and the classic scripts
+Object.assign(window, {
+  showModal, closeModal, resumeEmulator,
+  showMachinePicker, previewMachine, bootSelected,
+  showSoftwareBrowser, filterSoftware, loadFile
+});
 
 if (searchParams.has('showsoftwarebrowser')) {
   addEventListener('load', event => {
@@ -307,17 +339,12 @@ async function showBooleanDialog(title, text, trueText='OK', falseText='Cancel')
   return val;
 }
 
-async function changeMachine(opts) {
-  let config = await loadMachineConfig(opts);
-
-  // Work aroud a (SDL?) bug where we get a 'divide by zero' error in
-  // the SDL function HandleAudioProcess after closing the audio device
-  // when changing machines
-  // if (typeof Module.SDL2 != 'undefined') {
-  //   await Module.SDL2.audioContext.suspend();
-  // }
-  arc_load_config_and_reset(config.getMachineType());
-  return config;
+/**
+ * Reset the emulator with a new configuration. opts are as for
+ * getPageBootParams (e.g. {preset}, or {disc, autoboot})
+ */
+function changeMachine(opts) {
+  arculatorWorker.postMessage({type: 'changeMachine', opts});
 }
 
 function sleep(ms) {
@@ -339,6 +366,10 @@ function showMachinePicker() {
   if (!machinePresetsPopulated) {
     populateMachinePresets();
     machinePresetsPopulated = true;
+  }
+  // The machine may have changed since the list was populated
+  for (let li of document.querySelectorAll('#machine-list li')) {
+    li.classList.toggle('selected', li.getAttribute('machine-id') == machinePreset);
   }
   showModal('machine-picker');
 }
@@ -388,14 +419,6 @@ function bootSelected() {
 
 
 
-function appendDl(dl, title, description) {
-  let dt = document.createElement('dt');
-  dt.textContent = title;
-  let dd = document.createElement('dd');
-  dd.textContent = description;
-  dl.appendChild(dt);
-  dl.appendChild(dd);
-}
 
 if (searchParams.has('dbglatency')) {
   canvas.addEventListener('mousedown', e => {

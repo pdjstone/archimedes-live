@@ -69,7 +69,7 @@ document.ondrop = function(ev) {
       if (ev.dataTransfer.items[i].kind === 'file') {
         var file = ev.dataTransfer.items[i].getAsFile();
         console.log('... file[' + i + '].name = ' + file.name, file);
-        loadSoftware(file.name, file).then(() => console.log('done loading file'));
+        loadFile(file);
       }
     }
   } 
