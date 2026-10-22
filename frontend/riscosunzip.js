@@ -59,10 +59,25 @@ class ExtensibleZipReader extends ZipReader {
 const ZIP_EXT_ACORN = 0x4341; // 'AC' - SparkFS / Acorn
 const ZIP_ID_ARC0 = 0x30435241; // 'ARC0'
 
+/**
+ * Names in RISC OS zips are in the RISC OS character set (like ISO-8859-1),
+ * not the cp437 zip.js assumes. Map each byte to the char with that code,
+ * which is what HostFS expects (see hostfs_emscripten.c), e.g. !élite.
+ * Names flagged as UTF-8 are left to zip.js.
+ */
+function decodeRiscOsText(bytes, encoding) {
+    if (encoding && encoding.toLowerCase() == 'utf-8')
+        return undefined;
+    let str = '';
+    for (const b of bytes)
+        str += String.fromCharCode(b);
+    return str;
+}
+
 export class RiscOsUnzip extends ExtensibleZipReader 
 {
     constructor(buf) {
-        super(new Uint8ArrayReader(buf));
+        super(new Uint8ArrayReader(buf), { decodeText: decodeRiscOsText });
         this.isRiscOs = false;
         this.registerZipExtension(ZIP_EXT_ACORN, this.parseRiscOsZipField);
     }
