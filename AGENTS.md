@@ -84,10 +84,13 @@ Things to know:
 - **Screenshots:** use `window.arcScreenshot` (below), which takes the frame
   from the emulator's display buffer. Selenium's own screenshots include the
   page's overlays, such as the suspended-audio banner.
-- **The emulator runs in real time, paced by the audio clock.** Use `ff` to
-  skip boot rather than sleeping. Headless machines can stall for hundreds of
-  ms, so treat a few audio underruns as environment noise unless they're
-  reproducible.
+- **The emulator runs in real time.** Each loop emulates the wall-clock time
+  since the last one (at most 500 ms). While audio is playing, the audio
+  clock takes over: it nudges that to keep the worklet's queue at its target,
+  and drops time lost to stalls rather than catching up. Without a running
+  AudioContext it's the wall clock alone. Use `ff` to skip boot rather than
+  sleeping. Headless machines can stall for hundreds of ms, so treat a few
+  audio underruns as environment noise unless they're reproducible.
 - **Console output** from the page and worker comes through the BiDi handler
   above. `printf` in C code reaches it too. `rpclog` is silent in non-DEBUG
   builds.
