@@ -302,6 +302,35 @@ How it works, which is also how to do it by hand:
 - An A3000 runs at about real time. `--turbo` (arcFastForward) is about 5x
   faster on a slow host, but screenshots show the screen only as the program ended.
 
+## Surveying the software catalogue
+
+`selenium-scripts/catalogue_survey.py` boots catalogue titles (`#disc=ID&autoboot`)
+and checks each one: whether JSCLI keeps responding, audio glitches, JavaScript
+errors, and screenshots at the start and end. It writes `results.json` and an
+HTML report (`index.html`, with a filter for each kind of problem) to
+`build/survey/`, served at `http://127.0.0.1:8000/survey/`:
+
+```sh
+venv/bin/python selenium-scripts/catalogue_survey.py               # every title that autoboots
+venv/bin/python selenium-scripts/catalogue_survey.py lander swiv --browsers 1 \
+    --settle 20 --duration 120 --keys ''
+venv/bin/python selenium-scripts/catalogue_survey.py --html-only   # remake the report
+```
+
+- After the boot fast-forward and `--settle` seconds, it records for
+  `--duration` seconds: `arcCli('Echo ...')` every `--probe-interval` seconds,
+  shown as `o` (answered) or `x` (no answer); `arcAudioStats()` at the start
+  and end, reported as the glitch counters' increase; and `--keys` pressed one
+  every `--key-interval` seconds (Space, Return, ... by default) to get past
+  title screens into the game.
+- `--browsers` sets how many run at once (default 2). Emulators competing for
+  the CPU cause underruns, so keep it to about half the CPU count, and rerun a
+  title alone (`--browsers 1`) before believing its glitches. `--keep` adds to
+  the results already there.
+- A JSCLI result of `none` or `stopped` means the title took over the machine
+  (e.g. interrupts off), or crashed. Most titles keep it answering, at least
+  on their title screens.
+
 ## Audio dump tools
 
 ```sh
