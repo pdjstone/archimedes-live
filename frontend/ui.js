@@ -60,6 +60,12 @@ window.arcAudioStats = function(resetFill = false) {
 const arculatorWorker = new Worker('arculator-worker.js' + buildTag, { type: 'module' });
 setCliWorker(arculatorWorker);
 
+// A command line client on this machine (tools/arcterm.py) to connect to
+if (searchParams.has('jscli')) {
+  const { startJscliRemote } = await import('./jscli-remote.js' + buildTag);
+  startJscliRemote(searchParams.get('jscli'));
+}
+
 /*Read and write the emulator's Emscripten FS from scripts (selenium-scripts/
   arcbasic.py). HostFS is under /hostfs, with RISC OS file types as ',xxx'
   suffixes. All return Promises; read gives a Uint8Array (readText a string),

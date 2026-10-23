@@ -513,3 +513,21 @@ body.dbg-keypress #display-container.fullscreen, body.dbg-keypress { background-
 .mstdn > span:before{
   content:"@";
 }
+/* Shown while tools/arcterm.py is connected through the jscli parameter */
+#jscli-remote-badge {
+  display: none;
+  position: fixed;
+  top: 4px;
+  right: 4px;
+  z-index: 1000;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: #c33;
+  color: white;
+  font: 12px sans-serif;
+  pointer-events: none;
+}
+
+#jscli-remote-badge.connected {
+  display: block;
+}

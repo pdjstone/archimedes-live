@@ -109,6 +109,7 @@ All are read in `getPageBootParams()` in `frontend/ui.js`.
 | `dumpaudio` | `dur,delay[,post]` (seconds) | Record `dur` s of 48 kHz stereo audio, starting `delay` s of emulated time after boot. `post` also records what was actually played (see below). |
 | `audiostats` | (flag) | Log `Audio stats: {...}` to the console every 5 s. Otherwise it's only logged when a glitch counter changes. |
 | `dbglatency` | (flag) | Visual mouse-latency debugging |
+| `jscli` | `ws://127.0.0.1:PORT/TOKEN` | Connect to `tools/arcterm.py` (below), a command line for RISC OS. Only loopback addresses are accepted |
 
 Examples:
 
@@ -214,11 +215,48 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
   await s.send('PRINT 6*7\r'); await s.expect('>')   // 'PRINT 6*7\n        42\n>'
   ```
 
-  The echo of what you send is part of the output. Input goes in 32-byte
+  The echo of what you send is part of the output. The TaskWindow module
+  drops CR (13) from output, so newlines are a bare LF and `VDU 13` is lost. Input goes in 32-byte
   pieces, about 640 bytes/s, because a TaskWindow's input buffer holds only
   63 bytes. Input sent to a program that isn't reading can still be lost
   beyond that. Sessions and `arcCli(..., {via: 'wimp'})` commands run
   side by side.
+
+## A command line from a terminal
+
+`tools/arcterm.py` gives a terminal a RISC OS command line through JSCLI. It's
+a WebSocket server; the page connects to it (`frontend/jscli-remote.js`) when
+given its URL in the `jscli` parameter, and reconnects if it restarts:
+
+```sh
+venv/bin/python tools/arcterm.py              # prints the jscli=... to put in the hash
+venv/bin/python tools/arcterm.py --raw        # every key straight to RISC OS
+venv/bin/python tools/arcterm.py -c 'Cat' -c 'Show Sys$Year'   # run and exit
+```
+
+- In the desktop, the default line mode runs an `arcCliSession` TaskWindow.
+  The RISC OS prompt (`*`, BASIC's `>`) is the prompt, lines are edited
+  locally and their echo is dropped. Ctrl-C sends Escape and Ctrl-D quits.
+  Outside the desktop, each line runs as an `arcCli` command. Lines starting
+  with `\` are arcterm commands (`\help`): `\cli`, `\wimp`, `\type`, `\vdu`,
+  `\open BASIC`, `\close`, `\status` and `\shot file.png`.
+- `--raw` passes each key through, with cursor and function keys mapped
+  and VDU codes turned into ANSI. Ctrl-D or Ctrl-] quits. A TaskWindow has no cursor
+  editing, so cursor keys reach programs as key codes.
+- `-c` runs commands through JSCLI (or TaskWindows with `--wimp`), prints
+  their output and exits: 0 OK, 1 a command failed, 2 no connection within
+  `--timeout`.
+- The URL holds a random token (`--token` sets it). Connections from web pages
+  other than local ones and archi.medes.live are refused (`--allow-origin`
+  adds one). The page shows a "JSCLI remote" badge while it's connected.
+- Sessions belong to the page and outlive the connection. When arcterm
+  reconnects it carries on with its session, including what was printed
+  meanwhile; a restarted arcterm takes over the newest one. One page at a
+  time: when another connects, the old one is closed (code 4000) and stops
+  reconnecting.
+- The page connects as a client, so headless tests can use it too. Start
+  arcterm with a fixed `--token`, then load the page with the matching
+  `jscli`.
 
 ## Running BASIC programs
 
