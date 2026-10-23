@@ -167,13 +167,14 @@ export function recommendMachinePreset(req) {
 
 const CLICK_ICON_BASIC = 'DQAKDd4gYiUgMTAyNA0AFCnImSAiV2ltcF9Jbml0aWFsaXNlIiwzMTAsJjRiNTM0MTU0LCIiDQAeCiFiJT0tMg0AKB/ImSAiV2ltcF9HZXRXaW5kb3dJbmZvIiwsYiUNADIN3iBtc2clIDIwDQA8E2ljb25ubyU9YiUhODgtMQ0ARgxtc2clITg9NA0AUA5tc2clITEyPS0yDQBaE21zZyUhMTY9aWNvbm5vJQ0AZCvImSAiV2ltcF9TZW5kTWVzc2FnZSIsNixtc2clLC0yLGljb25ubyUN/w==';
 
-export function getAutobootScript(softwareMeta) {
+// `software` is the catalogue, for looking up softwareMeta's dependencies
+export function getAutobootScript(softwareMeta, software) {
 
   let bootCmd = '';
   if ('depends' in softwareMeta) {
     for (let dep of softwareMeta['depends']) {
-      console.log('Getting autoboot script for dependency ', softwareMeta['id']);
-      bootCmd += getAutobootScript(software[dep]);
+      console.log(`Getting autoboot script for ${softwareMeta['id']}'s dependency ${dep}`);
+      bootCmd += getAutobootScript(software[dep], software);
     }
   }
   if ('autoboot' in softwareMeta) {

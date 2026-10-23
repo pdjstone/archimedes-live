@@ -275,7 +275,7 @@ async function loadMachineConfig(_opts=null) {
       }
       postMessage({'currentSoftware': softwareMeta});
      
-      autoboot = getAutobootScript(softwareMeta);
+      autoboot = getAutobootScript(softwareMeta, await fetchSoftwareCatalogue());
       if (!autoboot) {
         console.warn(`Empty autoboot URL param specified but software ${softwareMeta.id} does not have autoboot app`)
       }
