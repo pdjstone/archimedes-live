@@ -57,6 +57,12 @@ window.arcAudioStats = function(resetFill = false) {
   return emuAudio.stats(resetFill);
 };
 
+// The same over the display, for browsers without a console (e.g. on a phone)
+if (searchParams.has('audiostats')) {
+  const { startAudioStatsOverlay } = await import('./audio-stats-overlay.js' + buildTag);
+  startAudioStatsOverlay(emuAudio);
+}
+
 const arculatorWorker = new Worker('arculator-worker.js' + buildTag, { type: 'module' });
 setCliWorker(arculatorWorker);
 

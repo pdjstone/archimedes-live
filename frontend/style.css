@@ -531,3 +531,34 @@ body.dbg-keypress #display-container.fullscreen, body.dbg-keypress { background-
 #jscli-remote-badge.connected {
   display: block;
 }
+
+/* -- Audio stats over the display (#audiostats) -------------------------- */
+
+#audio-stats-overlay {
+  position: absolute;
+  /* over the top left of the picture, inside the canvas's padding */
+  top: calc(var(--emulator-padding) + 4px);
+  left: calc(var(--emulator-padding) + 4px);
+  z-index: 10;
+  max-width: calc(100% - var(--emulator-padding) * 2 - 8px);
+  box-sizing: border-box;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ddd;
+  font: 11px/1.35 ui-monospace, monospace;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#audio-stats-overlay .summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#audio-stats-overlay.bad .summary,
+#audio-stats-overlay tr.bad { color: #ff8a80; }
+#audio-stats-overlay .details,
+#audio-stats-overlay .buttons { display: none; }
+#audio-stats-overlay.expanded .details,
+#audio-stats-overlay.expanded .buttons { display: block; }
+#audio-stats-overlay table { border-collapse: collapse; margin-top: 3px; }
+#audio-stats-overlay th { text-align: left; font-weight: normal; color: #999; padding: 0 8px 0 0; vertical-align: top; white-space: nowrap; }
+#audio-stats-overlay td { padding: 0; }
+#audio-stats-overlay button { font: inherit; margin: 4px 0 2px; padding: 2px 10px; }

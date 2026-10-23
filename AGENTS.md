@@ -107,7 +107,7 @@ All are read in `getPageBootParams()` in `frontend/ui.js`.
 | `mouse-capture` | `auto`, `force` or `never` | Mouse handling mode |
 | `showsoftwarebrowser` | (flag) | Open the software browser on load |
 | `dumpaudio` | `dur,delay[,post]` (seconds) | Record `dur` s of 48 kHz stereo audio, starting `delay` s of emulated time after boot. `post` also records what was actually played (see below). |
-| `audiostats` | (flag) | Log `Audio stats: {...}` to the console every 5 s. Otherwise it's only logged when a glitch counter changes. |
+| `audiostats` | (flag) | Show audio stats over the display (`frontend/audio-stats-overlay.js`; tap for the full panel), and log `Audio stats: {...}` to the console every 5 s. Otherwise they're only logged when a glitch counter changes. |
 | `dbglatency` | (flag) | Visual mouse-latency debugging |
 | `jscli` | `ws://127.0.0.1:PORT/TOKEN` | Connect to `tools/arcterm.py` (below), a command line for RISC OS. Only loopback addresses are accepted |
 
