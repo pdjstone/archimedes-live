@@ -76,7 +76,15 @@ function fsRequest(op, path, data) {
 }
 window.arcFS = {
   read: path => fsRequest('read', path),
-  readText: async path => new TextDecoder('latin1').decode(await fsRequest('read', path)),
+  // One character per byte. TextDecoder('latin1') is really Windows-1252
+  readText: async path => {
+    let bytes = await fsRequest('read', path);
+    let s = '';
+    for (let i = 0; i < bytes.length; i += 8192) {
+      s += String.fromCharCode(...bytes.subarray(i, i + 8192));
+    }
+    return s;
+  },
   write: (path, data) => fsRequest('write', path, typeof data == 'string' ? new TextEncoder().encode(data) : data),
   list: path => fsRequest('list', path),
   unlink: path => fsRequest('unlink', path),

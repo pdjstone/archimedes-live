@@ -163,6 +163,6 @@ self.jscliDone = (cmdId, failed, errnum, msg) => {
     raw.set(c, pos);
     pos += c.length;
   }
-  let error = failed ? { number: errnum, message: new TextDecoder('latin1').decode(msg) } : null;
+  let error = failed ? { number: errnum, message: String.fromCharCode(...msg) } : null;
   postMessage({ type: 'cliReply', id: req.id, result: { raw, error } }, [raw.buffer]);
 };
