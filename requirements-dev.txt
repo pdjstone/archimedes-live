@@ -8,6 +8,6 @@ markdown-it-py[plugins]
 pillow
 selenium
 pycurl
-riscos-conv==0.0.1
+riscos-conv==0.0.3
 websockets
 prompt_toolkit
