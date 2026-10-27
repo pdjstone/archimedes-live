@@ -50,15 +50,6 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
     this.ready = false;
     this.dsp = null;
     this.pendingDump = null;
-    // The 'post' audio dump: what actually reaches the speakers over the same
-    // frames as the main dump, after gain and disc noise, and with any fades
-    // and underrun silence
-    this.postBuf = null;
-    this.postFrames = 0;
-    this.postPos = 0;
-    this.postArmed = false;     // waiting for postStart to be played
-    this.postStart = 0;         // FIFO frame (free running) the main dump starts at
-    this.postCapturing = false;
     this.port.onmessage = (event) => {
       const msg = event.data;
       if (msg.type === 'init') {
@@ -66,7 +57,7 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
       } else if (msg.type === 'dump') {
         // Memory for an audio dump has to be allocated here, not when it starts
         if (this.dsp)
-          this.setDump(msg);
+          this.dsp.setDumpBuffer(msg.frames);
         else
           this.pendingDump = msg;
       }
@@ -83,7 +74,7 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
     this.dsp = new ArculatorDsp(msg.heap, msg);
     this.dsp.onDumpDone = (buf) => this.port.postMessage({ type: 'dump', samples: buf.buffer }, [buf.buffer]);
     if (this.pendingDump)
-      this.setDump(this.pendingDump);
+      this.dsp.setDumpBuffer(this.pendingDump.frames);
 
     this.fifo = new Int16Array(FIFO_FRAMES * 2); // output of stage 1, interleaved left, right
     this.fifoTick = new Int32Array(FIFO_FRAMES); // the tick each of those frames was taken from
@@ -104,30 +95,6 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
     Atomics.store(this.ctrl, CTRL.MIN_FILL, FILL_UNSET);
     Atomics.store(this.ctrl, CTRL.MAX_FILL, 0);
     this.ready = true;
-  }
-
-  setDump(msg) {
-    this.dsp.setDumpBuffer(msg.frames);
-    if (msg.post) {
-      this.postBuf = new Int16Array(msg.frames * 2);
-      this.postFrames = msg.frames;
-    }
-  }
-
-  /** Record n frames of what was played (as left, right floats) into the 'post' dump */
-  capturePost(outL, outR, from, n) {
-    const buf = this.postBuf;
-    for (let i = from; i < from + n && this.postCapturing; i++) {
-      let l = Math.round(outL[i] * 32768);
-      let r = Math.round(outR[i] * 32768);
-      buf[this.postPos * 2] = l > 32767 ? 32767 : l;
-      buf[this.postPos * 2 + 1] = r > 32767 ? 32767 : r;
-      if (++this.postPos >= this.postFrames) {
-        this.postCapturing = false;
-        this.postBuf = null;
-        this.port.postMessage({ type: 'postdump', samples: buf.buffer }, [buf.buffer]);
-      }
-    }
   }
 
   /**
@@ -161,14 +128,6 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
       if (want > room)
         want = room;
       const got = dsp.produce(fifo, want, at, this.fifoTick);
-      if (dsp.dumpStartAt >= 0) {
-        // The main dump starts in what we've just made. The 'post' dump starts when it's played
-        if (this.postBuf) {
-          this.postStart = (this.fifoW + (dsp.dumpStartAt - at)) | 0;
-          this.postArmed = true;
-        }
-        dsp.dumpStartAt = -1;
-      }
       this.fifoW = (this.fifoW + got) | 0;
       room -= got;
       if (got < want)
@@ -210,8 +169,6 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
     if (!this.playing) {
       if (fill < this.primeFill) {
         this.publish();
-        if (this.postCapturing)
-          this.capturePost(outL, outR, 0, n); // silence while it fills up again
         return true;
       }
       this.playing = true;
@@ -339,19 +296,6 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
       this.quietFrames = 0;
       if (this.target > TARGET_MIN)
         this.setTarget(this.target - TARGET_LOWER);
-    }
-
-    if (this.postArmed && ((fifoR + avail - this.postStart) | 0) > 0) {
-      // The start of the dump was played in this quantum (or trimmed away)
-      let first = (this.postStart - fifoR) | 0;
-      if (first < 0)
-        first = 0;
-      this.postArmed = false;
-      this.postCapturing = true;
-      this.postPos = 0;
-      this.capturePost(outL, outR, first, n - first);
-    } else if (this.postCapturing) {
-      this.capturePost(outL, outR, 0, n);
     }
 
     this.fifoR = (fifoR + avail) | 0;

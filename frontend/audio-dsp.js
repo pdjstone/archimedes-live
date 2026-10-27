@@ -102,8 +102,6 @@ export class ArculatorDsp {
     this.dumpPos = 0;
     this.capturing = false;
     this.onDumpDone = null;
-    this.dumpJustStarted = false;
-    this.dumpStartAt = -1; // index in produce()'s output of the first frame of the dump, until the caller takes it
   }
 
   /** Provide the memory for an audio dump. This allocates, so can't be called from process() */
@@ -235,7 +233,6 @@ export class ArculatorDsp {
     this.dumpFrames = frames;
     this.dumpPos = 0;
     this.capturing = true;
-    this.dumpJustStarted = true;
   }
 
   capture(l, r) {
@@ -355,11 +352,6 @@ export class ArculatorDsp {
       if (((this.wm - this.fr) | 0) <= 0)
         break;
       this.applyFrameEvents();
-      if (this.dumpJustStarted) {
-        // So that the caller can find this frame again when it's played
-        this.dumpJustStarted = false;
-        this.dumpStartAt = at + produced;
-      }
 
       const T = this.T;
       let l = 0, r = 0;

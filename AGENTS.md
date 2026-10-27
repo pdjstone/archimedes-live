@@ -109,7 +109,7 @@ All are read in `getPageBootParams()` in `frontend/ui.js`.
 | `soundfilter` | `0`, `1` or `2` | Low-pass filter: 0 is the original, 2 the least filtering |
 | `mouse-capture` | `auto`, `force` or `never` | Mouse handling mode |
 | `showsoftwarebrowser` | (flag) | Open the software browser on load |
-| `dumpaudio` | `dur,delay[,post]` (seconds) | Record `dur` s of 48 kHz stereo audio, starting `delay` s of emulated time after boot. `post` also records what was actually played (see below). |
+| `dumpaudio` | `dur,delay` (seconds) | Record `dur` s of 48 kHz stereo audio, starting `delay` s of emulated time after boot (see below). |
 | `audiostats` | (flag) | Show audio stats over the display (`frontend/audio-stats-overlay.js`; tap for the full panel), and log `Audio stats: {...}` to the console every 5 s. Otherwise they're only logged when a glitch counter changes. |
 | `dbglatency` | (flag) | Visual mouse-latency debugging |
 | `jscli` | `ws://127.0.0.1:PORT/TOKEN` | Connect to `tools/arcterm.py` (below), a command line for RISC OS. Only loopback addresses are accepted |
@@ -132,11 +132,10 @@ read it from the boot commands, as in the last example.
 
 Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
 
-- **`window.arcGetAudioDump(kind = 'main')`** returns `{state, size, base64}`.
+- **`window.arcGetAudioDump()`** returns `{state, size, base64}`.
   - `state` is `off`, `waiting`, `recording`, `finished` or `error`.
   - `base64` (a complete WAV) is only filled in once the state is `finished`, so polling stays cheap.
-  - `kind = 'main'` is the stream before gain and disc noise. It is bit-exact with the main branch's dump of the same URL.
-  - `kind = 'post'` is the speaker output: after gain, disc noise and clipping, including underrun silence. It needs `,post` in `dumpaudio` and finishes slightly after `main`.
+  - It's the stream before gain and disc noise, bit-exact with the main branch's dump of the same URL.
 - **`window.arcAudioStats(resetFill = false)`** returns cumulative counters, or `null` before audio is set up.
   - Glitches: `underruns`, `silentFrames`, `overflows` (trims), `framesDropped`, `recordsDropped`, `eventsDropped`, `clips`, `ddUnderruns`.
   - Buffering: `minFillMs`, `maxFillMs`, `targetFillMs`, `trimFillMs`.
@@ -339,15 +338,15 @@ venv/bin/python selenium-scripts/catalogue_survey.py --html-only   # remake the 
 ```sh
 venv/bin/python selenium-scripts/fetch_audio_dump.py \
     --url 'http://localhost:8000/#disc=bs-django01&autoboot' \
-    --duration 5 --delay 25 --out wip [--post]
-# -> build/audio-dumps/wip.wav (and wip-post.wav)
+    --duration 5 --delay 25 --out wip
+# -> build/audio-dumps/wip.wav
 
 venv/bin/python selenium-scripts/compare_wav.py a.wav b.wav
 ```
 
 `compare_wav.py` prints `exact match` (exit 0) or diagnostics: offset, first
 differing frame, max difference, SNR (exit 1). Main-branch dumps of the same URL
-are the reference; the `main` dump should match them exactly. Keep the dump
+are the reference; the dump should match them exactly. Keep the dump
 `delay` at 0.1 s or more: with a shorter delay the dump starts one block later
 than on main.
 

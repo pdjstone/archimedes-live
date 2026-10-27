@@ -45,9 +45,8 @@ const emuAudio = new EmuAudio(buildTag, searchParams.has('audiostats'));
   complete WAV file and is only populated once state is 'finished', so polling
   stays cheap. Here the dump is captured by the audio worklet, so it only
   starts once the AudioContext is running.*/
-window.arcGetAudioDump = function(kind = 'main') {
-  // kind 'post' is what was played, after gain and disc noise (#dumpaudio=dur,delay,post). There's no equivalent on main
-  return emuAudio.getDump(kind);
+window.arcGetAudioDump = function() {
+  return emuAudio.getDump();
 };
 
 /*Audio glitch counters, so that selenium can assert e.g. "0 underruns during
@@ -336,16 +335,14 @@ function getPageBootParams() {
     }
   }
   if (searchParams.has('dumpaudio')) {
-    // dumpaudio=<duration>,<delay>[,post] - both in seconds, delay defaults to 0.
-    // post also records what's played, after gain and disc noise
+    // dumpaudio=<duration>,<delay> - both in seconds, delay defaults to 0
     let parts = searchParams.get('dumpaudio').split(',');
     let duration = parseFloat(parts[0]);
     let delay = parts.length > 1 ? parseFloat(parts[1]) : 0;
-    let post = parts.length > 2 && parts[2] == 'post';
     if (duration > 0 && !isNaN(delay) && delay >= 0) {
       opts.dumpAudio = {duration: duration, delay: delay};
       // The audio worklet needs to allocate the dump's memory before it starts
-      emuAudio.expectDump(Math.trunc(duration * 48000), post);
+      emuAudio.expectDump(Math.trunc(duration * 48000));
     } else {
       console.warn(`Invalid dumpaudio value '${searchParams.get('dumpaudio')}' - expected duration,delay in seconds`);
     }
