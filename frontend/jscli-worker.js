@@ -1,29 +1,29 @@
 /**
  * The worker's side of the JSCLI page hooks in jscli-page.js (the 'cli'
  * messages). Runs * commands through the JSCLI helper modules
- * (arculator-wasm/src/jscli) for window.arcCli, sends VDU bytes and keys
- * through JSCLI for arcVdu and arcType, and runs arcCliSession's sessions in
+ * (arculator-wasm/src/jscli) for window.arcCli, sends keys through JSCLI for
+ * arcType, and runs arcCliSession's sessions in
  * JSCLIWimp. The emulator queues each request for the module serving its
  * channel, then reports output and completion through self.jscliOutput and
  * self.jscliDone (called from jscli.c).
  */
 const CLI_CHANNELS = Object.freeze({callback: 0, wimp: 1});
-const CLI_KINDS = Object.freeze({vdu: 1, keys: 2, session: 3, input: 4, close: 5});
+const CLI_KINDS = Object.freeze({keys: 1, session: 2, input: 3, close: 4});
 // Bytes per emulator request: the modules' buffer size, and for input less
 // than a TaskWindow's input buffer, which holds 63 bytes and drops the rest.
 // The next part is only queued when one is done, and JSCLIWimp takes one
 // request per null event, so input goes at a part every 5 cs or so, which
 // programs that are reading keep up with
-const CLI_MAX_DATA = Object.freeze({vdu: 256, keys: 256, input: 32});
+const CLI_MAX_DATA = Object.freeze({keys: 256, input: 32});
 const CLI_QUEUE_ERRORS = Object.freeze({
   '-1': 'module not loaded',
   '-2': 'too many commands queued',
   '-3': 'command too long (255 characters at most)',
-  '-4': 'that module can\'t do that (VDU bytes and keys need JSCLI, sessions JSCLIWimp)',
+  '-4': 'that module can\'t do that (keys need JSCLI, sessions JSCLIWimp)',
   '-5': 'the session has ended',
 });
-// Emulator request id -> request: {id, label, output, parts, timer}. Long VDU
-// or key data goes as several emulator requests (parts), one after another
+// Emulator request id -> request: {id, label, output, parts, timer}. Long key
+// or input data goes as several emulator requests (parts), one after another
 const cliRequests = new Map();
 // Page id -> request, for the open sessions
 const cliSessions = new Map();

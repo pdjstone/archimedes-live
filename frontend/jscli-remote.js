@@ -12,7 +12,7 @@
                                        {event: 'output', session, data} and
                                        {event: 'ended', session, error}
     {id, op: 'input', session, data}, {id, op: 'close', session}
-    {id, op: 'type', data}, {id, op: 'vdu', data}
+    {id, op: 'type', data}
     {id, op: 'status'}, {id, op: 'screenshot'} -> result: PNG as base64
   and gets {id, result} or {id, error: message} back. The page sends
   {event: 'status', status} when it connects and whenever arcCliStatus()'s
@@ -119,9 +119,6 @@ async function handleRequest(req) {
   }
   case 'type':
     await window.arcType(req.data);
-    return null;
-  case 'vdu':
-    await window.arcVdu(req.data);
     return null;
   case 'status':
     return await window.arcCliStatus();

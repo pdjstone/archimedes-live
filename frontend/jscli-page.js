@@ -1,5 +1,5 @@
 /*The page's side of the JSCLI hooks for scripts: window.arcCli,
-  arcCliStatus, arcCliSession, arcVdu and arcType. They send 'cli' messages to
+  arcCliStatus, arcCliSession and arcType. They send 'cli' messages to
   the worker, which handles them in jscli-worker.js.*/
 
 /*Run a RISC OS * command through one of the JSCLI helper modules in the
@@ -81,8 +81,8 @@ window.arcCli = async function(command, {via = 'callback', onOutput = null, time
   return {output: vduToText(raw), raw, error};
 };
 
-/*Bytes for arcVdu and arcType: a string (one byte per character, so Latin-1),
-  a Uint8Array, or an array of numbers and strings, e.g. [17, 1, 'Red', 13, 10]*/
+/*Bytes for arcType and session input: a string (one byte per character, so
+  Latin-1), a Uint8Array, or an array of numbers and strings, e.g. ['RUN', 13]*/
 function toBytes(data) {
   if (typeof data == 'string') {
     return Uint8Array.from(data, c => c.charCodeAt(0) & 0xff);
@@ -192,13 +192,6 @@ window.arcCliSession = function(command = '', {onOutput = null} = {}) {
       return result;
     });
   return session;
-};
-
-/*Write bytes to the VDU drivers (OS_WriteN), through the JSCLI module, e.g.
-  arcVdu([22, 12]) for MODE 12, or arcVdu('\x11\x01Red text'). It's drawn on
-  the screen, in the desktop too (over the windows). Resolves once written.*/
-window.arcVdu = function(data, {timeout = 0} = {}) {
-  return cliData('vdu', data, timeout);
 };
 
 /*Type text into the keyboard buffer (OS_Byte 153) through the JSCLI module,

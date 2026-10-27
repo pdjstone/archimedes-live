@@ -280,7 +280,6 @@ class LineTerm:
   \cli CMD      run * command CMD from a callback (JSCLI), outside the session
   \wimp CMD     run * command CMD in its own TaskWindow (JSCLIWimp)
   \type TEXT    type TEXT into the keyboard buffer (\r is Return, \x1b Escape)
-  \vdu N,N,...  write bytes to the VDU drivers
   \esc          send Escape to the session (or press Ctrl-C)
   \open [CMD]   start a new session running CMD (default: a * prompt)
   \close        end the session; lines then run as * commands
@@ -433,9 +432,6 @@ class LineTerm:
             await self.run_cli(rest, 'wimp')
         elif name == 'type':
             await self.bridge.request('type', data=latin1(codecs.decode(rest, 'unicode_escape')))
-        elif name == 'vdu':
-            data = ''.join(chr(int(n, 0) & 0xff) for n in rest.replace(',', ' ').split())
-            await self.bridge.request('vdu', data=data)
         elif name == 'esc':
             await self.send_escape()
         elif name == 'open':

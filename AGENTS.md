@@ -155,13 +155,9 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
   Return, `\x1b` Escape (it breaks into programs), and codes from `&80` are
   the function and cursor keys: F1-F9 are `&81`-`&89`, F10-F12 `&CA`-`&CC`
   (`'\xcc'` opens the desktop's command line). Characters are one byte each
-  (Latin-1); an array or a Uint8Array works too, as for `arcVdu`. Resolves once
+  (Latin-1); an array of numbers and strings, or a Uint8Array, works too. Resolves once
   all are in the buffer; long text waits for the program to read some.
   Unlike `simulateKey`, nothing is dropped on a slow host.
-- **`window.arcVdu(bytes, {timeout})`** writes bytes to the VDU drivers through
-  JSCLI (OS_WriteN): `arcVdu([22, 12])` is MODE 12, `arcVdu([17, 1, 'Red',
-  13, 10])` red text (strings in an array are their characters). In the
-  desktop it draws over the windows.
 - **`window.arcScreenshot({base64})`** resolves with a PNG of the next frame
   the emulator presents: a `Blob`, or a base64 string with `base64: true`. It's
   the size the canvas shows (double-scanned modes have their lines doubled, so
@@ -240,7 +236,7 @@ venv/bin/python tools/arcterm.py -c 'Cat' -c 'Show Sys$Year'   # run and exit
   The RISC OS prompt (`*`, BASIC's `>`) is the prompt, lines are edited
   locally and their echo is dropped. Ctrl-C sends Escape and Ctrl-D quits.
   Outside the desktop, each line runs as an `arcCli` command. Lines starting
-  with `\` are arcterm commands (`\help`): `\cli`, `\wimp`, `\type`, `\vdu`,
+  with `\` are arcterm commands (`\help`): `\cli`, `\wimp`, `\type`,
   `\open BASIC`, `\close`, `\status` and `\shot file.png`.
 - `--raw` passes each key through, with cursor and function keys mapped
   and VDU codes turned into ANSI. Ctrl-D or Ctrl-] quits. A TaskWindow has no cursor
