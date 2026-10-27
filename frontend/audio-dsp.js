@@ -55,7 +55,6 @@ export class ArculatorDsp {
 
     // What the emulator has published (see sync())
     this.wm = 0;      // output frame watermark
-    this.ticksW = 0;  // ticks in the records written
     this.recW = 0;    // records written
     this.evW = 0;     // events written
 
@@ -126,7 +125,6 @@ export class ArculatorDsp {
   sync() {
     const c = this.ctrl;
     this.wm = Atomics.load(c, CTRL.FRAME_WM);
-    this.ticksW = Atomics.load(c, CTRL.TICKS_WRITE);
     this.recW = Atomics.load(c, CTRL.REC_WRITE);
     this.evW = Atomics.load(c, CTRL.EVT_WRITE);
     const seq = Atomics.load(c, CTRL.RESET_SEQ);
@@ -356,9 +354,7 @@ export class ArculatorDsp {
       const T = this.T;
       let l = 0, r = 0;
       if (T >= 0) {
-        // The tick has to have been written
-        if (((this.ticksW - (this.tick0 + T)) | 0) <= 0)
-          break;
+        // Stops if the records written don't reach tick T yet
         if (!this.advance(T))
           break;
         l = this.outL;

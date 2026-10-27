@@ -77,10 +77,9 @@ export class EmuAudio {
       resetPtr: msg.resetPtr,
       eventPtr: msg.eventPtr,
       recordPtr: msg.recordPtr,
-      ddPtr: msg.ddPtr
+      ddPtr: msg.ddPtr,
+      dumpFrames: this.dumpFrames
     });
-    if (this.dumpFrames)
-      this.node.port.postMessage({ type: 'dump', frames: this.dumpFrames });
     this.node.connect(ctx.destination);
 
     // Browsers won't let audio start until the user has interacted with the page
@@ -123,12 +122,11 @@ export class EmuAudio {
 
   /**
    * An audio dump of this many frames is going to be requested. The worklet
-   * needs the memory for it up front.
+   * needs the memory for it up front, so this has to be called before init(),
+   * which ui.js does while it reads the page's parameters.
    */
   expectDump(frames) {
     this.dumpFrames = frames;
-    if (this.node)
-      this.node.port.postMessage({ type: 'dump', frames });
   }
 
   /**

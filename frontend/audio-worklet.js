@@ -49,18 +49,9 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
     super();
     this.ready = false;
     this.dsp = null;
-    this.pendingDump = null;
     this.port.onmessage = (event) => {
-      const msg = event.data;
-      if (msg.type === 'init') {
-        this.init(msg);
-      } else if (msg.type === 'dump') {
-        // Memory for an audio dump has to be allocated here, not when it starts
-        if (this.dsp)
-          this.dsp.setDumpBuffer(msg.frames);
-        else
-          this.pendingDump = msg;
-      }
+      if (event.data.type === 'init')
+        this.init(event.data);
     };
   }
 
@@ -73,8 +64,9 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
     this.ddData = new Int16Array(msg.heap, msg.ddPtr, RING.DD_BLOCKS * DD_HALVES);
     this.dsp = new ArculatorDsp(msg.heap, msg);
     this.dsp.onDumpDone = (buf) => this.port.postMessage({ type: 'dump', samples: buf.buffer }, [buf.buffer]);
-    if (this.pendingDump)
-      this.dsp.setDumpBuffer(this.pendingDump.frames);
+    // Memory for an audio dump has to be allocated here, not when it starts
+    if (msg.dumpFrames)
+      this.dsp.setDumpBuffer(msg.dumpFrames);
 
     this.fifo = new Int16Array(FIFO_FRAMES * 2); // output of stage 1, interleaved left, right
     this.fifoTick = new Int32Array(FIFO_FRAMES); // the tick each of those frames was taken from
