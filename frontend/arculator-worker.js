@@ -194,20 +194,18 @@ function handleFsRequest({ id, op, path, data }) {
 /**
  * Screenshot of the next frame the emulator presents, as a PNG Blob, for the
  * window.arcScreenshot hook in ui.js. The frame comes straight from the
- * emulator's display buffer (capture_frame in js/video.js), so it's at the
- * size the canvas shows, without anything the page draws over it. Frames
- * aren't presented while fast-forwarding, so this waits until that ends.
+ * emulator's WebGL canvas (render in js/video.js), so it's at the size the
+ * canvas shows, without anything the page draws over it. Frames aren't
+ * presented while fast-forwarding, so this waits until that ends.
  */
 function handleScreenshotRequest({ id }) {
   if (!arculatorModule || !arculatorModule.renderer) {
     postMessage({ type: 'screenshotReply', id, error: 'The emulator display isn\'t running yet' });
     return;
   }
-  (arculatorModule.screenshotRequests ??= []).push(async ({ width, height, pixels }) => {
+  (arculatorModule.screenshotRequests ??= []).push(async png => {
     try {
-      let canvas = new OffscreenCanvas(width, height);
-      canvas.getContext('2d').putImageData(new ImageData(pixels, width, height), 0, 0);
-      postMessage({ type: 'screenshotReply', id, result: await canvas.convertToBlob({ type: 'image/png' }) });
+      postMessage({ type: 'screenshotReply', id, result: await png });
     } catch (e) {
       postMessage({ type: 'screenshotReply', id, error: String(e.message || e) });
     }

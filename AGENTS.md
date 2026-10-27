@@ -82,7 +82,7 @@ Things to know:
   `ActionChains(d).move_to_element(d.find_element(By.ID, 'canvas')).click().perform()`.
 - **Keyboard and mouse input go to `#canvas`.** Send them there with ActionChains.
 - **Screenshots:** use `window.arcScreenshot` (below), which takes the frame
-  from the emulator's display buffer. Selenium's own screenshots include the
+  from the emulator's WebGL canvas. Selenium's own screenshots include the
   page's overlays, such as the suspended-audio banner.
 - **The emulator runs in real time.** Each loop emulates the wall-clock time
   since the last one (at most 500 ms). While audio is playing, the audio
