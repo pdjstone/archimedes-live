@@ -433,6 +433,7 @@ disc_noise_gain = 0
   video_scale = 1
   video_fullscreen_scale = 0
   video_linear_filtering = 0
+  video_black_level = 1
   fdc_type = ${c['fdc_type']}
   st506_present = 1
   rom_set = ${c['rom_set']}
