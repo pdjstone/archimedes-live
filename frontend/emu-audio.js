@@ -23,6 +23,7 @@ export class EmuAudio {
     this.node = null;
     this.ctrl = null;
     this.running = false;
+    this.paused = false;  // suspended because the emulator is paused
     this.lastLogged = null;
     this.dumpFrames = 0;  // size of the audio dump that's been asked for
     this.dumpWav = null;  // the finished dump, as a WAV file
@@ -106,13 +107,24 @@ export class EmuAudio {
   updateState() {
     const state = this.ctx.state;
     console.log('Audio state:', state);
-    document.body.classList.toggle('audio-suspended', state === 'suspended');
+    document.body.classList.toggle('audio-suspended', state === 'suspended' && !this.paused);
 
     const running = state === 'running' && this.node !== null;
     if (running === this.running)
       return;
     this.running = running;
     Atomics.store(this.ctrl, CTRL.CTX_RUNNING, running ? 1 : 0);
+  }
+
+  /**
+   * Suspends the AudioContext while the emulator is paused, rather than
+   * letting the worklet run dry, and resumes it after.
+   */
+  setPaused(paused) {
+    this.paused = paused;
+    if (!this.ctx)
+      return;
+    (paused ? this.ctx.suspend() : this.ctx.resume()).catch(() => {});
   }
 
   onWorkletMessage(msg) {

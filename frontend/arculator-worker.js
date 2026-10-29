@@ -64,6 +64,9 @@ function setStatus(text) {
 
 onmessageerror = (event) => { console.log('worker message error', event); }
 
+// Paused from the page (pauseEmulator in ui.js)
+let userPaused = false;
+
 onmessage = async (e) => {
   const data = e.data;
   if (data.type === 'fs') {
@@ -76,6 +79,14 @@ onmessage = async (e) => {
   }
   if (data.type === 'screenshot') {
     handleScreenshotRequest(data);
+    return;
+  }
+  if (data.type === 'pause') {
+    // From pauseEmulator and resumeEmulator in ui.js
+    if (arculatorModule) {
+      userPaused = data.paused;
+      arculatorModule.ccall(data.paused ? 'arc_pause_main_thread' : 'arc_resume_main_thread', null, []);
+    }
     return;
   }
   if (data.type === 'fastForward') {
@@ -164,7 +175,8 @@ async function whilePaused(fn) {
   try {
     await fn();
   } finally {
-    arculatorModule.ccall('arc_resume_main_thread', null, []);
+    if (!userPaused)
+      arculatorModule.ccall('arc_resume_main_thread', null, []);
   }
 }
 

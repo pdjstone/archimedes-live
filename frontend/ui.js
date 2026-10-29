@@ -210,7 +210,7 @@ function loadFile(file) {
 // ui.js is a module, so its functions aren't globals. Expose the ones
 // called from inline event handlers in index.html and the classic scripts
 Object.assign(window, {
-  showModal, closeModal, resumeEmulator,
+  showModal, closeModal, pauseEmulator, resumeEmulator,
   showMachinePicker, previewMachine, bootSelected,
   showSoftwareBrowser, filterSoftware, loadFile
 });
@@ -257,15 +257,17 @@ function changeLocationHash(hash) {
   document.location.assign('#' + hash);
 }
 
+/*Pause the emulator, and its sound. The overlay's button or a click on the
+  display resumes it.*/
 function pauseEmulator() {
-  Module.ccall('arc_pause_main_thread', null, []);
+  arculatorWorker.postMessage({type: 'pause', paused: true});
+  emuAudio.setPaused(true);
   document.body.classList.add('emu-paused');
-  let emulatorTime = arc_get_emulation_ms();
-  console.log('Emulator paused at ', emulatorTime);
 }
 
 function resumeEmulator() {
-  Module.ccall('arc_resume_main_thread', null, []);
+  arculatorWorker.postMessage({type: 'pause', paused: false});
+  emuAudio.setPaused(false);
   document.body.classList.remove('emu-paused');
 }
 
