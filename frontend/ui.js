@@ -124,6 +124,13 @@ window.arcFastForward = function(ms) {
   arculatorWorker.postMessage({type: 'fastForward', ms});
 };
 
+/*The music playing, for programs that use the QTMTracker module (see
+  qtm-info.js): {title, author, samples, format, tag, channels, loadedFrom,
+  ...}, or null. An 'arcmusicinfo' event on window, with it as its detail,
+  says when it changes.*/
+let musicInfo = null;
+window.arcMusicInfo = () => musicInfo;
+
 arculatorWorker.onerror = (event) => {
   console.log('main thread arculatorWorker onerror', event);
 }
@@ -143,6 +150,9 @@ arculatorWorker.onmessage = (event) => {
     } else {
       req.resolve(event.data.result);
     }
+  } else if (event.data.type == 'musicInfo') {
+    musicInfo = event.data.info;
+    window.dispatchEvent(new CustomEvent('arcmusicinfo', {detail: musicInfo}));
   } else if (event.data.type == 'screenshotReply') {
     let req = screenshotRequests.get(event.data.id);
     screenshotRequests.delete(event.data.id);

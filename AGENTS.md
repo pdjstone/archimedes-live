@@ -178,6 +178,14 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
   Archimedes key (`ArcEscape`, `ArcF1`, ... from `emu_input.js`). Selenium's
   own key events are too short for the emulator to see; hold for about 100 ms.
 
+- **`window.arcMusicInfo()`** gives the song a program has loaded into the
+  QTMTracker module, or null (`frontend/qtm-info.js`, a SWI hook on
+  `QTM_Load`, so it works while a demo has interrupts off). It's
+  `{title, author, samples, format, tag, origin, channels, loadedFrom,
+  address}`: the name, author and format are what `*QTMInfo` shows, and
+  `samples` holds every sample's name, where trackers put their text. A song
+  loaded from a file only gives `filename` (`loadedFrom: 'file'`). A window
+  `arcmusicinfo` event, with it as its detail, says when it changes.
 - **`window.arcCli(command, {via, onOutput})`** runs a `*` command and resolves
   with `{output, raw, error}`: `raw` is the VDU stream it printed, `output` the
   same as plain text, `error` `{number, message}` or null. It uses helper
@@ -219,6 +227,26 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
   63 bytes. Input sent to a program that isn't reading can still be lost
   beyond that. Sessions and `arcCli(..., {via: 'wimp'})` commands run
   side by side.
+
+## Watching SWIs
+
+`frontend/swi-hook.js` lets code in the worker watch for SWIs as the emulated
+CPU calls them (`arculator-wasm/src/swihook.c`), e.g. to see what music a
+program gives a tracker module. It doesn't need RISC OS, so it works while a
+program has taken over the machine with interrupts off.
+
+```js
+import { addSwiHook, readMemory, readString } from './swi-hook.js'
+const remove = addSwiHook(0x5, regs => console.log('OS_CLI', readString(regs[0])));
+```
+
+- A hook gets a copy of r0-r15 and runs synchronously before the SWI does. It
+  sees only the call, not the results. SWI numbers are without the X bit,
+  and the X form is seen too. At most 32 SWIs can be hooked at once.
+- `readMemory(addr, len)` reads emulated memory at a logical address, as the
+  program sees it then. It stops early at unmapped memory or I/O.
+- Hooks run in the middle of the emulator, so keep them quick, and
+  `postMessage` anything for the page.
 
 ## A command line from a terminal
 

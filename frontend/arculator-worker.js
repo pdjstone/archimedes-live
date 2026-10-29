@@ -17,6 +17,8 @@ import { loadFromSoftwareCatalogue, fetchSoftwareCatalogue } from './software-br
 import { loadSoftware, loadSoftwareFromUrl, createHostfsBootFile, FILETYPE_DESKTOP, FILETYPE_COMMAND } from './hostfs.js'
 import { putDataAtPath } from './fsutil.js'
 import { handleCliRequest, setCliModule } from './jscli-worker.js'
+import { setSwiHookModule } from './swi-hook.js'
+import { clearMusicInfo } from './qtm-info.js'
 
 // if we await anything before setting the onmessage handler, messages posted to us 
 // aren't queued so get lost. a better alternative to using dynamic import to add the
@@ -148,6 +150,7 @@ onmessage = async (e) => {
       }
     });
     setCliModule(arculatorModule);
+    setSwiHookModule(arculatorModule);
   }
 }
 
@@ -371,11 +374,13 @@ function arc_renderer_reset() {
 
 function arc_do_reset() {
   arculatorModule.ccall('arc_do_reset', null, []);
+  clearMusicInfo();
 }
 
 function arc_load_config_and_reset(configName) {
   console.log(`arc_load_config_and_reset ${configName}`);
   arculatorModule.ccall('arc_load_config_and_reset', null, ['string'], [configName]);
+  clearMusicInfo();
 }
 
 function arc_set_sound_filter(filter) {
