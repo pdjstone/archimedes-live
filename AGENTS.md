@@ -186,6 +186,9 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
   `samples` holds every sample's name, where trackers put their text. A song
   loaded from a file only gives `filename` (`loadedFrom: 'file'`). A window
   `arcmusicinfo` event, with it as its detail, says when it changes.
+  `frontend/media-session.js` shows it in the OS media controls, whose
+  play/pause buttons call **`window.pauseEmulator()`** and
+  **`window.resumeEmulator()`** (these suspend the AudioContext too).
 - **`window.arcCli(command, {via, onOutput})`** runs a `*` command and resolves
   with `{output, raw, error}`: `raw` is the VDU stream it printed, `output` the
   same as plain text, `error` `{number, message}` or null. It uses helper

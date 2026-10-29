@@ -7,6 +7,7 @@ import { presetMachines, machineInfo, CPU_DESCRIPTIONS, OS_NAMES, MEM_SIZE_NAMES
 import { getEmuInput } from "./emu_input.js";
 const { EmuAudio } = await import('./emu-audio.js' + buildTag);
 const { setCliWorker, handleCliMessage } = await import('./jscli-page.js' + buildTag);
+const { initMediaSession, setMediaSessionAlbum, setMediaSessionPaused } = await import('./media-session.js' + buildTag);
 
 const DISPLAY_MODES = Object.freeze({
 		0: 'DISPLAY_MODE_NO_BORDERS',
@@ -37,6 +38,7 @@ let preload = null;
 const offscreenCanvas = document.getElementById('canvas').transferControlToOffscreen();
 
 const emuAudio = new EmuAudio(buildTag, searchParams.has('audiostats'));
+initMediaSession({pause: pauseEmulator, resume: resumeEmulator, changeTrack});
 
 /*Branch-agnostic audio dump hook, used by selenium-scripts/fetch_audio_dump.py
   so that one script works against both the main and worker-refactor branches.
@@ -225,6 +227,7 @@ if (searchParams.has('showsoftwarebrowser')) {
 
 function setCurrentSoftware(softwareMeta) {
     document.title = `${softwareMeta.title} - Archimedes Live!`;
+    setMediaSessionAlbum(softwareMeta.title);
 }
 
 /*window.onerror = function(event) {
@@ -258,17 +261,31 @@ function changeLocationHash(hash) {
 }
 
 /*Pause the emulator, and its sound. The overlay's button or a click on the
-  display resumes it.*/
+  display resumes it, as do the media controls (media-session.js).*/
 function pauseEmulator() {
   arculatorWorker.postMessage({type: 'pause', paused: true});
   emuAudio.setPaused(true);
   document.body.classList.add('emu-paused');
+  setMediaSessionPaused(true);
 }
 
 function resumeEmulator() {
   arculatorWorker.postMessage({type: 'pause', paused: false});
   emuAudio.setPaused(false);
   document.body.classList.remove('emu-paused');
+  setMediaSessionPaused(false);
+}
+
+/*Asks the program for the next (dir 1) or previous (-1) song, from the media
+  controls. For now this assumes it's one where cursor down or up then Return
+  does that, as in the Bitshifters Django demos. Keys are held for 100 ms so
+  the program sees them.*/
+function changeTrack(dir) {
+  if (document.body.classList.contains('emu-paused'))
+    resumeEmulator();
+  let emu = getEmuInput();
+  emu.simulateKey(dir > 0 ? 'ArcArrowDown' : 'ArcArrowUp', 0, 100);
+  emu.simulateKey('ArcReturn', 200, 100);
 }
 
 
