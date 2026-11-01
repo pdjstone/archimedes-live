@@ -66,6 +66,8 @@ onmessageerror = (event) => { console.log('worker message error', event); }
 
 // Paused from the page (pauseEmulator in ui.js)
 let userPaused = false;
+// The page can't be seen, so the emulator doesn't draw (sendPageHidden in ui.js)
+let pageHidden = false;
 
 onmessage = async (e) => {
   const data = e.data;
@@ -87,6 +89,12 @@ onmessage = async (e) => {
       userPaused = data.paused;
       arculatorModule.ccall(data.paused ? 'arc_pause_main_thread' : 'arc_resume_main_thread', null, []);
     }
+    return;
+  }
+  if (data.type === 'pageHidden') {
+    pageHidden = data.hidden;
+    if (arculatorModule)
+      arc_set_page_hidden(pageHidden);
     return;
   }
   if (data.type === 'fastForward') {
@@ -131,6 +139,7 @@ onmessage = async (e) => {
           console.log('calling main...(' + fps + ',' + configName + ')');
           this.callMain([fps.toString(), configName]);
           console.log('calling main done');
+          arc_set_page_hidden(pageHidden);
           if (machineConfig.fastForward) {
               arc_fast_forward(machineConfig.fastForward);
           }
@@ -211,14 +220,18 @@ function handleFsRequest({ id, op, path, data }) {
  * window.arcScreenshot hook in ui.js. The frame comes straight from the
  * emulator's WebGL canvas (render in js/video.js), so it's at the size the
  * canvas shows, without anything the page draws over it. Frames aren't
- * presented while fast-forwarding, so this waits until that ends.
+ * presented while fast-forwarding, so this waits until that ends. They aren't
+ * while the page is hidden either, so one is drawn for this.
  */
 function handleScreenshotRequest({ id }) {
   if (!arculatorModule || !arculatorModule.renderer) {
     postMessage({ type: 'screenshotReply', id, error: 'The emulator display isn\'t running yet' });
     return;
   }
+  if (pageHidden)
+    arc_set_page_hidden(false);
   (arculatorModule.screenshotRequests ??= []).push(async png => {
+    arc_set_page_hidden(pageHidden);
     try {
       postMessage({ type: 'screenshotReply', id, result: await png });
     } catch (e) {
@@ -402,6 +415,10 @@ function arc_set_sound_filter(filter) {
 function arc_fast_forward(ms) {
   console.log(`Fast-forwaring emulator to ${ms}ms`);
   arculatorModule.ccall('arc_fast_forward', null, ['number'], [ms]);
+}
+
+function arc_set_page_hidden(hidden) {
+  arculatorModule.ccall('arc_set_page_hidden', null, ['number'], [hidden ? 1 : 0]);
 }
 
 function arc_get_emulation_ms() {

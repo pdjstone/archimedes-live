@@ -126,6 +126,14 @@ window.arcFastForward = function(ms) {
   arculatorWorker.postMessage({type: 'fastForward', ms});
 };
 
+/*The emulator doesn't draw anything while the page can't be seen, such as
+  when music plays in the background. It runs just the same otherwise.*/
+function sendPageHidden() {
+  arculatorWorker.postMessage({type: 'pageHidden', hidden: document.hidden});
+}
+document.addEventListener('visibilitychange', sendPageHidden);
+sendPageHidden();
+
 /*The music playing, for programs that use the QTMTracker module (see
   qtm-info.js): {title, author, samples, format, tag, channels, loadedFrom,
   ...}, or null. An 'arcmusicinfo' event on window, with it as its detail,

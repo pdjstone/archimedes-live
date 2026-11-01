@@ -162,8 +162,10 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
   the emulator presents: a `Blob`, or a base64 string with `base64: true`. It's
   the size the canvas shows (double-scanned modes have their lines doubled, so
   the desktop is 640x512), without the page's overlays. Frames aren't presented
-  while fast-forwarding, so it waits for a fast-forward to end. Rejects before
-  the display has started. From selenium:
+  while fast-forwarding, so it waits for a fast-forward to end. The emulator
+  doesn't draw while the page is hidden, or during a fast-forward, but a
+  hidden page still draws a frame for this. Rejects before the display has
+  started. From selenium:
 
   ```python
   png = d.execute_async_script(
