@@ -343,11 +343,6 @@ async function loadMachineConfig(_opts=null) {
   if (opts.dumpAudio) {
     builder.dumpAudio(opts.dumpAudio);
   }
-  if (builder.getRom().includes('arthur')) {
-    // TODO: can we fix doosmouse() for Arthur?
-    console.log('Setting mouse-capture=force for Arthur');
-    opts.mouseCapture = 'force';
-  }
   if (opts.mouseCapture) {
     if (MOUSE_CAPTURE_MODES.includes(opts.mouseCapture)) {
       postMessage({type: 'EmulatorInput', func: 'setCaptureMode', params: [MOUSE_CAPTURE_MODES.indexOf(opts.mouseCapture)+1]});
