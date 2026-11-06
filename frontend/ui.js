@@ -1,13 +1,10 @@
-let buildTag = new URL(import.meta.url).search;  
-
-
-const { createHostfsBootFile, FILETYPE_DESKTOP } = await import('./hostfs.js' + buildTag);
-const { initSoftwareBrowser, showSoftwareBrowser, filterSoftware, removeAllChildNodes } = await import('./software-browser-ui.js' + buildTag);
-import { presetMachines, machineInfo, CPU_DESCRIPTIONS, OS_NAMES, MEM_SIZE_NAMES } from "./machine-config.js";
+import { createHostfsBootFile, FILETYPE_DESKTOP } from './hostfs.js'
+import { initSoftwareBrowser, showSoftwareBrowser, filterSoftware, removeAllChildNodes } from './software-browser-ui.js'
+import { presetMachines, machineInfo, CPU_DESCRIPTIONS, OS_NAMES, MEM_SIZE_NAMES } from "./machine-config.js"
 import { getEmuInput } from "./emu_input.js";
-const { EmuAudio } = await import('./emu-audio.js' + buildTag);
-const { setCliWorker, handleCliMessage } = await import('./jscli-page.js' + buildTag);
-const { initMediaSession, setMediaSessionAlbum, setMediaSessionPaused } = await import('./media-session.js' + buildTag);
+import { EmuAudio } from './emu-audio.js'
+import { setCliWorker, handleCliMessage }  from './jscli-page.js'
+import { initMediaSession, setMediaSessionAlbum, setMediaSessionPaused } from './media-session.js'
 
 const DISPLAY_MODES = Object.freeze({
 		0: 'DISPLAY_MODE_NO_BORDERS',
@@ -37,7 +34,7 @@ let preload = null;
 
 const offscreenCanvas = document.getElementById('canvas').transferControlToOffscreen();
 
-const emuAudio = new EmuAudio(buildTag, searchParams.has('audiostats'));
+const emuAudio = new EmuAudio(searchParams.has('audiostats'));
 initMediaSession({pause: pauseEmulator, resume: resumeEmulator, changeTrack});
 
 /*Branch-agnostic audio dump hook, used by selenium-scripts/fetch_audio_dump.py
@@ -60,16 +57,16 @@ window.arcAudioStats = function(resetFill = false) {
 
 // The same over the display, for browsers without a console (e.g. on a phone)
 if (searchParams.has('audiostats')) {
-  const { startAudioStatsOverlay } = await import('./audio-stats-overlay.js' + buildTag);
+  const { startAudioStatsOverlay } = await import('./audio-stats-overlay.js');
   startAudioStatsOverlay(emuAudio);
 }
 
-const arculatorWorker = new Worker('arculator-worker.js' + buildTag, { type: 'module' });
+const arculatorWorker = new Worker('./arculator-worker.js', { type: 'module' });
 setCliWorker(arculatorWorker);
 
 // A command line client on this machine (tools/arcterm.py) to connect to
 if (searchParams.has('jscli')) {
-  const { startJscliRemote } = await import('./jscli-remote.js' + buildTag);
+  const { startJscliRemote } = await import('./jscli-remote.js');
   startJscliRemote(searchParams.get('jscli'));
 }
 

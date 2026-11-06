@@ -13,11 +13,9 @@ const DUMP_STATE_NAMES = ['off', 'waiting', 'recording', 'recording', 'error'];
 
 export class EmuAudio {
   /**
-   * @param {string} buildTag - query string appended to the worklet URL
    * @param {boolean} alwaysLogStats - log the counters every interval, not just when they change
    */
-  constructor(buildTag = '', alwaysLogStats = false) {
-    this.buildTag = buildTag;
+  constructor(alwaysLogStats = false) {
     this.alwaysLogStats = alwaysLogStats;
     this.ctx = null;
     this.node = null;
@@ -60,7 +58,7 @@ export class EmuAudio {
     ctx.addEventListener('statechange', () => this.updateState());
 
     try {
-      await ctx.audioWorklet.addModule(new URL('audio-worklet.js' + this.buildTag, import.meta.url));
+      await ctx.audioWorklet.addModule(new URL('audio-worklet.js', import.meta.url));
       this.node = new AudioWorkletNode(ctx, 'arculator-audio', {
         numberOfInputs: 0,
         numberOfOutputs: 1,
