@@ -13,11 +13,19 @@ description of the URL options.
     software loading, JSCLI and SWI hooks
   - `frontend/worklet/` - the audio worklet
   - `frontend/shared/` - pure modules used by more than one of them (machine
-    presets, the software catalogue, the audio ring layout, site paths)
+    presets, the software catalogue, the audio ring layout, site paths, RPC)
 
   Code that touches the emulator or its FS goes in `worker/`, and code that
   touches the DOM stays in the page. The page reaches the worker only through
-  messages.
+  `frontend/shared/rpc.js`: worker modules make functions callable with
+  `expose({name: fn})` and send events with `emit(name, detail)`; the page
+  calls them as `await emu.name(...)` and listens with `on(name, fn)` (both
+  from `connect(worker)` in `ui.js`). Calls resolve with what the function
+  returns, or reject with what it throws. A function passed as an argument
+  can be called back by the worker until the call settles (e.g. `arcCli`'s
+  `onOutput`), and `transfer(value, [buffer])` moves buffers instead of
+  copying them. `EmulatorInput` and `AudioInit` are still raw messages,
+  posted by the submodule's own JS.
 - `arculator-wasm/` - the emulator (git submodule, C compiled with Emscripten)
 - `build/` - what is served. Everything the browser loads comes from here.
   `index.html`, `emu/` (ROMs) and `software/` are at the top; the code
@@ -201,7 +209,8 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
 
   Alt+`\` in the page saves one as a download.
 - **`window.arcFastForward(ms)`** runs flat out, with no video or sound, until
-  `ms` of emulated time from now. Calling it again moves the end point.
+  `ms` of emulated time from now. Calling it again moves the end point. It
+  returns a Promise that rejects before the emulator is running.
 - **`window.emuinput.simulateKey(name, delayMs, holdMs)`** presses an
   Archimedes key (`ArcEscape`, `ArcF1`, ... from `emu_input.js`). Selenium's
   own key events are too short for the emulator to see; hold for about 100 ms.
@@ -276,8 +285,8 @@ const remove = addSwiHook(0x5, regs => console.log('OS_CLI', readString(regs[0])
   and the X form is seen too. At most 32 SWIs can be hooked at once.
 - `readMemory(addr, len)` reads emulated memory at a logical address, as the
   program sees it then. It stops early at unmapped memory or I/O.
-- Hooks run in the middle of the emulator, so keep them quick, and
-  `postMessage` anything for the page.
+- Hooks run in the middle of the emulator, so keep them quick, and `emit`
+  anything for the page (`frontend/shared/rpc.js`).
 
 ## A command line from a terminal
 

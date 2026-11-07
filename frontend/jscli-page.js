@@ -1,6 +1,6 @@
 /*The page's side of the JSCLI hooks for scripts: window.arcCli,
-  arcCliStatus, arcCliSession and arcType. They send 'cli' messages to
-  the worker, which handles them in jscli-worker.js.*/
+  arcCliStatus, arcCliSession and arcType. They call the worker's cli*
+  functions, in jscli-worker.js.*/
 
 /*Run a RISC OS * command through one of the JSCLI helper modules in the
   extension ROM (arculator-wasm/src/jscli). `via` picks the module:
@@ -16,40 +16,11 @@
   `timeout` ms. A command that times out before it starts is removed from the
   queue. One that has started is killed with 'wimp'; with 'callback' it
   carries on, and its results are dropped.*/
-let cliRequests = new Map();
-let cliRequestId = 0;
-let arculatorWorker = null;
+let emu = null;   // the worker's functions (shared/rpc.js)
+let sessionId = 0;
 
-export function setCliWorker(worker) {
-  arculatorWorker = worker;
-}
-
-/*Handle a message from the worker if it's a CLI reply or output. Returns
-  whether it was*/
-export function handleCliMessage(data) {
-  if (data.type == 'cliReply') {
-    let req = cliRequests.get(data.id);
-    cliRequests.delete(data.id);
-    if ('error' in data) {
-      req.reject(new Error(data.error));
-    } else {
-      req.resolve(data.result);
-    }
-    return true;
-  }
-  if (data.type == 'cliOutput') {
-    let req = cliRequests.get(data.id);
-    if (req && req.onOutput) req.onOutput(data.data);
-    return true;
-  }
-  return false;
-}
-
-function cliRequest(msg, onOutput = null, id = ++cliRequestId) {
-  return new Promise((resolve, reject) => {
-    cliRequests.set(id, {resolve, reject, onOutput});
-    arculatorWorker.postMessage({type: 'cli', id, ...msg});
-  });
+export function setCliEmu(workerApi) {
+  emu = workerApi;
 }
 
 // Parameter bytes taken by each VDU control code
@@ -77,7 +48,7 @@ function vduToText(raw, state = {skip: 0}) {
 }
 
 window.arcCli = async function(command, {via = 'callback', onOutput = null, timeout = 0} = {}) {
-  let {raw, error} = await cliRequest({op: 'run', command, via, timeout}, onOutput);
+  let {raw, error} = await emu.cliRun(command, via, timeout, onOutput);
   return {output: vduToText(raw), raw, error};
 };
 
@@ -91,13 +62,6 @@ function toBytes(data) {
     return data;
   }
   return Uint8Array.from(Array.from(data).flatMap(x => typeof x == 'string' ? Array.from(toBytes(x)) : [x]));
-}
-
-async function cliData(op, data, timeout) {
-  let {error} = await cliRequest({op, data: toBytes(data), timeout});
-  if (error) {
-    throw new Error(`arc ${op}: ${error.message}`);
-  }
 }
 
 /*Start a session: a TaskWindow that stays open, run by JSCLIWimp (so in the
@@ -122,7 +86,7 @@ async function cliData(op, data, timeout) {
 window.arcCliSession = function(command = '', {onOutput = null} = {}) {
   let vduState = {skip: 0};
   let waiters = new Set();
-  let id = ++cliRequestId;
+  let id = ++sessionId;
   let session = {
     text: '',
     ended: false,
@@ -130,7 +94,7 @@ window.arcCliSession = function(command = '', {onOutput = null} = {}) {
       if (session.ended) {
         return Promise.reject(new Error('arcCliSession: the session has ended'));
       }
-      return cliRequest({op: 'input', session: id, data: toBytes(data)});
+      return emu.cliInput(id, toBytes(data));
     },
     read() {
       let text = session.text;
@@ -173,7 +137,7 @@ window.arcCliSession = function(command = '', {onOutput = null} = {}) {
     },
     async close() {
       if (!session.ended) {
-        await cliRequest({op: 'close', session: id});
+        await emu.cliClose(id);
       }
       return session.done;
     },
@@ -181,11 +145,11 @@ window.arcCliSession = function(command = '', {onOutput = null} = {}) {
   let wake = () => {
     for (let w of [...waiters]) w.check();
   };
-  session.done = cliRequest({op: 'session', data: toBytes(command)}, raw => {
+  session.done = emu.cliSession(id, toBytes(command), raw => {
     session.text += vduToText(raw, vduState);
     if (onOutput) onOutput(raw);
     wake();
-  }, id).then(({error}) => ({error}), e => ({error: {number: 0, message: e.message}}))
+  }).then(({error}) => ({error}), e => ({error: {number: 0, message: e.message}}))
     .then(result => {
       session.ended = true;
       wake();
@@ -201,8 +165,11 @@ window.arcCliSession = function(command = '', {onOutput = null} = {}) {
   Programs, the * prompt and the desktop all see them as keystrokes.
   Resolves once all are in the buffer (which is small, so long text is put in
   as the buffer empties), not once they've been read.*/
-window.arcType = function(text, {timeout = 0} = {}) {
-  return cliData('keys', text, timeout);
+window.arcType = async function(text, {timeout = 0} = {}) {
+  let {error} = await emu.cliKeys(toBytes(text), timeout);
+  if (error) {
+    throw new Error(`arc keys: ${error.message}`);
+  }
 };
 
 /*Which JSCLI modules are loaded: {callback, wimp}, each true or false.
@@ -211,5 +178,5 @@ window.arcType = function(text, {timeout = 0} = {}) {
   under ~100 ms unless the desktop is suspended), and wimpBusy, whether it's
   running a command (when wimpIdleMs only counts since its last output).*/
 window.arcCliStatus = function() {
-  return cliRequest({op: 'status'});
+  return emu.cliStatus();
 };

@@ -4,7 +4,8 @@ import { getEmuInput } from "./emu_input.js";
 import { initEmuInterface } from './emu-interface.js'
 import { initBasicEditor, showBasicEditor, wrapProg, setBootedToBasic, BASIC_RUN_FAST_FORWARD } from './editor.js'
 import { EmuAudio } from './emu-audio.js'
-import { setCliWorker, handleCliMessage }  from './jscli-page.js'
+import { setCliEmu } from './jscli-page.js'
+import { connect, transfer } from './shared/rpc.js'
 import { initMediaSession, setMediaSessionAlbum, setMediaSessionPaused } from './media-session.js'
 
 const DISPLAY_MODES = Object.freeze({
@@ -59,7 +60,9 @@ if (searchParams.has('audiostats')) {
 }
 
 const arculatorWorker = new Worker(new URL('worker/arculator-worker.js', import.meta.url), { type: 'module' });
-setCliWorker(arculatorWorker);
+// emu's methods call the worker's functions; on() listens for its events
+const { emu, on } = connect(arculatorWorker);
+setCliEmu(emu);
 
 // A command line client on this machine (tools/arcterm.py) to connect to
 if (searchParams.has('jscli')) {
@@ -72,29 +75,20 @@ if (searchParams.has('jscli')) {
   suffixes. All return Promises; read gives a Uint8Array (readText a string),
   list gives the names in a directory. A file RISC OS still has open may be
   incomplete, as HostFS buffers writes until it's closed.*/
-let fsRequests = new Map();
-let fsRequestId = 0;
-function fsRequest(op, path, data) {
-  return new Promise((resolve, reject) => {
-    let id = ++fsRequestId;
-    fsRequests.set(id, {resolve, reject});
-    arculatorWorker.postMessage({type: 'fs', id, op, path, data});
-  });
-}
 window.arcFS = {
-  read: path => fsRequest('read', path),
+  read: path => emu.fsRead(path),
   // One character per byte. TextDecoder('latin1') is really Windows-1252
   readText: async path => {
-    let bytes = await fsRequest('read', path);
+    let bytes = await emu.fsRead(path);
     let s = '';
     for (let i = 0; i < bytes.length; i += 8192) {
       s += String.fromCharCode(...bytes.subarray(i, i + 8192));
     }
     return s;
   },
-  write: (path, data) => fsRequest('write', path, typeof data == 'string' ? new TextEncoder().encode(data) : data),
-  list: path => fsRequest('list', path),
-  unlink: path => fsRequest('unlink', path),
+  write: (path, data) => emu.fsWrite(path, typeof data == 'string' ? new TextEncoder().encode(data) : data),
+  list: path => emu.fsList(path),
+  unlink: path => emu.fsUnlink(path),
 };
 
 /*Screenshot of the emulator display, taken from the next frame it presents.
@@ -102,29 +96,24 @@ window.arcFS = {
   set (handy for selenium). It's at the size the canvas shows, without the
   page's overlays. Frames aren't presented while fast-forwarding, so it waits
   until a fast-forward ends.*/
-let screenshotRequests = new Map();
-let screenshotRequestId = 0;
 window.arcScreenshot = async function({base64 = false} = {}) {
-  let blob = await new Promise((resolve, reject) => {
-    let id = ++screenshotRequestId;
-    screenshotRequests.set(id, {resolve, reject});
-    arculatorWorker.postMessage({type: 'screenshot', id});
-  });
+  let blob = await emu.screenshot();
   return base64 ? new Uint8Array(await blob.arrayBuffer()).toBase64() : blob;
 };
 
 /*Run the emulator flat out, without video or sound, for the next `ms` of
   emulated time (like the ff URL parameter, but from now). Calling it again
-  before it finishes moves the end point.*/
+  before it finishes moves the end point. Resolves once it's started, and
+  rejects before the emulator is running.*/
 window.arcFastForward = function(ms) {
-  arculatorWorker.postMessage({type: 'fastForward', ms});
+  return emu.fastForward(ms);
 };
 
 /*The emulator doesn't draw anything while the page can't be seen, such as
   when music plays in the background. It runs just the same otherwise, and
   the audio buffers more to ride out the stalls a background page gets.*/
 function sendPageHidden() {
-  arculatorWorker.postMessage({type: 'pageHidden', hidden: document.hidden});
+  emu.setPageHidden(document.hidden);
   emuAudio.setHidden(document.hidden);
 }
 document.addEventListener('visibilitychange', sendPageHidden);
@@ -143,75 +132,45 @@ arculatorWorker.onerror = (event) => {
 arculatorWorker.onmessageerror = (event) => {
   console.log('main thread arculatorWorker onmessageerror', event);
 }
-arculatorWorker.onmessage = (event) => {
-  const data = event.data;
-  if (handleCliMessage(data)) {
-    return;
-  }
-  switch (data.type) {
-    case 'fsReply':
-      settle(fsRequests, data);
-      break;
-    case 'screenshotReply':
-      settle(screenshotRequests, data);
-      break;
-    case 'musicInfo':
-      musicInfo = data.info;
-      window.dispatchEvent(new CustomEvent('arcmusicinfo', {detail: musicInfo}));
-      break;
-    case 'currentSoftware':
-      setCurrentSoftware(data.softwareMeta);
-      break;
-    case 'updateConfigUI':
-      updateConfigUI(data.config);
-      break;
-    case 'currentMachine':
-      currentMachine = data.machine;
-      machinePreset = currentMachine.preset;
-      break;
-    case 'bootedToBasic':
-      setBootedToBasic(data.basic);
-      break;
-    case 'changeLocationHash':
-      changeLocationHash(data.hash);
-      break;
+
+on('musicInfo', info => {
+  musicInfo = info;
+  window.dispatchEvent(new CustomEvent('arcmusicinfo', {detail: musicInfo}));
+});
+on('currentSoftware', setCurrentSoftware);
+on('updateConfigUI', updateConfigUI);
+on('currentMachine', machine => {
+  currentMachine = machine;
+  machinePreset = currentMachine.preset;
+});
+on('bootedToBasic', setBootedToBasic);
+on('changeLocationHash', changeLocationHash);
+
+// Messages posted by the emulator's own JS (arculator-wasm/js), not through rpc.js
+arculatorWorker.addEventListener('message', ({data}) => {
+  switch (data?.type) {
     case 'EmulatorInput': {
-      let emu = getEmuInput();
-      emu[data.func].apply(emu, data.params);
+      let input = getEmuInput();
+      input[data.func].apply(input, data.params);
       break;
     }
     case 'AudioInit':
       emuAudio.init(data);
       break;
-    default:
-      console.log('main thread arculatorWorker onmessage', data);
   }
-}
+});
 
-// Resolve or reject the request a worker reply is for
-function settle(requests, {id, result, error}) {
-  let req = requests.get(id);
-  requests.delete(id);
-  if (error !== undefined) {
-    req.reject(new Error(error));
-  } else {
-    req.resolve(result);
-  }
-}
-
-
-arculatorWorker.postMessage({ 
-  type: 'init', 
-  pageBootParams: getPageBootParams(), 
-  canvas: offscreenCanvas 
-}, [offscreenCanvas]);
+emu.init(transfer({
+  pageBootParams: getPageBootParams(),
+  canvas: offscreenCanvas
+}, [offscreenCanvas]));
 
 
 initSoftwareBrowser({
   showModal,
   closeModal,
   changeMachine,
-  loadSoftware: softwareId => arculatorWorker.postMessage({type: 'loadSoftware', softwareId}),
+  loadSoftware: softwareId => emu.loadSoftware(softwareId),
   loadFile,
   getCurrentMachine: () => currentMachine,
   getCurrentSoftwareId: () => currentMachine?.softwareId
@@ -221,7 +180,7 @@ initSoftwareBrowser({
  * Load a disc image or archive File into the emulator
  */
 function loadFile(file) {
-  arculatorWorker.postMessage({type: 'loadFile', file});
+  return emu.loadFile(file);
 }
 
 // ui.js is a module, so its functions aren't globals. Expose the ones
@@ -282,14 +241,14 @@ function changeLocationHash(hash) {
 /*Pause the emulator, and its sound. The overlay's button or a click on the
   display resumes it, as do the media controls (media-session.js).*/
 function pauseEmulator() {
-  arculatorWorker.postMessage({type: 'pause', paused: true});
+  emu.setPaused(true);
   emuAudio.setPaused(true);
   document.body.classList.add('emu-paused');
   setMediaSessionPaused(true);
 }
 
 function resumeEmulator() {
-  arculatorWorker.postMessage({type: 'pause', paused: false});
+  emu.setPaused(false);
   emuAudio.setPaused(false);
   document.body.classList.remove('emu-paused');
   setMediaSessionPaused(false);
@@ -438,7 +397,7 @@ async function showBooleanDialog(title, text, trueText='OK', falseText='Cancel')
  * getPageBootParams (e.g. {preset}, or {disc, autoboot})
  */
 function changeMachine(opts) {
-  arculatorWorker.postMessage({type: 'changeMachine', opts});
+  return emu.changeMachine(opts);
 }
 
 function sleep(ms) {

@@ -10,8 +10,9 @@ import { fetchSoftwareCatalogue } from '../shared/software-catalogue.js'
 import { getAutobootScript, putConfigFile, putCmosFile, loadRoms } from './machine-setup.js'
 import { loadSoftware, loadSoftwareFromUrl, loadFromSoftwareCatalogue, createHostfsBootFile, FILETYPE_DESKTOP, FILETYPE_COMMAND } from './hostfs.js'
 import { putDataAtPath } from './fsutil.js'
-import { emulator, ready, setEmulator, setReady } from './emulator.js'
-import { handleCliRequest } from './jscli-worker.js'
+import { emulator, ready, requireReady, setEmulator, setReady } from './emulator.js'
+import { expose, emit, serve, transfer } from '../shared/rpc.js'
+import './jscli-worker.js'
 import './swi-hook.js'
 import { clearMusicInfo } from './qtm-info.js'
 
@@ -27,7 +28,7 @@ const MOUSE_CAPTURE_MODES = Object.freeze(['auto', 'force', 'never']);
 
 
 
-// Message handlers are async, so their errors would otherwise go unseen
+// Errors in async code would otherwise go unseen
 onunhandledrejection = (event) => { console.error('arculator worker: unhandled rejection', event.reason); }
 
 onmessageerror = (event) => { console.log('worker message error', event); }
@@ -37,63 +38,9 @@ let userPaused = false;
 // The page can't be seen, so the emulator doesn't draw (sendPageHidden in ui.js)
 let pageHidden = false;
 
-onmessage = async (e) => {
-  const data = e.data;
-  if (data.type === 'fs') {
-    handleFsRequest(data);
-    return;
-  }
-  if (data.type === 'cli') {
-    handleCliRequest(data);
-    return;
-  }
-  if (data.type === 'screenshot') {
-    handleScreenshotRequest(data);
-    return;
-  }
-  if (data.type === 'pause') {
-    // From pauseEmulator and resumeEmulator in ui.js
-    if (ready) {
-      userPaused = data.paused;
-      emulator.ccall(data.paused ? 'arc_pause_main_thread' : 'arc_resume_main_thread', null, []);
-    }
-    return;
-  }
-  if (data.type === 'pageHidden') {
-    pageHidden = data.hidden;
-    if (ready)
-      arc_set_page_hidden(pageHidden);
-    return;
-  }
-  if (data.type === 'fastForward') {
-    if (ready) {
-      arc_fast_forward(Number(arc_get_emulation_ms()) + data.ms);
-    }
-    return;
-  }
-  console.log('worker message', data.type);
-  if (data.type === 'changeMachine') {
-    // From the machine picker and software browser
-    await whilePaused(async () => {
-      let machineConfig = await loadMachineConfig(data.opts);
-      arc_load_config_and_reset(machineConfig.getMachineType());
-      if (machineConfig.fastForward) {
-        arc_fast_forward(machineConfig.fastForward); // the reset restarted emulation time
-      }
-    });
-    return;
-  }
-  if (data.type === 'loadSoftware') {
-    await whilePaused(() => loadFromSoftwareCatalogue(data.softwareId));
-    return;
-  }
-  if (data.type === 'loadFile') {
-    // A File from the software browser's upload button or drag and drop
-    await whilePaused(() => loadSoftware(data.file.name, data.file));
-    return;
-  }
-  if (data.type === 'init') {
-    const { canvas, pageBootParams } = data;
+expose({
+  // From ui.js at startup
+  init: async ({ canvas, pageBootParams }) => {
     await ArculatorWasm({
       canvas: canvas,
       noInitialRun: true,
@@ -128,8 +75,47 @@ onmessage = async (e) => {
       })(),
     });
     setReady();
-  }
-}
+  },
+
+  // From pauseEmulator and resumeEmulator in ui.js
+  setPaused: paused => {
+    if (!ready) return;
+    userPaused = paused;
+    emulator.ccall(paused ? 'arc_pause_main_thread' : 'arc_resume_main_thread', null, []);
+  },
+  setPageHidden: hidden => {
+    pageHidden = hidden;
+    if (ready)
+      arc_set_page_hidden(pageHidden);
+  },
+  fastForward: ms => {
+    requireReady();
+    arc_fast_forward(Number(arc_get_emulation_ms()) + ms);
+  },
+
+  // From the machine picker, software browser and BASIC editor
+  changeMachine: opts => whilePaused(async () => {
+    let machineConfig = await loadMachineConfig(opts);
+    arc_load_config_and_reset(machineConfig.getMachineType());
+    if (machineConfig.fastForward) {
+      arc_fast_forward(machineConfig.fastForward); // the reset restarted emulation time
+    }
+  }),
+  loadSoftware: softwareId => whilePaused(() => loadFromSoftwareCatalogue(softwareId)),
+  // A File from the software browser's upload button or drag and drop
+  loadFile: file => whilePaused(() => loadSoftware(file.name, file)),
+
+  fsRead: path => {
+    let bytes = fsCall(path, () => emulator.FS.readFile(path, { encoding: 'binary' }));
+    return transfer(bytes, [bytes.buffer]);
+  },
+  fsWrite: (path, data) => fsCall(path, () => putDataAtPath(data, path)),
+  fsList: path => fsCall(path, () => emulator.FS.readdir(path).filter(f => f != '.' && f != '..')),
+  fsUnlink: path => fsCall(path, () => emulator.FS.unlink(path)),
+
+  screenshot,
+});
+serve();
 
 /**
  * Pause the emulator while loading software. The emulator loop shares this
@@ -150,28 +136,18 @@ async function whilePaused(fn) {
 
 /**
  * Access to the Emscripten FS (and so HostFS, under /hostfs) from the page,
- * which doesn't have FS itself. Used by the window.arcFS hooks in ui.js.
- * HostFS keeps open files in stdio buffers, so a file RISC OS is still
- * writing may be incomplete until it's closed.
+ * which doesn't have FS itself: the window.arcFS hooks in ui.js. HostFS keeps
+ * open files in stdio buffers, so a file RISC OS is still writing may be
+ * incomplete until it's closed. Errors say which path, as FS's don't.
  */
-function handleFsRequest({ id, op, path, data }) {
-  let reply = { type: 'fsReply', id };
+function fsCall(path, fn) {
+  if (!emulator)
+    throw new Error("The emulator's FS doesn't exist yet");
   try {
-    if (op === 'read') {
-      reply.result = emulator.FS.readFile(path, { encoding: 'binary' });
-    } else if (op === 'write') {
-      putDataAtPath(data, path);
-    } else if (op === 'list') {
-      reply.result = emulator.FS.readdir(path).filter(f => f != '.' && f != '..');
-    } else if (op === 'unlink') {
-      emulator.FS.unlink(path);
-    } else {
-      throw new Error(`Unknown fs op '${op}'`);
-    }
+    return fn();
   } catch (e) {
-    reply.error = String(e && e.code ? `${e.code} ${path}` : e);
+    throw new Error(e && e.code ? `${e.code} ${path}` : String(e));
   }
-  postMessage(reply);
 }
 
 /**
@@ -182,20 +158,16 @@ function handleFsRequest({ id, op, path, data }) {
  * presented while fast-forwarding, so this waits until that ends. They aren't
  * while the page is hidden either, so one is drawn for this.
  */
-function handleScreenshotRequest({ id }) {
-  if (!ready || !emulator.renderer) {
-    postMessage({ type: 'screenshotReply', id, error: 'The emulator display isn\'t running yet' });
-    return;
-  }
+function screenshot() {
+  if (!ready || !emulator.renderer)
+    throw new Error('The emulator display isn\'t running yet');
   if (pageHidden)
     arc_set_page_hidden(false);
-  (emulator.screenshotRequests ??= []).push(async png => {
-    arc_set_page_hidden(pageHidden);
-    try {
-      postMessage({ type: 'screenshotReply', id, result: await png });
-    } catch (e) {
-      postMessage({ type: 'screenshotReply', id, error: String(e.message || e) });
-    }
+  return new Promise((resolve, reject) => {
+    (emulator.screenshotRequests ??= []).push(png => {
+      arc_set_page_hidden(pageHidden);
+      Promise.resolve(png).then(resolve, reject);
+    });
   });
 }
 
@@ -256,9 +228,9 @@ async function loadMachineConfig(_opts=null) {
     if (opts.autoboot === true && softwareMeta) {
    
       if (!opts.pageBoot) { 
-        postMessage({type: 'changeLocationHash', hash: `#disc=${softwareMeta.id}&autoboot`});
+        emit('changeLocationHash', `#disc=${softwareMeta.id}&autoboot`);
       }
-      postMessage({type: 'currentSoftware', softwareMeta});
+      emit('currentSoftware', softwareMeta);
      
       autoboot = getAutobootScript(softwareMeta, await fetchSoftwareCatalogue());
       if (!autoboot) {
@@ -309,17 +281,17 @@ async function loadMachineConfig(_opts=null) {
       console.warn('Invalid value for mouse-capture parameter - must be one of: auto, force, never')
     }
   }
-  postMessage({type: 'bootedToBasic', basic: opts.basic});
+  emit('bootedToBasic', opts.basic);
 
   let machineConfig = builder.build();
-  postMessage({type: 'updateConfigUI', config: machineConfig.getUIInfo()});
-  postMessage({type: 'currentMachine', machine: {
+  emit('updateConfigUI', machineConfig.getUIInfo());
+  emit('currentMachine', {
     preset: machinePreset,
     softwareId: softwareMeta ? softwareMeta.id : null,
     os: machineConfig.getOs(),
     cpu: machineConfig.getCpuName(),
     memory: machineConfig.getMemory()
-  }});
+  });
   putConfigFile(machineConfig);
   putCmosFile(machineConfig);
   await loadRoms(machineConfig);

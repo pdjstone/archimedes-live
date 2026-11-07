@@ -13,6 +13,7 @@
  * known.
  */
 import { addSwiHook, readMemory, readString } from './swi-hook.js'
+import { emit } from '../shared/rpc.js'
 
 const QTM_LOAD = 0x47E40;
 const QTM_CLEAR = 0x47E44;
@@ -140,7 +141,7 @@ function authorText(bytes) {
 function report(info) {
   if (info)
     console.log('Music:', JSON.stringify(info.title ?? info.filename), info.author ? `author ${JSON.stringify(info.author)}` : '', info.format ? `(${info.format})` : '');
-  postMessage({ type: 'musicInfo', info });
+  emit('musicInfo', info);
 }
 
 /** Forget the song, e.g. when the machine is reset (which removes QTM) */

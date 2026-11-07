@@ -23,6 +23,12 @@ export function setReady() {
     fn();
 }
 
+/** Throws unless exports can be called */
+export function requireReady() {
+  if (!ready)
+    throw new Error("The emulator isn't running yet");
+}
+
 /** Calls fn once the runtime is initialised, or now if it is */
 export function onReady(fn) {
   if (ready)
