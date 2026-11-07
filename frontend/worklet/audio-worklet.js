@@ -8,7 +8,7 @@
  * disc drive noise, convert to float and play it, keeping counters of anything
  * that goes wrong. It must not allocate in process().
  */
-import { RING, CTRL, FILL_UNSET, checkRingLayout } from './audio-ring.js';
+import { RING, CTRL, FILL_UNSET, checkRingLayout } from '../shared/audio-ring.js';
 import { ArculatorDsp } from './audio-dsp.js';
 
 // Stage 1 runs as far ahead as the emulator lets it, into a FIFO of 48kHz

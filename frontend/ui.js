@@ -1,6 +1,5 @@
-import { createHostfsBootFile, FILETYPE_DESKTOP } from './hostfs.js'
 import { initSoftwareBrowser, showSoftwareBrowser, filterSoftware, removeAllChildNodes } from './software-browser-ui.js'
-import { presetMachines, machineInfo, CPU_DESCRIPTIONS, OS_NAMES, MEM_SIZE_NAMES } from "./machine-config.js"
+import { presetMachines, machineInfo, CPU_DESCRIPTIONS, OS_NAMES, MEM_SIZE_NAMES } from "./shared/machines.js"
 import { getEmuInput } from "./emu_input.js";
 import { EmuAudio } from './emu-audio.js'
 import { setCliWorker, handleCliMessage }  from './jscli-page.js'
@@ -61,7 +60,7 @@ if (searchParams.has('audiostats')) {
   startAudioStatsOverlay(emuAudio);
 }
 
-const arculatorWorker = new Worker(new URL('arculator-worker.js', import.meta.url), { type: 'module' });
+const arculatorWorker = new Worker(new URL('worker/arculator-worker.js', import.meta.url), { type: 'module' });
 setCliWorker(arculatorWorker);
 
 // A command line client on this machine (tools/arcterm.py) to connect to

@@ -5,16 +5,10 @@ onerror = (message, filename, lineno, colno, error) => {
 
 
 import { default as ArculatorWasm } from './arculator.js';
-import { 
-  presetMachines, 
-  recommendMachinePreset,
-  getAutobootScript,
-  MEM_SIZE_NAMES, OS_NAMES, CPU_DESCRIPTIONS, 
-  putConfigFile, 
-  putCmosFile, 
-  loadRoms } from './machine-config.js'
-import { loadFromSoftwareCatalogue, fetchSoftwareCatalogue } from './software-browser.js'
-import { loadSoftware, loadSoftwareFromUrl, createHostfsBootFile, FILETYPE_DESKTOP, FILETYPE_COMMAND } from './hostfs.js'
+import { presetMachines, recommendMachinePreset } from '../shared/machines.js'
+import { fetchSoftwareCatalogue } from '../shared/software-catalogue.js'
+import { getAutobootScript, putConfigFile, putCmosFile, loadRoms } from './machine-setup.js'
+import { loadSoftware, loadSoftwareFromUrl, loadFromSoftwareCatalogue, createHostfsBootFile, FILETYPE_DESKTOP, FILETYPE_COMMAND } from './hostfs.js'
 import { putDataAtPath } from './fsutil.js'
 import { handleCliRequest, setCliModule } from './jscli-worker.js'
 import { setSwiHookModule } from './swi-hook.js'

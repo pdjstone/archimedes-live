@@ -7,7 +7,7 @@
   fill several times a second. Counters are totals since the page loaded (or
   Reset), with how much each went up in the last RECENT_MS.*/
 
-import { SAMPLE_RATE } from './audio-ring.js';
+import { SAMPLE_RATE } from './shared/audio-ring.js';
 
 const UPDATE_MS = 250;
 const RECENT_MS = 10000;

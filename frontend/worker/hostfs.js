@@ -1,6 +1,8 @@
 import { putDataAtPath, baseName } from './fsutil.js'
 import { RiscOsUnzip } from'./riscosunzip.js'
 import { NSpark } from './nspark/nspark-helper.js'
+import { fetchSoftwareCatalogue } from '../shared/software-catalogue.js'
+import { SOFTWARE_BASE } from '../shared/paths.js'
 
 const ROS_FileType_Map = Object.freeze({
   '.zip': 0xddc, // ZIP is 0xa91, but older SparkFS/SparkPlug recognises 0xddc for ZIP
@@ -104,15 +106,36 @@ export async function loadSoftware(filename, blob, insert=true) {
     return await filetype.loadDisc(filename, blob, insert);
   } else if ('unpackFn' in filetype) {
     //console.log('unpack', filetype.unpackFn);
-    if (true || window.unpackArchivesToHostFS)
-      await filetype.unpackFn(blob);
-    else 
-      await putFileOnHostFs(filename, blob);
+    await filetype.unpackFn(blob);
   } else if (filetype === FileTypes.RISCOS_FILE) {
     await putFileOnHostFs(filename, blob);
   }
 }
 
+
+export async function loadFromSoftwareCatalogue(softwareId, insert=true) {
+  console.debug(`loadFromSoftwareCatalogue ${softwareId} insert=${insert}`);
+  let software = await fetchSoftwareCatalogue();
+  if (!softwareId in software) {
+    console.error(`Unknown software ID ${softwareId}`);
+    return;
+  }
+  let meta = software[softwareId];
+  let discFile = '';
+  if ('archive' in meta) {
+    await loadSoftwareFromUrl(SOFTWARE_BASE + meta['archive']);
+  } else if ('disc' in meta) {
+    discFile = await loadSoftwareFromUrl(SOFTWARE_BASE + meta['disc'], insert);
+  }
+  if ('depends' in meta) {
+    for (let depId of meta['depends']) {
+      console.log(`${softwareId} depends on ${depId}`);
+      await loadFromSoftwareCatalogue(depId);
+    }
+  }
+
+  return discFile;
+}
 
 export async function loadSoftwareFromUrl(url, insert=true) {
   if (url == "") return;
@@ -220,21 +243,6 @@ async function identifyFileType(filename, size, blob) {
 }
 
 
-function downloadHostFSfile(path) {
-  let filepath = findHostFsFilePath(path);
-  if (!filepath) {
-    console.error(`HostFS file not found: ${path}`);
-    return;
-  }
-  let buf = FS.readFile(filepath, {encoding: 'binary'});
-  let a = document.createElement('a');
-  a.href = window.URL.createObjectURL(new Blob([buf], {type: "application/octet-stream"}));
-  a.download = baseName(filepath);
-  a.click(); 
-}
-
-
-
 // Disc image extensions that Arculator handles (see loaders struct in disc.c)
 const validDiscExts = Object.freeze(['.adf','.adl', '.fdi', '.apd', '.hfe']);
 
@@ -315,37 +323,6 @@ export function createHostfsBootFile(content, fileType) {
     console.log(e);
   }
   putDataAtPath(content, '/hostfs/!Boot,' + fileType.toString(16));
-}
-
-// Return the full path of a file under hostfs (with ,ext)
-function findHostFsFilePath(path) {
-  let s = path.lastIndexOf('/');
-  let dir = '/hostfs';
-  let filename = path;
-  if (s>=0) {
-    dir += path.substring(0,s);
-    filename = path.substr(s+1);
-  }
-  let hostfsFilename = '';
-  for (const f of FS.readdir(dir)) {
-    if (f.startsWith(filename+',') || f == filename) {
-      hostfsFilename = dir+'/'+f;
-    }
-  }
-  if (!hostfsFilename) {
-    console.warn(`Couldn't find file ${filename} in ${dir}`);
-    return null;
-  }
-  console.log('Found hostfs file ', hostfsFilename);
-  return hostfsFilename;
-}
-
-function readHostFsTextFile(filepath) {
-  let filename = findHostFsFilePath(filepath);
-  if (!filename)
-    return '';
-  let fileBytes = FS.readFile(filename, {encoding: 'binary'});
-  return new TextDecoder('iso-8859-1').decode(fileBytes);
 }
 
 export function roDirname(roFilepath) {

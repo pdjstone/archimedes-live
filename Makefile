@@ -43,16 +43,18 @@ build/index.html: $(V)/ui.js frontend/index.template.html $(PAGES)
 # Only one version is kept locally; deploying adds it to those already there
 $(V)/ui.js: $(FRONTEND_FILES) arculator-wasm/build/wasm/arculator.js nspark-wasm/build/nspark.js
 	rm -rf build/v
-	mkdir -p $(V)/nspark
+	mkdir -p $(V)
 	cp -r frontend/* $(V)
 	rm $(V)/*.html
-	cp arculator-wasm/build/wasm/arculator.{js,wasm} $(V)
 	cp arculator-wasm/js/frontend/*.js $(V)
+	# Only the emulator worker loads the emulator and nspark
+	mkdir -p $(V)/worker/nspark
+	cp arculator-wasm/build/wasm/arculator.{js,wasm} $(V)/worker
 ifdef DEBUG
-	cp arculator-wasm/build/wasm/arculator.wasm.map $(V)
+	cp arculator-wasm/build/wasm/arculator.wasm.map $(V)/worker
 endif
-	cp nspark-wasm/build/*.{js,wasm} $(V)/nspark
-	cp nspark-wasm/emscripten/*.js $(V)/nspark
+	cp nspark-wasm/build/*.{js,wasm} $(V)/worker/nspark
+	cp nspark-wasm/emscripten/*.js $(V)/worker/nspark
 	touch $@
 
 arculator-wasm/build/wasm/arculator.js:

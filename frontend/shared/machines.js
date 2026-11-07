@@ -1,12 +1,10 @@
-import { putDataAtPath, putUrlAtPath } from './fsutil.js' 
-import { CMOS_BOOT_HOSTFS, DEFAULT_CMOS }  from './cmos.js' 
-import { roDirname } from './hostfs.js'
+/**
+ * Machine presets and configurations. Pure data, used by the page (the
+ * machine picker, the software browser) and by the worker, which writes the
+ * configuration into the emulator's FS (worker/machine-setup.js).
+ */
 
-const ROM_BASE_PROD = 'https://files-archi.medes.live/roms/';
-// This module is in v/<build tag>/; the ROMs are at the top level
-const ROM_BASE_DEV = new URL('../../emu/roms/', import.meta.url).href;
-
-let ROM_BASE = (new URL(import.meta.url).domain == 'archi.medes.live') ? ROM_BASE_PROD : ROM_BASE_DEV;
+import { ROM_BASE } from './paths.js'
 
 // These constants match Arculator
 const CPU_ARM2 = 0;
@@ -163,42 +161,6 @@ export function recommendMachinePreset(req) {
   let reqStr = JSON.stringify({mem:mem, os:os, cpu:cpu});
   console.error(`No machine recommendation for ${reqStr}`);
   return null;
-}
-
-const CLICK_ICON_BASIC = 'DQAKDd4gYiUgMTAyNA0AFCnImSAiV2ltcF9Jbml0aWFsaXNlIiwzMTAsJjRiNTM0MTU0LCIiDQAeCiFiJT0tMg0AKB/ImSAiV2ltcF9HZXRXaW5kb3dJbmZvIiwsYiUNADIN3iBtc2clIDIwDQA8E2ljb25ubyU9YiUhODgtMQ0ARgxtc2clITg9NA0AUA5tc2clITEyPS0yDQBaE21zZyUhMTY9aWNvbm5vJQ0AZCvImSAiV2ltcF9TZW5kTWVzc2FnZSIsNixtc2clLC0yLGljb25ubyUN/w==';
-
-// `software` is the catalogue, for looking up softwareMeta's dependencies
-export function getAutobootScript(softwareMeta, software) {
-
-  let bootCmd = '';
-  if ('depends' in softwareMeta) {
-    for (let dep of softwareMeta['depends']) {
-      console.log(`Getting autoboot script for ${softwareMeta['id']}'s dependency ${dep}`);
-      bootCmd += getAutobootScript(software[dep], software);
-    }
-  }
-  if ('autoboot' in softwareMeta) {
-    bootCmd += softwareMeta['autoboot'] + '\n';
-  }
-  if ('app-path' in softwareMeta) {
-    let appPath;
-    if ('archive' in softwareMeta) { // will be unpacked to HostFS
-      appPath = `HostFS:$.${softwareMeta['app-path']}`;
-    } else if ('disc' in softwareMeta) {
-      appPath = `ADFS::0.$.${softwareMeta['app-path']}`;
-    } else {
-      return '';
-    }
-    let dirPath = roDirname(appPath);
-    bootCmd += `filer_run ${dirPath}\nfiler_run ${appPath}\n`;
-    if (softwareMeta['click-icon']) { 
-      console.log('auto-click iconbar icon'); 
-      putDataAtPath(Uint8Array.fromBase64(CLICK_ICON_BASIC), '/hostfs/click_icon,ffb');
-      bootCmd += "filer_run HostFS:$.click_icon\n";
-    }
-  }
-  
-  return bootCmd;
 }
 
 class MachineConfigBuilder {
@@ -370,10 +332,6 @@ class MachineConfig {
     return `cmos/${cmos}/cmos.bin`;
   }
 
-  dumpCmos() {
-    return arrayBufferToBase64(FS.readFile(this.getMachineCmosPath()));
-  }
-
   getOs() {
     return this.configParams['rom_set'];
   }
@@ -469,46 +427,5 @@ disc_noise_gain = 0
         os: OS_NAMES[this.getOs()],
         processor: CPU_DESCRIPTIONS[this.getProcessor()]
       };
-  }
-}
-  
-
-export function putConfigFile(machineConfig) {
-  let configName = machineConfig.getMachineType();
-  let machineConfigFileData = machineConfig.getMachineConfigFile();
-  let configPath = '/configs/' + configName + '.cfg';
-  console.log('Creating machine config file at', configPath);
-  //console.log(machineConfigFileData);
-  putDataAtPath(machineConfigFileData, configPath);
-  let arcCfgFileData = machineConfig.getArcConfigFile();
-  console.log('Creating arc.cfg');
-  //console.log(arcCfgFileData);
-  putDataAtPath(arcCfgFileData, 'arc.cfg');
-}
-
-export function putCmosFile(machineConfig) {
-  let cmosPath = machineConfig.getMachineCmosPath();
-  let cmosName = machineConfig.getCmosName();
-  console.log(`cmos path=${cmosPath} cmos name=${cmosName}`)
-  let cmosData = Uint8Array.fromBase64(DEFAULT_CMOS[cmosName]);
-  if (machineConfig.autoboot) { 
-    if (CMOS_BOOT_HOSTFS.hasOwnProperty(cmosName)) {
-      console.log('using autoboot CMOS for ' + cmosName);
-      cmosData = Uint8Array.fromBase64(CMOS_BOOT_HOSTFS[cmosName]);
-    }  else {
-      console.warn("No autoboot CMOS for " + cmosName);
-    }
-  }
-  //if (machineConfig.getMachineType() == 'a5000')
-  //  cmosData = Uint8Array.fromBase64(CMOS_A5000);
-
-  putDataAtPath(cmosData, cmosPath);
-}
-
-
-export async function loadRoms(machineConfig) {
-  let romUrls = machineConfig.getRomUrls();
-  for (const [fsPath, romUrl] of Object.entries(romUrls)) {
-   await putUrlAtPath(romUrl, fsPath);
   }
 }

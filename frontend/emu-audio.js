@@ -6,7 +6,7 @@
  * stops sending audio when it isn't), reports glitch counters, and collects
  * audio dumps.
  */
-import { RING, CTRL, DUMP_STATE, SAMPLE_RATE, FILL_UNSET, checkRingLayout } from './audio-ring.js';
+import { RING, CTRL, DUMP_STATE, SAMPLE_RATE, FILL_UNSET, checkRingLayout } from './shared/audio-ring.js';
 
 const STATS_LOG_INTERVAL_MS = 5000;
 const DUMP_STATE_NAMES = ['off', 'waiting', 'recording', 'recording', 'error'];
@@ -59,7 +59,7 @@ export class EmuAudio {
     ctx.addEventListener('statechange', () => this.updateState());
 
     try {
-      await ctx.audioWorklet.addModule(new URL('audio-worklet.js', import.meta.url));
+      await ctx.audioWorklet.addModule(new URL('worklet/audio-worklet.js', import.meta.url));
       this.node = new AudioWorkletNode(ctx, 'arculator-audio', {
         numberOfInputs: 0,
         numberOfOutputs: 1,

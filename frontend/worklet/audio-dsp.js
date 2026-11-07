@@ -26,7 +26,7 @@
  *
  * Nothing in here allocates once running, so it's safe to use in process().
  */
-import { RING, CTRL, EVENT, DUMP_STATE } from './audio-ring.js';
+import { RING, CTRL, EVENT, DUMP_STATE } from '../shared/audio-ring.js';
 
 const EVT_MASK = RING.EVENT_COUNT - 1;
 const REC_MASK = RING.RECORD_COUNT - 1;

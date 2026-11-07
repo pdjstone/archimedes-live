@@ -6,7 +6,18 @@ description of the URL options.
 
 ## Layout
 
-- `frontend/` - page, UI and audio code (copied into `build/` by `make`)
+- `frontend/` - the code (copied into `build/` by `make`). Each JS context
+  has its own directory:
+  - `frontend/*.js` - the page: UI, audio output, the page hooks
+  - `frontend/worker/` - the emulator worker: the emulator, its FS, HostFS,
+    software loading, JSCLI and SWI hooks
+  - `frontend/worklet/` - the audio worklet
+  - `frontend/shared/` - pure modules used by more than one of them (machine
+    presets, the software catalogue, the audio ring layout, site paths)
+
+  Code that touches the emulator or its FS goes in `worker/`, and code that
+  touches the DOM stays in the page. The page reaches the worker only through
+  messages.
 - `arculator-wasm/` - the emulator (git submodule, C compiled with Emscripten)
 - `build/` - what is served. Everything the browser loads comes from here.
   `index.html`, `emu/` (ROMs) and `software/` are at the top; the code
@@ -15,7 +26,7 @@ description of the URL options.
 - `testserver.py` - static server for `build/` with the COOP/COEP headers
 - `selenium-scripts/` - headless Firefox tools (audio dump, WAV compare)
 
-The emulator runs in a module Worker (`frontend/arculator-worker.js`) and the
+The emulator runs in a module Worker (`frontend/worker/arculator-worker.js`) and the
 wasm heap is a SharedArrayBuffer, so the page **must** be cross-origin isolated.
 Serve it with `testserver.py`; a plain `python -m http.server` won't work.
 
@@ -36,14 +47,14 @@ old one: a clean tree's is `v/<commit>-clean`, a dirty tree's adds the time, so
 every `make` of a dirty tree makes a new one (and removes the old). So code
 must load its files by URLs relative to itself (`import`,
 `new URL('x.js', import.meta.url)`), never relative to the page. Data at the top
-level (ROMs, the catalogue) is `new URL('../../emu/...', import.meta.url)`.
+level (ROMs, the catalogue) comes from `frontend/shared/paths.js`.
 
 For quick iteration you can skip `make` and copy the pieces into the current
 version (`testserver.py` makes the browser revalidate everything):
 
 ```sh
-cp arculator-wasm/build/wasm/arculator.{js,wasm} build/v/*/
-cp frontend/*.js build/v/*/           # after editing frontend JS
+cp arculator-wasm/build/wasm/arculator.{js,wasm} build/v/*/worker/
+cp -r frontend/*.js frontend/worker frontend/worklet frontend/shared build/v/*/   # after editing frontend JS
 ```
 
 `frontend/index.template.html` is only rendered by `make`. `make deploy`
@@ -116,7 +127,7 @@ All are read in `getPageBootParams()` in `frontend/ui.js`.
 
 | Parameter | Value | Effect |
 |---|---|---|
-| `preset` | `a310-arthur`, `a310-ro2`, `a3000` (default), `a5000`, `a3020`, `a540` | Machine configuration (`presetMachines` in `frontend/machine-config.js`) |
+| `preset` | `a310-arthur`, `a310-ro2`, `a3000` (default), `a5000`, `a3020`, `a540` | Machine configuration (`presetMachines` in `frontend/shared/machines.js`) |
 | `disc` | software catalogue ID (e.g. `lander`) or a URL | Disc images (`.adf`, zipped or not) go into drive 0. RISC OS archives (Spark/ArcFS zips) are unpacked to HostFS. A catalogue ID may also choose the preset, `ff`, sound filter and mouse mode, unless you set them. |
 | `autoboot` | Obey file text, or empty | Writes a HostFS `!Boot` that runs at startup (RISC OS 3 only). Leave it empty with a catalogue `disc` to use the title's own boot commands. Separate lines with `%0A`. |
 | `basic` | BASIC program text | Boots into BASIC, then types and runs the program. Can't be combined with `disc`. Fast-forwards through boot. |
@@ -196,7 +207,7 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
   own key events are too short for the emulator to see; hold for about 100 ms.
 
 - **`window.arcMusicInfo()`** gives the song a program has loaded into the
-  QTMTracker module, or null (`frontend/qtm-info.js`, a SWI hook on
+  QTMTracker module, or null (`frontend/worker/qtm-info.js`, a SWI hook on
   `QTM_Load`, so it works while a demo has interrupts off). It's
   `{title, author, samples, format, tag, origin, channels, loadedFrom,
   address}`: the name, author and format are what `*QTMInfo` shows, and
@@ -250,7 +261,7 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
 
 ## Watching SWIs
 
-`frontend/swi-hook.js` lets code in the worker watch for SWIs as the emulated
+`frontend/worker/swi-hook.js` lets code in the worker watch for SWIs as the emulated
 CPU calls them (`arculator-wasm/src/swihook.c`), e.g. to see what music a
 program gives a tracker module. It doesn't need RISC OS, so it works while a
 program has taken over the machine with interrupts off.
@@ -400,11 +411,11 @@ than on main.
   `emscripten_main.c`, `sound_emscripten.c` and `sound_ring.h` use LF. Keep each
   file's existing endings when you edit it.
 - **Shared layouts:** the audio ring layout in `arculator-wasm/src/sound_ring.h`
-  is mirrored in `frontend/audio-ring.js`. Change both together;
+  is mirrored in `frontend/shared/audio-ring.js`. Change both together;
   `checkRingLayout` reports a mismatch at startup.
 - **JSCLI protocol:** the `ArcEm_JSCLI` SWI in `arculator-wasm/src/jscli.c`
   is mirrored in `arculator-wasm/src/jscli/jscli-defs.s`, and its request
-  kinds and error codes in `frontend/jscli-worker.js`. Change them together.
+  kinds and error codes in `frontend/worker/jscli-worker.js`. Change them together.
   The page hooks themselves are in `frontend/jscli-page.js`.
 - **Wasm exports:** never `ccall` a wasm export before the runtime is
   initialised; it aborts the page.

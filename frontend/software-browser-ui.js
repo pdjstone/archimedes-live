@@ -3,8 +3,8 @@
 * the worker, which has the FS, via the functions passed to initSoftwareBrowser
 */
 
-import { fetchSoftwareCatalogue } from './software-browser.js'
-import { presetMachines, recommendMachinePreset, OS_NAMES, MEM_SIZE_NAMES } from './machine-config.js'
+import { fetchSoftwareCatalogue } from './shared/software-catalogue.js'
+import { presetMachines, recommendMachinePreset, OS_NAMES, MEM_SIZE_NAMES } from './shared/machines.js'
 
 const SOFTWARE_CATGORIES = {
   'Category: All': [],
