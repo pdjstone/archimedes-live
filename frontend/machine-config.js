@@ -1,4 +1,3 @@
-let buildTag = new URL(import.meta.url).search;  
 import { putDataAtPath, putUrlAtPath } from './fsutil.js' 
 import { CMOS_BOOT_HOSTFS, DEFAULT_CMOS }  from './cmos.js' 
 import { roDirname } from './hostfs.js'
