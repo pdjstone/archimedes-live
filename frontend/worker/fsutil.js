@@ -2,6 +2,8 @@
  * Emscripten FS helper functions
  */
 
+import { emulator } from './emulator.js'
+
 function mkdirsForFile(filePath) {
   let bits = filePath.split('/');
   bits.pop(); // remove filename
@@ -9,10 +11,10 @@ function mkdirsForFile(filePath) {
   for (let b of bits) {
     dirPath += b + '/';
     try {
-      FS.stat(dirPath);
+      emulator.FS.stat(dirPath);
     } catch (e) {
       console.log('creating dir ' + dirPath);
-      FS.mkdir(dirPath);
+      emulator.FS.mkdir(dirPath);
     }
   }
 }
@@ -32,15 +34,15 @@ function dirName(path) {
 export function putDataAtPath(data, path, timestampMillis=0) {
   mkdirsForFile(path);
   try {
-    FS.stat(path);
+    emulator.FS.stat(path);
     console.log('Remove existing file ' + path);
-    FS.unlink(path);
+    emulator.FS.unlink(path);
   } catch (e) {
     
   }
-  FS.createDataFile(dirName(path), baseName(path), data, true, true);
+  emulator.FS.createDataFile(dirName(path), baseName(path), data, true, true);
   if (timestampMillis != 0) {
-    FS.utime(path, timestampMillis, timestampMillis);
+    emulator.FS.utime(path, timestampMillis, timestampMillis);
   }
 }
 

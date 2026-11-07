@@ -1,4 +1,5 @@
 import { putDataAtPath, baseName } from './fsutil.js'
+import { emulator } from './emulator.js'
 import { RiscOsUnzip } from'./riscosunzip.js'
 import { NSpark } from './nspark/nspark-helper.js'
 import { fetchSoftwareCatalogue } from '../shared/software-catalogue.js'
@@ -93,7 +94,7 @@ async function putFileOnHostFs(filename, blob, dst='/') {
   filename = convertDotExtToHostfsExt(filename);
   console.log('Putting ' + filename + ' onto HostFS at ' + dst);
   try {
-    FS.createDataFile('/hostfs' + dst, filename, data, true, true);
+    emulator.FS.createDataFile('/hostfs' + dst, filename, data, true, true);
   } catch (e) {
     console.log('Failed to write HostFS file', e);
   }
@@ -297,13 +298,13 @@ async function loadDisc(filename, blob, insert=true) {
   let buf = await blob.arrayBuffer();
   let data = new Uint8Array(buf);
   if (currentDiscFile) {
-    ccall('arc_disc_eject', null, ['number'], [0]);
-    FS.unlink(currentDiscFile);
+    emulator.ccall('arc_disc_eject', null, ['number'], [0]);
+    emulator.FS.unlink(currentDiscFile);
   }
   currentDiscFile = filename;
-  FS.createDataFile("/", currentDiscFile, data, true, true);
+  emulator.FS.createDataFile("/", currentDiscFile, data, true, true);
   if (insert) {
-    ccall('arc_disc_change', null, ['number', 'string'], [0, '/' + currentDiscFile]);
+    emulator.ccall('arc_disc_change', null, ['number', 'string'], [0, '/' + currentDiscFile]);
   }
   return currentDiscFile;
 }
@@ -314,9 +315,9 @@ export const FILETYPE_DESKTOP = 0xfea
 
 export function createHostfsBootFile(content, fileType) {
   try {
-    for (const filename of FS.readdir('/hostfs/')) {
+    for (const filename of emulator.FS.readdir('/hostfs/')) {
       if (filename.toLowerCase().startsWith('!boot,')) {
-        FS.unlink('/hostfs/' + filename);
+        emulator.FS.unlink('/hostfs/' + filename);
       }
     }
   } catch (e) {

@@ -10,6 +10,7 @@ import { fetchSoftwareCatalogue } from '../shared/software-catalogue.js'
 import { getAutobootScript, putConfigFile, putCmosFile, loadRoms } from './machine-setup.js'
 import { loadSoftware, loadSoftwareFromUrl, loadFromSoftwareCatalogue, createHostfsBootFile, FILETYPE_DESKTOP, FILETYPE_COMMAND } from './hostfs.js'
 import { putDataAtPath } from './fsutil.js'
+import { emulator, setEmulator } from './emulator.js'
 import { handleCliRequest, setCliModule } from './jscli-worker.js'
 import { setSwiHookModule } from './swi-hook.js'
 import { clearMusicInfo } from './qtm-info.js'
@@ -47,6 +48,9 @@ function setStatus(text) {
 }
 
 
+
+// Message handlers are async, so their errors would otherwise go unseen
+onunhandledrejection = (event) => { console.error('arculator worker: unhandled rejection', event.reason); }
 
 onmessageerror = (event) => { console.log('worker message error', event); }
 
@@ -136,8 +140,7 @@ onmessage = async (e) => {
       },
       preRun: [function(module) {
           console.log('preRun');
-          self.FS = module.FS;
-        
+          setEmulator(module);
       }],
       //logReadFiles: true,
       print: (function() { 
@@ -184,13 +187,13 @@ function handleFsRequest({ id, op, path, data }) {
   let reply = { type: 'fsReply', id };
   try {
     if (op === 'read') {
-      reply.result = FS.readFile(path, { encoding: 'binary' });
+      reply.result = emulator.FS.readFile(path, { encoding: 'binary' });
     } else if (op === 'write') {
       putDataAtPath(data, path);
     } else if (op === 'list') {
-      reply.result = FS.readdir(path).filter(f => f != '.' && f != '..');
+      reply.result = emulator.FS.readdir(path).filter(f => f != '.' && f != '..');
     } else if (op === 'unlink') {
-      FS.unlink(path);
+      emulator.FS.unlink(path);
     } else {
       throw new Error(`Unknown fs op '${op}'`);
     }
@@ -251,7 +254,7 @@ async function loadMachineConfig(_opts=null) {
   let softwareMeta = null;
 
   try {
-    FS.mkdir('/hostfs');
+    emulator.FS.mkdir('/hostfs');
   } catch (e) {
     console.log('hostfs dir already exists');
   }
