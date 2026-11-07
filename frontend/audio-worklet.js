@@ -29,6 +29,12 @@ const TARGET_RAISE = 480;      // 10ms, on each underrun
 const TARGET_LOWER = 240;      // 5ms...
 const TARGET_LOWER_AFTER = 480000; // ...after this many frames (10s) played without an underrun
 const TRIM_HEADROOM_MIN = 2400; // 50ms. Trim at the target plus half the target, or plus this if more
+// While the page is hidden nobody sees the screen, so latency doesn't matter
+// and a much deeper fill rides out the long stalls a background page gets.
+// Its trim level has to fit in the FIFO. When the page is shown again the
+// target comes down as the emulator drains the extra, so nothing is trimmed
+const HIDDEN_TARGET = 19200;   // 400ms
+const HIDDEN_DRAIN = 0.75;     // coming down, keep the target at least this fraction of the fill
 
 // Disc noise arrives as 100ms blocks of mono 44.1kHz, each tagged with the
 // base clock tick it starts at. Each block is made at the start of the time it
@@ -52,6 +58,8 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
     this.port.onmessage = (event) => {
       if (event.data.type === 'init')
         this.init(event.data);
+      else if (event.data.type === 'hidden')
+        this.hidden = event.data.hidden; // process() moves the target
     };
   }
 
@@ -83,7 +91,9 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
     this.lastR = 0;
 
     this.quietFrames = 0;  // frames played since the last underrun, or the last time the target was lowered
-    this.setTarget(TARGET_START);
+    this.hidden = !!msg.hidden; // the page can't be seen
+    this.adaptiveTarget = TARGET_START; // the target while the page is shown, which adapts to underruns
+    this.setTarget(this.hidden ? HIDDEN_TARGET : TARGET_START);
     Atomics.store(this.ctrl, CTRL.MIN_FILL, FILL_UNSET);
     Atomics.store(this.ctrl, CTRL.MAX_FILL, 0);
     this.ready = true;
@@ -94,10 +104,6 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
    * half of it, and throw audio away above trimFill. The emulator reads both.
    */
   setTarget(frames) {
-    if (frames < TARGET_MIN)
-      frames = TARGET_MIN;
-    if (frames > TARGET_MAX)
-      frames = TARGET_MAX;
     this.target = frames;
     this.primeFill = frames >> 1;
     this.trimFill = frames + Math.max(frames >> 1, TRIM_HEADROOM_MIN);
@@ -105,6 +111,26 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
     Atomics.store(this.ctrl, CTRL.TARGET_FILL, frames);
   }
 
+
+  /** Raise or lower the adaptive target, within its limits */
+  adaptTarget(frames) {
+    this.adaptiveTarget = Math.min(Math.max(frames, TARGET_MIN), TARGET_MAX);
+  }
+
+  /**
+   * Move the target to suit whether the page is hidden. Coming back from
+   * hidden it follows the fill down rather than dropping at once, which would
+   * trim what's queued, until it reaches the adaptive target again.
+   */
+  updateTarget(fill) {
+    let target = this.adaptiveTarget;
+    if (this.hidden)
+      target = Math.max(target, HIDDEN_TARGET);
+    else if (this.target > target)
+      target = Math.max(target, Math.min(this.target, Math.ceil(fill * HIDDEN_DRAIN)));
+    if (target !== this.target)
+      this.setTarget(target);
+  }
 
   /** Run stage 1 into the FIFO, as far as the emulator has got and there's room */
   runStage1() {
@@ -158,6 +184,7 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
     this.runStage1();
 
     let fill = (this.fifoW - this.fifoR) | 0;
+    this.updateTarget(fill);
     if (!this.playing) {
       if (fill < this.primeFill) {
         this.publish();
@@ -281,13 +308,12 @@ class ArculatorAudioProcessor extends AudioWorkletProcessor {
       Atomics.add(c, CTRL.UNDERRUNS, 1);
       Atomics.add(c, CTRL.SILENT_FRAMES, rem);
       // This much buffering wasn't enough
-      this.setTarget(this.target + TARGET_RAISE);
+      this.adaptTarget(this.adaptiveTarget + TARGET_RAISE);
       this.quietFrames = 0;
     } else if ((this.quietFrames += n) >= TARGET_LOWER_AFTER) {
       // Things have been calm for a while, so try a bit less latency
       this.quietFrames = 0;
-      if (this.target > TARGET_MIN)
-        this.setTarget(this.target - TARGET_LOWER);
+      this.adaptTarget(this.adaptiveTarget - TARGET_LOWER);
     }
 
     this.fifoR = (fifoR + avail) | 0;

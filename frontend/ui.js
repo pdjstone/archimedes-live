@@ -127,9 +127,11 @@ window.arcFastForward = function(ms) {
 };
 
 /*The emulator doesn't draw anything while the page can't be seen, such as
-  when music plays in the background. It runs just the same otherwise.*/
+  when music plays in the background. It runs just the same otherwise, and
+  the audio buffers more to ride out the stalls a background page gets.*/
 function sendPageHidden() {
   arculatorWorker.postMessage({type: 'pageHidden', hidden: document.hidden});
+  emuAudio.setHidden(document.hidden);
 }
 document.addEventListener('visibilitychange', sendPageHidden);
 sendPageHidden();

@@ -24,6 +24,7 @@ export class EmuAudio {
     this.ctrl = null;
     this.running = false;
     this.paused = false;  // suspended because the emulator is paused
+    this.hidden = false;  // the page can't be seen, so the worklet buffers more
     this.lastLogged = null;
     this.dumpFrames = 0;  // size of the audio dump that's been asked for
     this.dumpWav = null;  // the finished dump, as a WAV file
@@ -79,7 +80,8 @@ export class EmuAudio {
       eventPtr: msg.eventPtr,
       recordPtr: msg.recordPtr,
       ddPtr: msg.ddPtr,
-      dumpFrames: this.dumpFrames
+      dumpFrames: this.dumpFrames,
+      hidden: this.hidden
     });
     this.node.connect(ctx.destination);
 
@@ -125,6 +127,16 @@ export class EmuAudio {
     if (!this.ctx)
       return;
     (paused ? this.ctx.suspend() : this.ctx.resume()).catch(() => {});
+  }
+
+  /**
+   * While the page is hidden latency doesn't matter, so the worklet keeps a
+   * much deeper fill, which rides out the stalls a background page gets.
+   */
+  setHidden(hidden) {
+    this.hidden = hidden;
+    if (this.node)
+      this.node.port.postMessage({ type: 'hidden', hidden });
   }
 
   onWorkletMessage(msg) {
