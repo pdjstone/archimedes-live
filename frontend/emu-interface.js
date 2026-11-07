@@ -2,8 +2,22 @@
  * Functions to integrate browser interaction and events with emulator
  */
 
+import { getEmuInput } from './emu_input.js'
+
+let ui = null;
+
+/**
+ * @param uiFunctions - from ui.js: resumeEmulator, loadFile and
+ *   getCurrentSoftwareId
+ */
+export function initEmuInterface(uiFunctions) {
+  ui = uiFunctions;
+  // tryCapture is called by emu_input.js, fullscreen from index.html
+  Object.assign(window, { tryCapture, fullscreen });
+}
+
 function lockChangeAlert() {
-  let locked = document.pointerLockElement === canvas;
+  let locked = document.pointerLockElement === document.getElementById('canvas');
   document.body.classList.toggle('mouse-captured', locked);
 
   if (locked) {
@@ -18,7 +32,7 @@ function tryCapture(event) {
   if (document.pointerLockElement)
     return;
   if (document.body.classList.contains('emu-paused')) {
-    resumeEmulator();
+    ui.resumeEmulator();
   }
   document.getElementById('canvas').requestPointerLock();
   if (event && event.ctrlKey)
@@ -33,10 +47,7 @@ document.addEventListener('pointerlockchange', lockChangeAlert, false);
  * when canvas has pointerLock
  */
 function captureKeyShortcuts(event) {
-  if (false && event.shiftKey && event.altKey && event.code == 'F1') {
-    console.log('captureKeyShortcuts: record video');
-    recordVideo(10000).then(() => {});
-  } else if (event.altKey && event.code == 'IntlBackslash') {
+  if (event.altKey && event.code == 'IntlBackslash') {
     arc_capture_screenshot();
   } else if (event.ctrlKey && event.code == 'Backquote') {
     console.log('simulate escape');
@@ -69,7 +80,7 @@ document.ondrop = function(ev) {
       if (ev.dataTransfer.items[i].kind === 'file') {
         var file = ev.dataTransfer.items[i].getAsFile();
         console.log('... file[' + i + '].name = ' + file.name, file);
-        loadFile(file);
+        ui.loadFile(file);
       }
     }
   } 
@@ -97,95 +108,22 @@ function fullscreen() {
   }
 }
 
-var screenshots = 0;
-
+let screenshots = 0;
 
 function saveEmulatorScreenshot(blob) {
   let a = document.createElement("a");
-  a.href = window.URL.createObjectURL(blob);
-  window.screenshots++;
-  let prefix = "archimedes-live-";
-  if ('currentSoftwareId' in window) {
-    prefix = window.currentSoftwareId + '-';
-  }
-  let filename = prefix + window.screenshots.toString().padStart(2, '0') + '.png';
+  a.href = URL.createObjectURL(blob);
+  screenshots++;
+  let prefix = (ui.getCurrentSoftwareId() || 'archimedes-live') + '-';
+  let filename = prefix + screenshots.toString().padStart(2, '0') + '.png';
   console.log('Saving screenshot to ' + filename);
   a.download = filename;
   a.click(); 
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
-
-window.capturingVideo = false;
-window.videoFrames = 0;
 
 function arc_capture_screenshot() {
   window.arcScreenshot().then(saveEmulatorScreenshot, e => console.log('screenshot failed', e));
-}
-
-function arc_capture_video(record) {
-  window.capturingVideo = (record == 1);
-  ccall('arc_capture_video', null, ['number'], [record]);
-}
-
-// Returns the next <name> event of `target`.
-function nextEvent(target, name) {
-  return new Promise(resolve => {
-    target.addEventListener(name, resolve, { once: true });
-  });
-}
-
-async function recordVideo(durationMS, pauseMS=1000) {
-  if (capturingVideo) return false;
-  window.videoFrames = 0;
-  window.videoWorker = new Worker("webm-wasm/webm-worker.js", {type:"module"});
-  videoWorker.postMessage("./webm-wasm.wasm?"+Math.random());
-  await nextEvent(videoWorker, "message");
-
-  let framerate = 50;
-  let width = 640;
-  let height = 256;
-  let bitrate = 200;
-  videoWorker.postMessage({realtime: false, timebaseDen: framerate, width:width, height:height, bitrate:bitrate });
-
-  arc_capture_video(1);
-  await sleep(durationMS);
-  arc_capture_video(0);
-  await sleep(pauseMS);
-  console.log(`captured ${window.videoFrames} frames`);
-  videoWorker.postMessage(null);
-  const webm = (await nextEvent(videoWorker, "message")).data;
-  videoWorker.terminate();
-  const blob = new Blob([webm], { type: "video/webm" });
-  let a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  window.screenshots++;
-  let prefix = "archimedes-live-";
-  if ('currentSoftwareId' in window) {
-    prefix = window.currentSoftwareId + '-';
-  }
-  let filename = prefix + window.screenshots.toString().padStart(2, '0') + '.webm';
-  console.log('Saving video to ' + filename);
-  a.download = filename;
-  a.click(); 
-}
-
-/**
- * This is called from video_renderer_update in video_sdl2.c while a video is
- * being recorded. (Screenshots are taken by window.arcScreenshot instead.)
- *
- * bptr is a pointer to the emulator display buffer.
- * The buffer is in ARGB  format (i.e. 4 bytes per pixel)
- * bw/bh is the size of the display buffer.
- * sx/sy/sw/sh describe the area within the buffer which contains the
- * screen display (this can change size/position depending on the
- * current mode/borders etc..)
- */
-function capture_frame(bptr, bw, bh, sx, sy, sw, sh, ww, wh) {  
-  if (capturingVideo) {
-    window.videoFrames++;
-    let offset = sy*bw*4 + sx*4;
-    let pixels = new Uint8Array(HEAPU8.subarray(bptr+offset, bptr + bw*bh*4));
-    videoWorker.postMessage(pixels.buffer, pixels.buffer);
-  }
 }
 
 document.getElementById('canvas').addEventListener('keydown', captureKeyShortcuts);

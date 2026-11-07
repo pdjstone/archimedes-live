@@ -1,6 +1,7 @@
 import { initSoftwareBrowser, showSoftwareBrowser, filterSoftware, removeAllChildNodes } from './software-browser-ui.js'
 import { presetMachines, machineInfo, CPU_DESCRIPTIONS, OS_NAMES, MEM_SIZE_NAMES } from "./shared/machines.js"
 import { getEmuInput } from "./emu_input.js";
+import { initEmuInterface } from './emu-interface.js'
 import { initBasicEditor, showBasicEditor, wrapProg, setBootedToBasic, BASIC_RUN_FAST_FORWARD } from './editor.js'
 import { EmuAudio } from './emu-audio.js'
 import { setCliWorker, handleCliMessage }  from './jscli-page.js'
@@ -224,6 +225,12 @@ Object.assign(window, {
   showModal, closeModal, pauseEmulator, resumeEmulator,
   showMachinePicker, previewMachine, bootSelected,
   showSoftwareBrowser, filterSoftware, loadFile, getEmuInput
+});
+
+initEmuInterface({
+  resumeEmulator,
+  loadFile,
+  getCurrentSoftwareId: () => currentMachine?.softwareId
 });
 
 initBasicEditor({
