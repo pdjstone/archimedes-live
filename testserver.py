@@ -11,6 +11,9 @@ class MyHTTPRequestHandler(server.SimpleHTTPRequestHandler):
     def send_my_headers(self):
         self.send_header("Cross-Origin-Opener-Policy", "same-origin")
         self.send_header("Cross-Origin-Embedder-Policy", "require-corp")
+        # Revalidate everything, so files copied into build/v/<tag>/ by hand
+        # aren't served stale from the cache
+        self.send_header("Cache-Control", "no-cache")
 
 if __name__ == '__main__':
     print('Test server with COOP/COEP isolation headers')

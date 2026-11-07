@@ -3,7 +3,8 @@ import { CMOS_BOOT_HOSTFS, DEFAULT_CMOS }  from './cmos.js'
 import { roDirname } from './hostfs.js'
 
 const ROM_BASE_PROD = 'https://files-archi.medes.live/roms/';
-const ROM_BASE_DEV = 'emu/roms/';
+// This module is in v/<build tag>/; the ROMs are at the top level
+const ROM_BASE_DEV = new URL('../../emu/roms/', import.meta.url).href;
 
 let ROM_BASE = (new URL(import.meta.url).domain == 'archi.medes.live') ? ROM_BASE_PROD : ROM_BASE_DEV;
 

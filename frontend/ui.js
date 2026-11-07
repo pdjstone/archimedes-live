@@ -61,7 +61,7 @@ if (searchParams.has('audiostats')) {
   startAudioStatsOverlay(emuAudio);
 }
 
-const arculatorWorker = new Worker('./arculator-worker.js', { type: 'module' });
+const arculatorWorker = new Worker(new URL('arculator-worker.js', import.meta.url), { type: 'module' });
 setCliWorker(arculatorWorker);
 
 // A command line client on this machine (tools/arcterm.py) to connect to

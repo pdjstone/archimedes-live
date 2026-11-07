@@ -8,7 +8,10 @@ description of the URL options.
 
 - `frontend/` - page, UI and audio code (copied into `build/` by `make`)
 - `arculator-wasm/` - the emulator (git submodule, C compiled with Emscripten)
-- `build/` - what is served. Everything the browser loads comes from here
+- `build/` - what is served. Everything the browser loads comes from here.
+  `index.html`, `emu/` (ROMs) and `software/` are at the top; the code
+  (frontend JS and CSS, `arculator.{js,wasm}`, `nspark/`) is in
+  `build/v/<build tag>/`, which `index.html` points to
 - `testserver.py` - static server for `build/` with the COOP/COEP headers
 - `selenium-scripts/` - headless Firefox tools (audio dump, WAV compare)
 
@@ -28,14 +31,24 @@ make                                 # everything -> build/
 script has a broken shebang, run `make` with `venv/bin` first on `PATH`, or
 invoke it as `venv/bin/python venv/bin/jinja2`.
 
-For quick iteration you can skip `make` and copy the pieces by hand:
+Each build goes in a new directory, so browsers never use a cached copy of an
+old one: a clean tree's is `v/<commit>-clean`, a dirty tree's adds the time, so
+every `make` of a dirty tree makes a new one (and removes the old). So code
+must load its files by URLs relative to itself (`import`,
+`new URL('x.js', import.meta.url)`), never relative to the page. Data at the top
+level (ROMs, the catalogue) is `new URL('../../emu/...', import.meta.url)`.
+
+For quick iteration you can skip `make` and copy the pieces into the current
+version (`testserver.py` makes the browser revalidate everything):
 
 ```sh
-cp arculator-wasm/build/wasm/arculator.{js,wasm} build/
-cp frontend/*.js build/               # after editing frontend JS
+cp arculator-wasm/build/wasm/arculator.{js,wasm} build/v/*/
+cp frontend/*.js build/v/*/           # after editing frontend JS
 ```
 
-`frontend/index.template.html` is only rendered by `make`.
+`frontend/index.template.html` is only rendered by `make`. `make deploy`
+uploads `v/` with an immutable cache header, adding it to the versions already
+there, and the top-level pages with `no-cache`.
 
 ## Serving
 

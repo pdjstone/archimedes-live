@@ -6,7 +6,21 @@ ARCULATOR_BUILD_TAG := $(shell cd arculator-wasm && ${BUILD_TAG_CMD})
 NSPARK_BUILD_TAG := $(shell cd nspark-wasm && ${BUILD_TAG_CMD})
 SOFTWARE_BUILD_TAG := $(shell cd arclive-software && ${BUILD_TAG_CMD})
 
-all: build/index.html build/arculator.js build/nspark/nspark.js build/emu build/emu/roms/arcrom_ext build/software/software.json
+# Everything the page loads goes in build/v/<build tag>/, and index.html points
+# there. Modules, workers, the worklet and the wasm are all loaded by relative
+# URLs, so each build is fetched under new URLs and its files never change:
+# they can be cached for good, and only the top-level pages must be revalidated.
+# A dirty tree's tag doesn't change as it's edited, so give it the time too.
+ifneq (,$(findstring dirty,$(BUILD_TAG)))
+  BUILD_TAG := $(BUILD_TAG)-$(shell date +%Y%m%d%H%M%S)
+endif
+VDIR := v/$(BUILD_TAG)
+V := build/$(VDIR)
+FRONTEND_FILES := $(shell find frontend -type f)
+# Pages that stay at the top level, beside index.html
+PAGES := $(filter-out frontend/index.template.html,$(wildcard frontend/*.html))
+
+all: build/index.html build/emu build/emu/roms/arcrom_ext build/software/software.json
 
 serve:
 	python3 testserver.py
@@ -21,24 +35,25 @@ catalogue: build build/software/software.json
 build:
 	mkdir -p build
 
-build/index.html: frontend build
-	cp -r frontend/* build
-	jinja2 -D BUILD_TAG=${BUILD_TAG} -D ARCULATOR_BUILD_TAG=${ARCULATOR_BUILD_TAG} -D NSPARK_BUILD_TAG=${NSPARK_BUILD_TAG} -D SOFTWARE_BUILD_TAG=${SOFTWARE_BUILD_TAG} build/index.template.html > build/index.html
-	rm build/index.template.html
+build/index.html: $(V)/ui.js frontend/index.template.html $(PAGES)
+	jinja2 -D VDIR=${VDIR} -D BUILD_TAG=${BUILD_TAG} -D ARCULATOR_BUILD_TAG=${ARCULATOR_BUILD_TAG} -D NSPARK_BUILD_TAG=${NSPARK_BUILD_TAG} -D SOFTWARE_BUILD_TAG=${SOFTWARE_BUILD_TAG} frontend/index.template.html < /dev/null > $@
+	cp $(PAGES) build
+	cp -r frontend/images build
 
-build/arculator.js: arculator-wasm/build/wasm/arculator.js build
-	cp arculator-wasm/build/wasm/arculator.{js,wasm} build
-	cp arculator-wasm/js/frontend/*.js build
-	#cp arculator-wasm/build/wasm/sound_processor.js build
-	#cp arculator-wasm/build/wasm/arculator.{js,aw.js,ww.js,worker.js,wasm} build
+# Only one version is kept locally; deploying adds it to those already there
+$(V)/ui.js: $(FRONTEND_FILES) arculator-wasm/build/wasm/arculator.js nspark-wasm/build/nspark.js
+	rm -rf build/v
+	mkdir -p $(V)/nspark
+	cp -r frontend/* $(V)
+	rm $(V)/*.html
+	cp arculator-wasm/build/wasm/arculator.{js,wasm} $(V)
+	cp arculator-wasm/js/frontend/*.js $(V)
 ifdef DEBUG
-	cp arculator-wasm/build/wasm/arculator.wasm.map build
+	cp arculator-wasm/build/wasm/arculator.wasm.map $(V)
 endif
-
-build/nspark/nspark.js: nspark-wasm/build/nspark.js build
-	mkdir -p build/nspark
-	cp nspark-wasm/build/*.{js,wasm} build/nspark
-	cp nspark-wasm/emscripten/*.js build/nspark
+	cp nspark-wasm/build/*.{js,wasm} $(V)/nspark
+	cp nspark-wasm/emscripten/*.js $(V)/nspark
+	touch $@
 
 arculator-wasm/build/wasm/arculator.js:
 	cd arculator-wasm && make -j8 wasm
@@ -73,4 +88,5 @@ build/software/software.json:
 deploy: all
 	s3cmd sync -m application/wasm --exclude '*.txt' build/emu/roms s3://files-archi.medes.live/
 	cd build && s3cmd sync --no-mime-magic --guess-mime-type software s3://files-archi.medes.live
-	cd build && s3cmd sync --no-mime-magic --guess-mime-type --exclude 'emu/*' --exclude 'software/*' . s3://archi.medes.live
+	cd build && s3cmd sync --no-mime-magic --guess-mime-type --add-header='Cache-Control: public, max-age=31536000, immutable' v s3://archi.medes.live/
+	cd build && s3cmd sync --no-mime-magic --guess-mime-type --add-header='Cache-Control: no-cache' --exclude 'emu/*' --exclude 'software/*' --exclude 'v/*' --exclude 'survey/*' --exclude 'audio-dumps/*' . s3://archi.medes.live

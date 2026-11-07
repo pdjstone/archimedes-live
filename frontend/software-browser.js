@@ -11,7 +11,8 @@ let SOFTWARE_CATALOG = null;
 
 const SOFTWARE_INDEX = 'software.json?';
 const SOFTWARE_BASE_PROD = 'https://files-archi.medes.live/software/';
-const SOFTWARE_BASE_DEV = 'software/';
+// This module is in v/<build tag>/; the catalogue is at the top level
+const SOFTWARE_BASE_DEV = new URL('../../software/', import.meta.url).href;
 
 let SOFTWARE_BASE = (new URL(import.meta.url).domain == 'archi.medes.live') ? SOFTWARE_BASE_PROD : SOFTWARE_BASE_DEV;
 

@@ -20,14 +20,6 @@ import { handleCliRequest, setCliModule } from './jscli-worker.js'
 import { setSwiHookModule } from './swi-hook.js'
 import { clearMusicInfo } from './qtm-info.js'
 
-// if we await anything before setting the onmessage handler, messages posted to us 
-// aren't queued so get lost. a better alternative to using dynamic import to add the
-// build tag might be using a ServiceWorker to transparently handle fetching scripts
-// with the correct tag
-//const { default: ArculatorWasm } = await import('./arculator.js' + buildTag);
-
-let ARCULATOR_BUILD_TAG = new URL(import.meta.url).search;
-
 
 console.log('in arculator worker');
 let canvas = null;
@@ -154,7 +146,6 @@ onmessage = async (e) => {
         
       }],
       //logReadFiles: true,
-      locateFile: file => file + '?' + ARCULATOR_BUILD_TAG,
       print: (function() { 
         return function(text) {
           if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
