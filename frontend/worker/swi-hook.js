@@ -13,6 +13,8 @@
  * the page rather than awaiting.
  */
 
+import { emulator, ready, onReady } from './emulator.js'
+
 // The most SWIs the emulator watches at once (SWIHOOK_MAX in swihook.c)
 const SWI_HOOK_MAX = 32;
 const X_BIT = 0x20000;
@@ -20,13 +22,8 @@ const X_BIT = 0x20000;
 // SWI number -> Set of hooks
 const swiHooks = new Map();
 
-// The emulator's wasm module, once its runtime is initialised
-let arculatorModule = null;
-
-export function setSwiHookModule(module) {
-  arculatorModule = module;
-  updateEmulator();
-}
+// Hooks added before the runtime was initialised are sent then
+onReady(updateEmulator);
 
 /**
  * Calls fn(regs, swi) whenever the emulated CPU calls SWI swi. regs is a
@@ -53,10 +50,10 @@ export function addSwiHook(swi, fn) {
 
 /** Tells the emulator which SWIs to watch */
 function updateEmulator() {
-  if (!arculatorModule)
-    return;   // the list is sent when the module is ready
+  if (!ready)
+    return;   // onReady sends the list
   let swis = Uint32Array.from(swiHooks.keys());
-  arculatorModule.ccall('arc_swi_hook_set', 'number', ['array', 'number'],
+  emulator.ccall('arc_swi_hook_set', 'number', ['array', 'number'],
     [new Uint8Array(swis.buffer), swis.length]);
 }
 
@@ -79,12 +76,12 @@ self.arcSwiHook = (swi, regs) => {
 export function readMemory(addr, len) {
   const CHUNK = 65536;   // MEM_READ_MAX in swihook.c
   let result = new Uint8Array(len);
-  let buffer = arculatorModule.ccall('arc_mem_read_buffer', 'number', []);
+  let buffer = emulator.ccall('arc_mem_read_buffer', 'number', []);
   let done = 0;
   while (done < len) {
     let want = Math.min(len - done, CHUNK);
-    let got = arculatorModule.ccall('arc_mem_read', 'number', ['number', 'number'], [(addr + done) >>> 0, want]);
-    result.set(arculatorModule.HEAPU8.subarray(buffer, buffer + got), done);
+    let got = emulator.ccall('arc_mem_read', 'number', ['number', 'number'], [(addr + done) >>> 0, want]);
+    result.set(emulator.HEAPU8.subarray(buffer, buffer + got), done);
     done += got;
     if (got < want)
       return result.slice(0, done);

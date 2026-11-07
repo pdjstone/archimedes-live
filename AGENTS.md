@@ -418,7 +418,9 @@ than on main.
   kinds and error codes in `frontend/worker/jscli-worker.js`. Change them together.
   The page hooks themselves are in `frontend/jscli-page.js`.
 - **Wasm exports:** never `ccall` a wasm export before the runtime is
-  initialised; it aborts the page.
+  initialised; it aborts the page. Worker modules get the module from
+  `frontend/worker/emulator.js`: `emulator` is set in preRun (FS only), and
+  `ready` (or `onReady(fn)`) says when exports can be called.
 - **Native build:** the native (non-wasm) Arculator build still compiles
   `sound.c` without `ARC_AUDIO_WORKLET`. Check that path still builds after
   editing it.

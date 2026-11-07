@@ -7,6 +7,9 @@
  * channel, then reports output and completion through self.jscliOutput and
  * self.jscliDone (called from jscli.c).
  */
+
+import { emulator, ready } from './emulator.js'
+
 const CLI_CHANNELS = Object.freeze({callback: 0, wimp: 1});
 const CLI_KINDS = Object.freeze({keys: 1, session: 2, input: 3, close: 4});
 // Bytes per emulator request: the modules' buffer size, and for input less
@@ -28,15 +31,8 @@ const cliRequests = new Map();
 // Page id -> request, for the open sessions
 const cliSessions = new Map();
 
-// The emulator's wasm module, once it has loaded
-let arculatorModule = null;
-
-export function setCliModule(module) {
-  arculatorModule = module;
-}
-
 function cliQueueData(kind, target, part, via = 'wimp') {
-  return arculatorModule.ccall('arc_cli_queue_data', 'number', ['number', 'number', 'number', 'array', 'number'],
+  return emulator.ccall('arc_cli_queue_data', 'number', ['number', 'number', 'number', 'array', 'number'],
     [CLI_CHANNELS[via], CLI_KINDS[kind], target, part, part.length]);
 }
 
@@ -44,19 +40,19 @@ export function handleCliRequest({ id, op, command, via = 'callback', data, sess
   let reply = { type: 'cliReply', id };
   try {
     if (op === 'status') {
-      let status = arculatorModule ? arculatorModule.ccall('arc_cli_status', 'number', []) : 0;
+      let status = ready ? emulator.ccall('arc_cli_status', 'number', []) : 0;
       reply.result = Object.fromEntries(Object.entries(CLI_CHANNELS).map(([name, n]) => [name, !!(status & (1 << n))]));
       if (reply.result.wimp) {
         // JSCLIWimp checks for commands on every null event while it's idle, so a
         // long gap means the desktop is suspended (or it's running a silent command)
-        reply.result.wimpIdleMs = arculatorModule.ccall('arc_cli_idle_ms', 'number', ['number'], [CLI_CHANNELS.wimp]);
-        reply.result.wimpBusy = !!arculatorModule.ccall('arc_cli_busy', 'number', ['number'], [CLI_CHANNELS.wimp]);
+        reply.result.wimpIdleMs = emulator.ccall('arc_cli_idle_ms', 'number', ['number'], [CLI_CHANNELS.wimp]);
+        reply.result.wimpBusy = !!emulator.ccall('arc_cli_busy', 'number', ['number'], [CLI_CHANNELS.wimp]);
       }
     } else if (op === 'close') {
       // A session that hasn't started is removed from the queue; one that has
       // is killed, and finishes when its TaskWindow has gone
       let s = cliSessions.get(session);
-      if (s && arculatorModule.ccall('arc_cli_cancel', 'number', ['number'], [s.cmdId]) == 1) {
+      if (s && emulator.ccall('arc_cli_cancel', 'number', ['number'], [s.cmdId]) == 1) {
         self.jscliDone(s.cmdId, 1, 0, new TextEncoder().encode('Closed before it started'));
       } else if (s) {
         cliQueue({ id, label: 'arcCliSession close', output: [], parts: [],
@@ -72,7 +68,7 @@ export function handleCliRequest({ id, op, command, via = 'callback', data, sess
       }
       let req = { id, label: op === 'run' ? `arcCli (${via})` : `arc ${op}`, output: [], parts: [], via };
       if (op === 'run') {
-        req.queue = () => arculatorModule.ccall('arc_cli_queue', 'number', ['number', 'string'], [CLI_CHANNELS[via], command]);
+        req.queue = () => emulator.ccall('arc_cli_queue', 'number', ['number', 'string'], [CLI_CHANNELS[via], command]);
       } else if (op === 'session') {
         req.label = 'arcCliSession';
         req.session = id;
@@ -112,7 +108,7 @@ export function handleCliRequest({ id, op, command, via = 'callback', data, sess
 
 // Queue a request (or its next part) in the emulator
 function cliQueue(req) {
-  req.cmdId = arculatorModule ? req.queue() : -1;
+  req.cmdId = ready ? req.queue() : -1;
   if (req.cmdId < 0) {
     throw new Error(`${req.label}: ${CLI_QUEUE_ERRORS[req.cmdId]}`);
   }
@@ -125,7 +121,7 @@ function cliQueue(req) {
 function cliTimeout(req, timeout) {
   if (cliRequests.get(req.cmdId) !== req) return;
   cliRequests.delete(req.cmdId);
-  let removed = arculatorModule.ccall('arc_cli_cancel', 'number', ['number'], [req.cmdId]) == 1;
+  let removed = emulator.ccall('arc_cli_cancel', 'number', ['number'], [req.cmdId]) == 1;
   let killed = !removed && req.via === 'wimp' && cliQueueData('close', req.cmdId, new Uint8Array(0)) > 0;
   let error = `${req.label}: timed out after ${timeout} ms, ` +
     (removed ? 'before it started' : killed ? 'and it was killed' : 'and it is still running');

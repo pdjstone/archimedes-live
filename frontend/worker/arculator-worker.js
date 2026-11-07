@@ -10,15 +10,14 @@ import { fetchSoftwareCatalogue } from '../shared/software-catalogue.js'
 import { getAutobootScript, putConfigFile, putCmosFile, loadRoms } from './machine-setup.js'
 import { loadSoftware, loadSoftwareFromUrl, loadFromSoftwareCatalogue, createHostfsBootFile, FILETYPE_DESKTOP, FILETYPE_COMMAND } from './hostfs.js'
 import { putDataAtPath } from './fsutil.js'
-import { emulator, setEmulator } from './emulator.js'
-import { handleCliRequest, setCliModule } from './jscli-worker.js'
-import { setSwiHookModule } from './swi-hook.js'
+import { emulator, ready, setEmulator, setReady } from './emulator.js'
+import { handleCliRequest } from './jscli-worker.js'
+import './swi-hook.js'
 import { clearMusicInfo } from './qtm-info.js'
 
 
 console.log('in arculator worker');
 let canvas = null;
-let arculatorModule = null;
 
 
 let machinePreset = null;
@@ -54,21 +53,20 @@ onmessage = async (e) => {
   }
   if (data.type === 'pause') {
     // From pauseEmulator and resumeEmulator in ui.js
-    if (arculatorModule) {
+    if (ready) {
       userPaused = data.paused;
-      arculatorModule.ccall(data.paused ? 'arc_pause_main_thread' : 'arc_resume_main_thread', null, []);
+      emulator.ccall(data.paused ? 'arc_pause_main_thread' : 'arc_resume_main_thread', null, []);
     }
     return;
   }
   if (data.type === 'pageHidden') {
     pageHidden = data.hidden;
-    if (arculatorModule)
+    if (ready)
       arc_set_page_hidden(pageHidden);
     return;
   }
   if (data.type === 'fastForward') {
-    // arculatorModule is only set once the runtime is initialised
-    if (arculatorModule) {
+    if (ready) {
       arc_fast_forward(Number(arc_get_emulation_ms()) + data.ms);
     }
     return;
@@ -96,7 +94,7 @@ onmessage = async (e) => {
   }
   if (data.type === 'init') {
     const { canvas, pageBootParams } = data;
-    arculatorModule = await ArculatorWasm({
+    await ArculatorWasm({
       canvas: canvas,
       noInitialRun: true,
       onRuntimeInitialized: function() {
@@ -129,8 +127,7 @@ onmessage = async (e) => {
         };
       })(),
     });
-    setCliModule(arculatorModule);
-    setSwiHookModule(arculatorModule);
+    setReady();
   }
 }
 
@@ -140,12 +137,14 @@ onmessage = async (e) => {
  * fetch and unzip, and unpacking an archive takes many seconds
  */
 async function whilePaused(fn) {
-  arculatorModule.ccall('arc_pause_main_thread', null, []);
+  if (!ready)
+    return fn();   // nothing is running yet
+  emulator.ccall('arc_pause_main_thread', null, []);
   try {
     await fn();
   } finally {
     if (!userPaused)
-      arculatorModule.ccall('arc_resume_main_thread', null, []);
+      emulator.ccall('arc_resume_main_thread', null, []);
   }
 }
 
@@ -184,13 +183,13 @@ function handleFsRequest({ id, op, path, data }) {
  * while the page is hidden either, so one is drawn for this.
  */
 function handleScreenshotRequest({ id }) {
-  if (!arculatorModule || !arculatorModule.renderer) {
+  if (!ready || !emulator.renderer) {
     postMessage({ type: 'screenshotReply', id, error: 'The emulator display isn\'t running yet' });
     return;
   }
   if (pageHidden)
     arc_set_page_hidden(false);
-  (arculatorModule.screenshotRequests ??= []).push(async png => {
+  (emulator.screenshotRequests ??= []).push(async png => {
     arc_set_page_hidden(pageHidden);
     try {
       postMessage({ type: 'screenshotReply', id, result: await png });
@@ -340,51 +339,51 @@ function arc_set_display_mode(display_mode) {
   if (typeof display_mode != "number" || display_mode > 2 || display_mode < 0)
     throw "display_mode must be 0, 1 or 2";
   console.log(`arc_set_display_mode: ${DISPLAY_MODES[display_mode]}`);
-  arculatorModule.ccall('arc_set_display_mode', null, ['number'], [display_mode]);
+  emulator.ccall('arc_set_display_mode', null, ['number'], [display_mode]);
 }
 
 function arc_set_dblscan(dbl_scan) {
-  arculatorModule.ccall('arc_set_dblscan', null, ['number'], [dbl_scan]);
+  emulator.ccall('arc_set_dblscan', null, ['number'], [dbl_scan]);
 }
 
 
 function arc_renderer_reset() {
-  arculatorModule.ccall('arc_renderer_reset', null, []);
+  emulator.ccall('arc_renderer_reset', null, []);
 }
 
 function arc_do_reset() {
-  arculatorModule.ccall('arc_do_reset', null, []);
+  emulator.ccall('arc_do_reset', null, []);
   clearMusicInfo();
 }
 
 function arc_load_config_and_reset(configName) {
   console.log(`arc_load_config_and_reset ${configName}`);
-  arculatorModule.ccall('arc_load_config_and_reset', null, ['string'], [configName]);
+  emulator.ccall('arc_load_config_and_reset', null, ['string'], [configName]);
   clearMusicInfo();
 }
 
 function arc_set_sound_filter(filter) {
-  arculatorModule.ccall('arc_set_sound_filter', null, ['number'], [filter]);
+  emulator.ccall('arc_set_sound_filter', null, ['number'], [filter]);
 }
 
 function arc_fast_forward(ms) {
   console.log(`Fast-forwaring emulator to ${ms}ms`);
-  arculatorModule.ccall('arc_fast_forward', null, ['number'], [ms]);
+  emulator.ccall('arc_fast_forward', null, ['number'], [ms]);
 }
 
 function arc_set_page_hidden(hidden) {
-  arculatorModule.ccall('arc_set_page_hidden', null, ['number'], [hidden ? 1 : 0]);
+  emulator.ccall('arc_set_page_hidden', null, ['number'], [hidden ? 1 : 0]);
 }
 
 function arc_get_emulation_ms() {
-  return arculatorModule.ccall('arc_get_emulation_ms', 'int', []);
+  return emulator.ccall('arc_get_emulation_ms', 'int', []);
 }
 
 function arc_enable_sound(enable) {
-  arculatorModule.ccall('arc_enable_sound', null, ['int'], [enable ? 1 : 0]);
+  emulator.ccall('arc_enable_sound', null, ['int'], [enable ? 1 : 0]);
 }
 
 function arc_dump_audio(delay, duration) {
   console.log(`Dumping ${duration}s of audio after ${delay}s delay`);
-  arculatorModule.ccall('arc_dump_audio', null, ['number', 'number'], [delay, duration]);
+  emulator.ccall('arc_dump_audio', null, ['number', 'number'], [delay, duration]);
 }
