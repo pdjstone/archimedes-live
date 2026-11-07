@@ -25,27 +25,6 @@ let machinePreset = null;
 
 const MOUSE_CAPTURE_MODES = Object.freeze(['auto', 'force', 'never']);
 
-// Emscripten calls setStatus unbound, so keep its state in the closure, not on `this`
-let totalDependencies = 0;
-const lastStatus = { time: 0, text: '' };
-function setStatus(text) {
-  if (text === lastStatus.text) return;
-  var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
-  var now = Date.now();
-  if (m && now - lastStatus.time < 30) return; // if this is a progress update, skip it if too soon
-  lastStatus.time = now;
-  lastStatus.text = text;
-  if (m) {
-    text = m[1];
-    let progressVal = parseInt(m[2])*100;
-    let progressMax = parseInt(m[4])*100;
-    console.log(`worker status ${progressVal}/${progressMax}`)
-  } else {
-    console.log('hide status element');
-    // hide status elements
-  }
-  console.log('worker status', text);
-}
 
 
 
@@ -149,13 +128,6 @@ onmessage = async (e) => {
           console.log('worker print', text);
         };
       })(),
-
-      setStatus: setStatus,
-
-      monitorRunDependencies: function(left) {
-        totalDependencies = Math.max(totalDependencies, left);
-        setStatus(left ? 'Preparing... (' + (totalDependencies-left) + '/' + totalDependencies + ')' : 'All downloads complete.');
-      }
     });
     setCliModule(arculatorModule);
     setSwiHookModule(arculatorModule);
@@ -285,9 +257,9 @@ async function loadMachineConfig(_opts=null) {
     if (opts.autoboot === true && softwareMeta) {
    
       if (!opts.pageBoot) { 
-        postMessage({'changeLocationHash': `#disc=${softwareMeta.id}&autoboot`});
+        postMessage({type: 'changeLocationHash', hash: `#disc=${softwareMeta.id}&autoboot`});
       }
-      postMessage({'currentSoftware': softwareMeta});
+      postMessage({type: 'currentSoftware', softwareMeta});
      
       autoboot = getAutobootScript(softwareMeta, await fetchSoftwareCatalogue());
       if (!autoboot) {
@@ -338,11 +310,11 @@ async function loadMachineConfig(_opts=null) {
       console.warn('Invalid value for mouse-capture parameter - must be one of: auto, force, never')
     }
   }
-  postMessage({bootedToBasic: opts.basic});
+  postMessage({type: 'bootedToBasic', basic: opts.basic});
 
   let machineConfig = builder.build();
-  postMessage({updateConfigUI: machineConfig.getUIInfo()});
-  postMessage({currentMachine: {
+  postMessage({type: 'updateConfigUI', config: machineConfig.getUIInfo()});
+  postMessage({type: 'currentMachine', machine: {
     preset: machinePreset,
     softwareId: softwareMeta ? softwareMeta.id : null,
     os: machineConfig.getOs(),

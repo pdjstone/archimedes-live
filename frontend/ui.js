@@ -16,10 +16,6 @@ const DISPLAY_MODES = Object.freeze({
 const MOUSE_CAPTURE_MODES = Object.freeze(['auto', 'force', 'never']);
 
 
-var statusElement = document.getElementById('status');
-var progressElement = document.getElementById('progress');
-var spinnerElement = document.getElementById('spinner');
-
 let queryString = '';
 if (location.hash)
   queryString = '?' + location.hash.substr(1);
@@ -148,50 +144,59 @@ arculatorWorker.onmessageerror = (event) => {
   console.log('main thread arculatorWorker onmessageerror', event);
 }
 arculatorWorker.onmessage = (event) => {
-  // todo: maybe register functions or use worker proxy?
-  if (handleCliMessage(event.data)) {
+  const data = event.data;
+  if (handleCliMessage(data)) {
     return;
   }
-  if (event.data.type == 'fsReply') {
-    let req = fsRequests.get(event.data.id);
-    fsRequests.delete(event.data.id);
-    if ('error' in event.data) {
-      req.reject(new Error(event.data.error));
-    } else {
-      req.resolve(event.data.result);
+  switch (data.type) {
+    case 'fsReply':
+      settle(fsRequests, data);
+      break;
+    case 'screenshotReply':
+      settle(screenshotRequests, data);
+      break;
+    case 'musicInfo':
+      musicInfo = data.info;
+      window.dispatchEvent(new CustomEvent('arcmusicinfo', {detail: musicInfo}));
+      break;
+    case 'currentSoftware':
+      setCurrentSoftware(data.softwareMeta);
+      break;
+    case 'updateConfigUI':
+      updateConfigUI(data.config);
+      break;
+    case 'currentMachine':
+      currentMachine = data.machine;
+      machinePreset = currentMachine.preset;
+      break;
+    case 'bootedToBasic':
+      setBootedToBasic(data.basic);
+      break;
+    case 'changeLocationHash':
+      changeLocationHash(data.hash);
+      break;
+    case 'EmulatorInput': {
+      let emu = getEmuInput();
+      emu[data.func].apply(emu, data.params);
+      break;
     }
-  } else if (event.data.type == 'musicInfo') {
-    musicInfo = event.data.info;
-    window.dispatchEvent(new CustomEvent('arcmusicinfo', {detail: musicInfo}));
-  } else if (event.data.type == 'screenshotReply') {
-    let req = screenshotRequests.get(event.data.id);
-    screenshotRequests.delete(event.data.id);
-    if ('error' in event.data) {
-      req.reject(new Error(event.data.error));
-    } else {
-      req.resolve(event.data.result);
-    }
-  } else if ('currentSoftware' in event.data) {
-    setCurrentSoftware(event.data.currentSoftware)
-  } else if ('updateConfigUI' in event.data) {
-    updateConfigUI(event.data.updateConfigUI);
-  } else if ('currentMachine' in event.data) {
-    currentMachine = event.data.currentMachine;
-    machinePreset = currentMachine.preset;
-  } else if ('bootedToBasic' in event.data) {
-    setBootedToBasic(event.data.bootedToBasic);
-  } else if ('changeLocationHash' in event.data) {
-    changeLocationHash(event.data.changeLocationHash);
-  } else if ('type' in event.data && event.data.type == 'EmulatorInput') {
-    console.log('EmulatorInput', event.data);
-    let emu = getEmuInput();
-    emu[event.data.func].apply(emu, event.data.params);
-  } else if ('type' in event.data && event.data.type == 'AudioInit') {
-    emuAudio.init(event.data);
-  } else {
-    console.log('main thread arculatorWorker onmessage', event.data);
+    case 'AudioInit':
+      emuAudio.init(data);
+      break;
+    default:
+      console.log('main thread arculatorWorker onmessage', data);
   }
+}
 
+// Resolve or reject the request a worker reply is for
+function settle(requests, {id, result, error}) {
+  let req = requests.get(id);
+  requests.delete(id);
+  if (error !== undefined) {
+    req.reject(new Error(error));
+  } else {
+    req.resolve(result);
+  }
 }
 
 
@@ -253,16 +258,6 @@ function setCurrentSoftware(softwareMeta) {
     document.title = `${softwareMeta.title} - Archimedes Live!`;
     setMediaSessionAlbum(softwareMeta.title);
 }
-
-/*window.onerror = function(event) {
-  console.log('window.onerror', event);
-  // TODO: do not warn on ok events like simulating an infinite loop or exitStatus
-  // Module.setStatus('Exception thrown, see JavaScript console');
-  // spinnerElement.style.display = 'none';
-  // Module.setStatus = function(text) {
-  //   if (text) Module.printErr('[post-exception status] ' + text);
-  // };
-};*/
 
 let scriptTriggeredHashChange = false;
 
@@ -451,13 +446,6 @@ function sleep(ms) {
 }
 
 
-
-function arrayBufferToBase64(buffer) {
-  let binary = '';
-  let bytes = [].slice.call(new Uint8Array(buffer));
-  bytes.forEach((b) => binary += String.fromCharCode(b));
-  return window.btoa(binary);
-}
 
 let machinePresetsPopulated = false;
 
