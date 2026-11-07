@@ -1,6 +1,7 @@
 import { initSoftwareBrowser, showSoftwareBrowser, filterSoftware, removeAllChildNodes } from './software-browser-ui.js'
 import { presetMachines, machineInfo, CPU_DESCRIPTIONS, OS_NAMES, MEM_SIZE_NAMES } from "./shared/machines.js"
 import { getEmuInput } from "./emu_input.js";
+import { initBasicEditor, showBasicEditor, wrapProg, setBootedToBasic, BASIC_RUN_FAST_FORWARD } from './editor.js'
 import { EmuAudio } from './emu-audio.js'
 import { setCliWorker, handleCliMessage }  from './jscli-page.js'
 import { initMediaSession, setMediaSessionAlbum, setMediaSessionPaused } from './media-session.js'
@@ -176,6 +177,8 @@ arculatorWorker.onmessage = (event) => {
   } else if ('currentMachine' in event.data) {
     currentMachine = event.data.currentMachine;
     machinePreset = currentMachine.preset;
+  } else if ('bootedToBasic' in event.data) {
+    setBootedToBasic(event.data.bootedToBasic);
   } else if ('changeLocationHash' in event.data) {
     changeLocationHash(event.data.changeLocationHash);
   } else if ('type' in event.data && event.data.type == 'EmulatorInput') {
@@ -220,7 +223,15 @@ function loadFile(file) {
 Object.assign(window, {
   showModal, closeModal, pauseEmulator, resumeEmulator,
   showMachinePicker, previewMachine, bootSelected,
-  showSoftwareBrowser, filterSoftware, loadFile
+  showSoftwareBrowser, filterSoftware, loadFile, getEmuInput
+});
+
+initBasicEditor({
+  showModal,
+  closeModal,
+  showBooleanDialog,
+  changeMachine,
+  getMachinePreset: () => machinePreset
 });
 
 if (searchParams.has('showsoftwarebrowser')) {

@@ -1,4 +1,34 @@
-const BASIC_RUN_FAST_FORWARD = 7500;
+/**
+ * The BBC BASIC editor. Running a program writes a HostFS !Boot (a Command
+ * file) that types it in, and either reboots into BASIC to run it or, once
+ * booted into BASIC, presses F1, which *KEY1 has set to run the !Boot again.
+ */
+
+import { getEmuInput } from './emu_input.js'
+
+export const BASIC_RUN_FAST_FORWARD = 7500;
+
+// The !Boot the worker writes for BASIC (FILETYPE_COMMAND in worker/hostfs.js)
+const BASIC_BOOT_PATH = '/hostfs/!Boot,ffe';
+
+let ui = null;
+
+/**
+ * @param uiFunctions - from ui.js: showModal, closeModal, showBooleanDialog,
+ *   changeMachine and getMachinePreset
+ */
+export function initBasicEditor(uiFunctions) {
+  ui = uiFunctions;
+  // Called from inline event handlers in index.html
+  Object.assign(window, {
+    showBasicEditor, closeBasicEditor, runProgram, updateCharCount,
+    showShareBox, tweetProg, copyProgAsURL
+  });
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 async function rerunProg() {
   getEmuInput().simulateKey('ArcEscape');
@@ -6,28 +36,35 @@ async function rerunProg() {
   getEmuInput().simulateKey('ArcF1');
   document.getElementById('editor').focus();
 }
-  
-function wrapProg(prog) {
+
+export function wrapProg(prog) {
   return '*KEY1 *!boot |M\n*basic\n' + prog + '\nRUN\n';
 }
-  
+
+// Set by the worker each time the machine boots (setBootedToBasic)
 let bootedToBasic = false;
+
+export function setBootedToBasic(basic) {
+  bootedToBasic = !!basic;
+}
 
 async function runProgram() {
   let prog = document.getElementById('editor').value;
   saveProgramToLocalStorage();
-  createHostfsBootFile(wrapProg(prog), FILETYPE_COMMAND);
   if (!bootedToBasic) {
-    let reboot = await showBooleanDialog(
+    let reboot = await ui.showBooleanDialog(
       'Run BASIC program', 
       'Reboot emulator to BASIC prompt?', 
       'Reboot', 'Cancel');
     if (reboot) {
-      await changeMachine({preset:machinePreset, autoboot:true, basic:true});
-      arc_fast_forward(BASIC_RUN_FAST_FORWARD);
+      // The worker writes the !Boot as it sets up the machine
+      ui.changeMachine({preset: ui.getMachinePreset(), autoboot: true, basic: true,
+        basicBoot: wrapProg(prog), fastForward: BASIC_RUN_FAST_FORWARD});
     }
   } else {
-    rerunProg();
+    // Booted into BASIC by us, so the only !Boot is this one
+    await window.arcFS.write(BASIC_BOOT_PATH, wrapProg(prog));
+    await rerunProg();
   }
 }
 
@@ -41,7 +78,7 @@ function saveProgramToLocalStorage() {
 
 
 
-function showBasicEditor(program = '', createAutobootFile=false) {
+export function showBasicEditor(program = '') {
   if (program == '') {
     if ('basicProg' in localStorage)
       program = localStorage.basicProg;
@@ -54,9 +91,6 @@ function showBasicEditor(program = '', createAutobootFile=false) {
     editor.focus();
     editor.setSelectionRange(editor.value.length, editor.value.length);
   }, 20);
-  if (createAutobootFile) {
-    createHostfsBootFile(wrapProg(program), FILETYPE_COMMAND);
-  }
   return program;
 }
 
@@ -64,18 +98,19 @@ function closeBasicEditor() {
   document.getElementById('editor-container').style.display = 'none';
 }
 
+let saveTimeout = null;
+
 function updateCharCount() {
   let prog = document.getElementById('editor').value;
   document.getElementById('char-count').textContent = prog.length.toString() + ' characters';
-  if (window.saveBasicTimeout)
-    clearTimeout(window.saveBasicTimeout)
-  window.saveBasicTimeout = setTimeout(saveProgramToLocalStorage, 1000);
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(saveProgramToLocalStorage, 1000);
 }
 
 // -- Sharing UI ------------------------------------------------------------------
 
 function showShareBox() {
-  showModal('share-box');
+  ui.showModal('share-box');
   document.getElementById('share-url').value = getBasicShareUrl();
   setTimeout(() => {
     document.getElementById('share-url').select();
@@ -97,7 +132,7 @@ function tweetProg() {
   let prog = document.getElementById('editor').value;
   let url = "https://twitter.com/intent/tweet?screen_name=ARM2bot&text=" + encodeURIComponent(prog);
   window.open(url);
-  closeModal('share-box');
+  ui.closeModal('share-box');
 }
 
 
@@ -107,7 +142,7 @@ function copyProgAsURL() {
   }, function() {
     console.log('clipboard write failed');
   });
-  closeModal('share-box');
+  ui.closeModal('share-box');
 }
 
 
