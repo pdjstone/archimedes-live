@@ -58,6 +58,10 @@ must load its files by URLs relative to itself (`import`,
 `new URL('x.js', import.meta.url)`), never relative to the page. Data at the top
 level (ROMs, the catalogue) comes from `frontend/shared/paths.js`.
 
+`make frontend` rebuilds only the page and its code (a new `v/` directory and
+`index.html`), with the emulator and nspark already built; it doesn't touch
+the ROMs or the catalogue.
+
 For quick iteration you can skip `make` and copy the pieces into the current
 version (`testserver.py` makes the browser revalidate everything):
 

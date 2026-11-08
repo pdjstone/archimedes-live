@@ -22,6 +22,11 @@ PAGES := $(filter-out frontend/index.template.html,$(wildcard frontend/*.html))
 
 all: build/index.html build/emu build/emu/roms/arcrom_ext build/software/software.json
 
+# Just the page and its code, using the emulator and nspark already built
+frontend: build/index.html
+
+.PHONY: all frontend serve clean catalogue deploy FORCE
+
 serve:
 	python3 testserver.py
 
