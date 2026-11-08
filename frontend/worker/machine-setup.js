@@ -4,7 +4,7 @@
  */
 
 import { putDataAtPath, putUrlAtPath } from './fsutil.js'
-import { CMOS_BOOT_HOSTFS, DEFAULT_CMOS } from './cmos.js'
+import { canBootFrom, makeCmos, romYear } from './cmos.js'
 import { roDirname } from './hostfs.js'
 import { OS_NAMES } from '../shared/machines.js'
 import { emit } from '../shared/rpc.js'
@@ -62,22 +62,16 @@ export function putConfigFile(machineConfig) {
 export function putCmosFile(machineConfig) {
   let cmosPath = machineConfig.getMachineCmosPath();
   let cmosName = machineConfig.getCmosName();
-  console.log(`cmos path=${cmosPath} cmos name=${cmosName}`)
-  let cmosData = Uint8Array.fromBase64(DEFAULT_CMOS[cmosName]);
-  if (machineConfig.autoboot) { 
-    if (CMOS_BOOT_HOSTFS.hasOwnProperty(cmosName)) {
-      console.log('using autoboot CMOS for ' + cmosName);
-      cmosData = Uint8Array.fromBase64(CMOS_BOOT_HOSTFS[cmosName]);
-    }  else {
-      console.warn("No autoboot CMOS for " + cmosName);
-      emit('notice', {id: Notice.AUTOBOOT_NEEDS_RISC_OS_3, params: {
-        machine: machineConfig.getMachineName(), os: OS_NAMES[machineConfig.getOs()] ?? machineConfig.getOs()}});
-    }
+  let bootFs = machineConfig.autoboot ? 'hostfs' : null;
+  if (bootFs && !canBootFrom(cmosName, bootFs)) {
+    console.warn(`${cmosName} can't boot from ${bootFs}`);
+    emit('notice', {id: Notice.AUTOBOOT_NEEDS_RISC_OS_3, params: {
+      machine: machineConfig.getMachineName(), os: OS_NAMES[machineConfig.getOs()] ?? machineConfig.getOs()}});
+    bootFs = null;
   }
-  //if (machineConfig.getMachineType() == 'a5000')
-  //  cmosData = Uint8Array.fromBase64(CMOS_A5000);
-
-  putDataAtPath(cmosData, cmosPath);
+  let year = romYear(machineConfig.getOs());
+  console.log(`cmos path=${cmosPath} cmos name=${cmosName} boot=${bootFs ?? 'none'} year=${year}`);
+  putDataAtPath(makeCmos(cmosName, {bootFs, year}), cmosPath);
 }
 
 
