@@ -6,6 +6,9 @@ import { initBasicEditor, showBasicEditor, wrapProg, setBootedToBasic, BASIC_RUN
 import { EmuAudio } from './emu-audio.js'
 import { setCliEmu } from './jscli-page.js'
 import { connect, transfer } from './shared/rpc.js'
+import { Notice, PARAM_HINTS } from './shared/notices.js'
+import { MOUSE_CAPTURE_MODES } from './shared/input.js'
+import { notify, notifyFailure } from './notify.js'
 import { initMediaSession, setMediaSessionAlbum, setMediaSessionPaused } from './media-session.js'
 
 const DISPLAY_MODES = Object.freeze({
@@ -13,8 +16,6 @@ const DISPLAY_MODES = Object.freeze({
     1: 'DISPLAY_MODE_NATIVE_BORDERS',
     2: 'DISPLAY_MODE_TV'
 });
-
-const MOUSE_CAPTURE_MODES = Object.freeze(['auto', 'force', 'never']);
 
 
 let queryString = '';
@@ -145,6 +146,9 @@ on('currentMachine', machine => {
 });
 on('bootedToBasic', setBootedToBasic);
 on('changeLocationHash', changeLocationHash);
+// Something to tell the user, such as a disc that couldn't be loaded
+on('notice', notify);
+on('mouseCapture', mode => getEmuInput().setCaptureMode(MOUSE_CAPTURE_MODES[mode]));
 
 // Messages posted by the emulator's own JS (arculator-wasm/js), not through rpc.js
 arculatorWorker.addEventListener('message', ({data}) => {
@@ -170,17 +174,18 @@ initSoftwareBrowser({
   showModal,
   closeModal,
   changeMachine,
-  loadSoftware: softwareId => emu.loadSoftware(softwareId),
+  loadSoftware: softwareId => emu.loadSoftware(softwareId).catch(notifyFailure),
   loadFile,
   getCurrentMachine: () => currentMachine,
   getCurrentSoftwareId: () => currentMachine?.softwareId
 });
 
 /**
- * Load a disc image or archive File into the emulator
+ * Load a disc image or archive File into the emulator, from drag and drop or
+ * the upload button, and say what happened
  */
 function loadFile(file) {
-  return emu.loadFile(file);
+  return emu.loadFile(file).then(notices => notices.forEach(notify), notifyFailure);
 }
 
 // ui.js is a module, so its functions aren't globals. Expose the ones
@@ -297,7 +302,7 @@ function getPageBootParams() {
   }
   if (searchParams.has('basic')) {
     if ('disc' in opts) {
-      console.warn("Cannot specify 'disc' and 'basic' params");
+      notify({id: Notice.DISC_WITH_BASIC});
     } else {
       let prog = searchParams.get('basic');
 
@@ -315,7 +320,7 @@ function getPageBootParams() {
       opts.preset = preset;
       machinePreset = preset;
     } else {
-      console.warn(`No machine preset named '${preset}'`);
+      notify({id: Notice.PRESET_UNKNOWN, params: {preset, machine: presetMachines[machinePreset]().configName}});
     }
   }
   if (searchParams.has('autoboot')) {
@@ -330,7 +335,7 @@ function getPageBootParams() {
     if (!isNaN(ff)) {
       opts.fastForward = ff;
     } else {
-      console.warn('Invalid ff value: ', searchParams.get('ff'));
+      invalidParam('ff');
     }
   }
   if (searchParams.has('soundfilter')) {
@@ -338,7 +343,7 @@ function getPageBootParams() {
     if (sf >= 0 && sf <= 2) {
       opts.soundFilter = sf;
     } else {
-      console.warn(`Invalid value for sound-filter - must be 0 (full), 1 (reduced) or 2 (more reduced)`);
+      invalidParam('soundfilter');
     }
   }
   if (searchParams.has('dumpaudio')) {
@@ -351,18 +356,22 @@ function getPageBootParams() {
       // The audio worklet needs to allocate the dump's memory before it starts
       emuAudio.expectDump(Math.trunc(duration * 48000));
     } else {
-      console.warn(`Invalid dumpaudio value '${searchParams.get('dumpaudio')}' - expected duration,delay in seconds`);
+      invalidParam('dumpaudio');
     }
   }
   if (searchParams.has('mouse-capture')) {
     let mouseVal = searchParams.get('mouse-capture');
-    if (MOUSE_CAPTURE_MODES.includes(mouseVal)) {
+    if (Object.hasOwn(MOUSE_CAPTURE_MODES, mouseVal)) {
       opts.mouseCapture = mouseVal;
     } else {
-      console.warn('Invalid value for mouse-capture parameter - must be one of: auto, force, never')
+      invalidParam('mouse-capture');
     }
   }
   return opts;
+}
+
+function invalidParam(param) {
+  notify({id: Notice.PARAM_INVALID, params: {param, value: searchParams.get(param), hint: PARAM_HINTS[param]}});
 }
 
 
@@ -397,7 +406,7 @@ async function showBooleanDialog(title, text, trueText='OK', falseText='Cancel')
  * getPageBootParams (e.g. {preset}, or {disc, autoboot})
  */
 function changeMachine(opts) {
-  return emu.changeMachine(opts);
+  return emu.changeMachine(opts).catch(notifyFailure);
 }
 
 function sleep(ms) {

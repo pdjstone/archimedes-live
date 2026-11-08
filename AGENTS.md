@@ -13,7 +13,8 @@ description of the URL options.
     software loading, JSCLI and SWI hooks
   - `frontend/worklet/` - the audio worklet
   - `frontend/shared/` - pure modules used by more than one of them (machine
-    presets, the software catalogue, the audio ring layout, site paths, RPC)
+    presets, the software catalogue, the audio ring layout, site paths, RPC,
+    notices, mouse capture modes)
 
   Code that touches the emulator or its FS goes in `worker/`, and code that
   touches the DOM stays in the page. The page reaches the worker only through
@@ -215,6 +216,16 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
   Archimedes key (`ArcEscape`, `ArcF1`, ... from `emu_input.js`). Selenium's
   own key events are too short for the emulator to see; hold for about 100 ms.
 
+- **`window.arcNotices()`** gives the notices raised so far, each `{id,
+  params, level, text}`; an `arcnotice` window event, with one as its detail,
+  says when there's a new one. They report what happened to a file the user
+  dropped or uploaded (a disc inserted, files unpacked, or why it couldn't be
+  loaded), bad URL parameters, and a `disc` that couldn't be loaded. All
+  their text is in `frontend/shared/notices.js`: code raises a notice by its
+  id from the `Notice` enum there, returning `{id: Notice.UNPACKED, params}`
+  or throwing `new NoticeError(Notice.UNPACK_FAILED, params)` (whose
+  `notice` crosses from the worker with the error), and `frontend/notify.js`
+  formats and dispatches it. Errors without a notice only go to the console.
 - **`window.arcMusicInfo()`** gives the song a program has loaded into the
   QTMTracker module, or null (`frontend/worker/qtm-info.js`, a SWI hook on
   `QTM_Load`, so it works while a demo has interrupts off). It's

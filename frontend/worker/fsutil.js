@@ -48,6 +48,9 @@ export function putDataAtPath(data, path, timestampMillis=0) {
 
 export async function putUrlAtPath(url, path) {
   let response = await fetch(url, {mode:'cors'});
+  if (!response.ok) {
+    throw new Error(`${url}: ${response.status} ${response.statusText}`.trim());
+  }
   let buf = await response.arrayBuffer();
   let data = new Uint8Array(buf);
   console.log(`putting URL ${url} at FS path ${path}`);

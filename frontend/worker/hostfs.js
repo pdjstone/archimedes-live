@@ -4,6 +4,7 @@ import { RiscOsUnzip } from'./riscosunzip.js'
 import { NSpark } from './nspark/nspark-helper.js'
 import { fetchSoftwareCatalogue } from '../shared/software-catalogue.js'
 import { SOFTWARE_BASE } from '../shared/paths.js'
+import { Notice, NoticeError, reasonFor } from '../shared/notices.js'
 
 const ROS_FileType_Map = Object.freeze({
   '.zip': 0xddc, // ZIP is 0xa91, but older SparkFS/SparkPlug recognises 0xddc for ZIP
@@ -22,7 +23,7 @@ const FileTypes = Object.freeze({
   RISCOS_ARCFS_ARCHIVE: {desc: 'RISC OS ArcFS archive', unpackFn: unpackNsparkToHostFs},
   DISC_IMAGE: {desc: 'Disc image', loadDisc: loadDisc},
   DISC_IMAGE_ZIPPED: {desc:'Disc image in ZIP file', loadDisc: loadDiscFromZip},
-  DISC_IMAGE_MULTI_ZIPPED: {desc: 'Multiple zipped disc images'},
+  DISC_IMAGE_MULTI_ZIPPED: {desc: 'Multiple zipped disc images', loadDisc: loadDiscFromZip},
   FILE_WITH_COMMA_FILETYPE: {desc:'File with filename,xxx name'},
   RISCOS_FILE: {desc: 'RISC OS compatible file'}
 });
@@ -93,40 +94,78 @@ async function putFileOnHostFs(filename, blob, dst='/') {
   let data = new Uint8Array(buf);
   filename = convertDotExtToHostfsExt(filename);
   console.log('Putting ' + filename + ' onto HostFS at ' + dst);
-  try {
-    emulator.FS.createDataFile('/hostfs' + dst, filename, data, true, true);
-  } catch (e) {
-    console.log('Failed to write HostFS file', e);
-  }
+  emulator.FS.createDataFile('/hostfs' + dst, filename, data, true, true);
+  return filename;
 }
 
+/**
+ * Load a file: insert a disc image (or the first in a zip), or unpack an
+ * archive or copy a RISC OS file onto HostFS. Resolves with {notice, disc,
+ * hostfs}: notice says what was done (shared/notices.js), disc is the disc
+ * image's FS name if it was one, and hostfs is set if files went on HostFS.
+ * Throws a NoticeError if it can't be loaded.
+ */
 export async function loadSoftware(filename, blob, insert=true) {
-  let filetype = await identifyFileType(filename, 0, blob);
+  let filetype;
+  try {
+    filetype = await identifyFileType(filename, 0, blob);
+  } catch (e) {
+    // e.g. a corrupt zip
+    throw new NoticeError(Notice.UNPACK_FAILED, {file: filename, reason: reasonFor(e)});
+  }
   console.log('filetype', filetype.desc);
   if ('loadDisc' in filetype) {
     return await filetype.loadDisc(filename, blob, insert);
-  } else if ('unpackFn' in filetype) {
-    //console.log('unpack', filetype.unpackFn);
-    await filetype.unpackFn(blob);
-  } else if (filetype === FileTypes.RISCOS_FILE) {
-    await putFileOnHostFs(filename, blob);
   }
+  if ('unpackFn' in filetype) {
+    let count;
+    try {
+      count = await filetype.unpackFn(blob);
+    } catch (e) {
+      throw new NoticeError(Notice.UNPACK_FAILED, {file: filename, reason: reasonFor(e)});
+    }
+    return {notice: {id: Notice.UNPACKED, params: {file: filename, count}}, hostfs: true};
+  }
+  if (filetype === FileTypes.RISCOS_FILE) {
+    let name;
+    try {
+      name = await putFileOnHostFs(filename, blob);
+    } catch (e) {
+      throw new NoticeError(Notice.UNPACK_FAILED, {file: filename, reason: reasonFor(e)});
+    }
+    return {notice: {id: Notice.COPIED_TO_HOSTFS, params: {file: filename, name}}, hostfs: true};
+  }
+  if (filetype === FileTypes.ZIP) {
+    throw new NoticeError(Notice.ZIP_NOT_RISC_OS, {file: filename});
+  }
+  throw new NoticeError(Notice.FILE_TYPE_UNKNOWN, {file: filename});
 }
 
+/** The software catalogue, or a NoticeError if it can't be fetched */
+export async function requireCatalogue() {
+  let software = await fetchSoftwareCatalogue();
+  if (!software) {
+    throw new NoticeError(Notice.CATALOGUE_UNAVAILABLE);
+  }
+  return software;
+}
 
+/**
+ * Load a title from the software catalogue, and the titles it depends on.
+ * Resolves with its disc image's FS name, if it has one
+ */
 export async function loadFromSoftwareCatalogue(softwareId, insert=true) {
   console.debug(`loadFromSoftwareCatalogue ${softwareId} insert=${insert}`);
-  let software = await fetchSoftwareCatalogue();
-  if (!softwareId in software) {
-    console.error(`Unknown software ID ${softwareId}`);
-    return;
+  let software = await requireCatalogue();
+  if (!(softwareId in software)) {
+    throw new NoticeError(Notice.CATALOGUE_ID_UNKNOWN, {id: softwareId});
   }
   let meta = software[softwareId];
   let discFile = '';
   if ('archive' in meta) {
     await loadSoftwareFromUrl(SOFTWARE_BASE + meta['archive']);
   } else if ('disc' in meta) {
-    discFile = await loadSoftwareFromUrl(SOFTWARE_BASE + meta['disc'], insert);
+    discFile = (await loadSoftwareFromUrl(SOFTWARE_BASE + meta['disc'], insert)).disc;
   }
   if ('depends' in meta) {
     for (let depId of meta['depends']) {
@@ -138,23 +177,32 @@ export async function loadFromSoftwareCatalogue(softwareId, insert=true) {
   return discFile;
 }
 
+/** Download a file and load it, as loadSoftware */
 export async function loadSoftwareFromUrl(url, insert=true) {
-  if (url == "") return;
-  let response = await fetch(url, {mode:'cors'});
+  let response;
+  try {
+    response = await fetch(url, {mode:'cors'});
+  } catch (e) {
+    throw new NoticeError(Notice.DOWNLOAD_FAILED, {url, reason: reasonFor(e)});
+  }
+  if (!response.ok) {
+    throw new NoticeError(Notice.DOWNLOAD_FAILED, {url, reason: `${response.status} ${response.statusText}`.trim()});
+  }
   let blob = await response.blob();
-  let discFilename = await loadSoftware(baseName(url), blob, insert);
-  //window.screenshots = 0;
-  return discFilename;
+  return await loadSoftware(baseName(url), blob, insert);
 }
 
 
 async function unpackNsparkToHostFs(blob, dst='/') {
   let buf = await blob.arrayBuffer();
   let archive = new NSpark(buf);
+  let count = 0;
   for await (const item of archive.unpack()) {
       let data = new Uint8Array(item.buf);
       putDataAtPath(data, '/hostfs' + dst + item.path, item.timestamp);
+      count++;
   }
+  return count;
 }
 
 
@@ -162,16 +210,19 @@ async function unpackRiscOsZipToHostfs(blob, dst='/') {
   let buf = await blob.arrayBuffer();
   let data = new Uint8Array(buf);
   let zip = new RiscOsUnzip(data);
+  let count = 0;
 
   for await (const entry of zip.getEntriesGenerator()) {
     if (entry.directory)
       continue;
+    count++;
     let hostFsPath = getHostFSPathForZipEntry(entry);
     let data = await zip.extract(entry);
     let timestamp = getZipEntryRiscOsTimestamp(entry);
     console.log('creating file at', hostFsPath);
     putDataAtPath(data, '/hostfs' + hostFsPath, timestamp);
   }
+  return count;
 }
 
 
@@ -270,43 +321,52 @@ async function loadDiscFromZip(filename, blob, insert=true) {
   let unzip = new RiscOsUnzip(data);
 
   let zipDiscEntry = null;
-  let zipDiscFile = null;
+  let count = 0;
   for await (const entry of unzip.getEntriesGenerator()) {
     if (isDiscImageFilename(entry.filename)) {
-      zipDiscEntry = entry;
-      zipDiscFile = entry.filename;
-      break;
+      zipDiscEntry ??= entry;
+      count++;
     }
   }
-
-
-  if (!zipDiscFile) {
-    console.warn("ZIP file did not contain a disc image with a valid extension");
-    return;
+  if (!zipDiscEntry) {
+    throw new NoticeError(Notice.FILE_TYPE_UNKNOWN, {file: filename});
   }
-  console.log("Extracting " + zipDiscFile);
-  data = await unzip.extract(zipDiscEntry);
-  if (zipDiscFile.indexOf('/') >= 0) 
-    zipDiscFile = baseName(zipDiscFile);
-  //console.log('loadDiscFromZip', data);
-  blob = new Blob([data]);
-  return await loadDisc(zipDiscFile, blob, insert);
+  let zipDiscFile = baseName(zipDiscEntry.filename);
+  console.log(`Extracting ${zipDiscEntry.filename} (1 of ${count})`);
+  try {
+    data = await unzip.extract(zipDiscEntry);
+  } catch (e) {
+    throw new NoticeError(Notice.UNPACK_FAILED, {file: filename, reason: reasonFor(e)});
+  }
+  let result = await loadDisc(zipDiscFile, new Blob([data]), insert);
+  result.notice = count > 1
+    ? {id: Notice.DISC_INSERTED_FROM_MULTI_ZIP, params: {disc: zipDiscFile, file: filename, count}}
+    : {id: Notice.DISC_INSERTED_FROM_ZIP, params: {disc: zipDiscFile, file: filename}};
+  return result;
 }
 
 
+/**
+ * Put a disc image in the FS, and in drive 0 if `insert` (otherwise the
+ * machine config names it). Resolves as loadSoftware
+ */
 async function loadDisc(filename, blob, insert=true) {
   let buf = await blob.arrayBuffer();
   let data = new Uint8Array(buf);
-  if (currentDiscFile) {
-    emulator.ccall('arc_disc_eject', null, ['number'], [0]);
-    emulator.FS.unlink(currentDiscFile);
+  try {
+    if (currentDiscFile) {
+      emulator.ccall('arc_disc_eject', null, ['number'], [0]);
+      emulator.FS.unlink(currentDiscFile);
+    }
+    currentDiscFile = filename;
+    emulator.FS.createDataFile("/", currentDiscFile, data, true, true);
+    if (insert) {
+      emulator.ccall('arc_disc_change', null, ['number', 'string'], [0, '/' + currentDiscFile]);
+    }
+  } catch (e) {
+    throw new NoticeError(Notice.DISC_FAILED, {file: filename, reason: reasonFor(e)});
   }
-  currentDiscFile = filename;
-  emulator.FS.createDataFile("/", currentDiscFile, data, true, true);
-  if (insert) {
-    emulator.ccall('arc_disc_change', null, ['number', 'string'], [0, '/' + currentDiscFile]);
-  }
-  return currentDiscFile;
+  return {notice: {id: Notice.DISC_INSERTED, params: {file: filename}}, disc: currentDiscFile};
 }
 
 export const FILETYPE_OBEY = 0xfeb // normal boot

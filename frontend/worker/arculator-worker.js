@@ -5,13 +5,14 @@ onerror = (message, filename, lineno, colno, error) => {
 
 
 import { default as ArculatorWasm } from './arculator.js';
-import { presetMachines, recommendMachinePreset } from '../shared/machines.js'
-import { fetchSoftwareCatalogue } from '../shared/software-catalogue.js'
+import { presetMachines, recommendMachinePreset, OS_NAMES } from '../shared/machines.js'
 import { getAutobootScript, putConfigFile, putCmosFile, loadRoms } from './machine-setup.js'
-import { loadSoftware, loadSoftwareFromUrl, loadFromSoftwareCatalogue, createHostfsBootFile, FILETYPE_DESKTOP, FILETYPE_COMMAND } from './hostfs.js'
+import { loadSoftware, loadSoftwareFromUrl, loadFromSoftwareCatalogue, requireCatalogue, createHostfsBootFile, FILETYPE_DESKTOP, FILETYPE_COMMAND } from './hostfs.js'
 import { putDataAtPath } from './fsutil.js'
 import { emulator, ready, requireReady, setEmulator, setReady } from './emulator.js'
 import { expose, emit, serve, transfer } from '../shared/rpc.js'
+import { Notice } from '../shared/notices.js'
+import { MOUSE_CAPTURE_MODES } from '../shared/input.js'
 import './jscli-worker.js'
 import './swi-hook.js'
 import { clearMusicInfo } from './qtm-info.js'
@@ -23,7 +24,6 @@ let canvas = null;
 
 let machinePreset = null;
 
-const MOUSE_CAPTURE_MODES = Object.freeze(['auto', 'force', 'never']);
 
 
 
@@ -35,6 +35,19 @@ onmessageerror = (event) => { console.log('worker message error', event); }
 
 // Paused from the page (pauseEmulator in ui.js)
 let userPaused = false;
+// The OS of the machine last configured (OS_NAMES in machines.js)
+let currentOs = null;
+
+/*Tell the page about a failure it should show (a NoticeError, see
+  shared/notices.js), or log one it shouldn't*/
+function reportFailure(e) {
+  if (e?.notice) {
+    console.warn(e.message);
+    emit('notice', e.notice);
+  } else {
+    console.error(e);
+  }
+}
 // The page can't be seen, so the emulator doesn't draw (sendPageHidden in ui.js)
 let pageHidden = false;
 
@@ -60,7 +73,7 @@ expose({
           if (machineConfig.dumpAudio) {
               arc_dump_audio(machineConfig.dumpAudio.delay, machineConfig.dumpAudio.duration);
           }
-          })
+          }).catch(reportFailure);
       },
       preRun: [function(module) {
           console.log('preRun');
@@ -102,8 +115,16 @@ expose({
     }
   }),
   loadSoftware: softwareId => whilePaused(() => loadFromSoftwareCatalogue(softwareId)),
-  // A File from the software browser's upload button or drag and drop
-  loadFile: file => whilePaused(() => loadSoftware(file.name, file)),
+  // A File from the software browser's upload button or drag and drop.
+  // Resolves with the notices to show (shared/notices.js)
+  loadFile: file => whilePaused(async () => {
+    let { notice, hostfs } = await loadSoftware(file.name, file);
+    let notices = [notice];
+    if (hostfs && !currentOs?.startsWith('riscos3')) {
+      notices.push({id: Notice.HOSTFS_NEEDS_RISC_OS_3, params: {file: file.name, os: OS_NAMES[currentOs] ?? currentOs}});
+    }
+    return notices;
+  }),
 
   fsRead: path => {
     let bytes = fsCall(path, () => emulator.FS.readFile(path, { encoding: 'binary' }));
@@ -127,7 +148,7 @@ async function whilePaused(fn) {
     return fn();   // nothing is running yet
   emulator.ccall('arc_pause_main_thread', null, []);
   try {
-    await fn();
+    return await fn();
   } finally {
     if (!userPaused)
       emulator.ccall('arc_resume_main_thread', null, []);
@@ -202,39 +223,47 @@ async function loadMachineConfig(_opts=null) {
     console.log('hostfs dir already exists');
   }
   
+  // If the disc can't be loaded, say why and boot without it
   if (opts.disc) {
-    if (opts.disc.includes('/')) { // it's a URL
+    try {
+      if (opts.disc.includes('/')) { // it's a URL
         console.log(`UI: Loading disc URL ${opts.disc}`);
-        discFile = await loadSoftwareFromUrl(opts.disc, false);
-    } else { // assume it's an ID from the software catalog
-      console.log(`UI: Load software ID ${opts.disc}`);
-      discFile = await loadFromSoftwareCatalogue(opts.disc, false);
-      softwareMeta = (await fetchSoftwareCatalogue())[opts.disc];
-      let recommendedPreset = recommendMachinePreset(softwareMeta);
-      console.log(`UI: Recommended machine for ${opts.disc} is ${recommendedPreset}`);
-      if ('preset' in _opts) {
-        console.warn("Ignoring recommended machine preset and using ", _opts.preset);
-      } else {
-        machinePreset = recommendedPreset;
-        opts.preset = machinePreset;
+        discFile = (await loadSoftwareFromUrl(opts.disc, false)).disc;
+      } else { // assume it's an ID from the software catalog
+        console.log(`UI: Load software ID ${opts.disc}`);
+        discFile = await loadFromSoftwareCatalogue(opts.disc, false);
+        softwareMeta = (await requireCatalogue())[opts.disc];
+        let recommendedPreset = recommendMachinePreset(softwareMeta);
+        console.log(`UI: Recommended machine for ${opts.disc} is ${recommendedPreset}`);
+        if ('preset' in _opts) {
+          console.warn("Ignoring recommended machine preset and using ", _opts.preset);
+        } else {
+          machinePreset = recommendedPreset;
+          opts.preset = machinePreset;
+        }
       }
+    } catch (e) {
+      reportFailure(e);
+      discFile = '';
+      softwareMeta = null;
     }
   }
   if (opts.preset) {
     machinePreset = opts.preset;
   }
 
-  if (opts.autoboot) {
-    if (opts.autoboot === true && softwareMeta) {
+  if (opts.autoboot === true) {
+    // The catalogue title's own boot commands
+    if (softwareMeta) {
    
       if (!opts.pageBoot) { 
         emit('changeLocationHash', `#disc=${softwareMeta.id}&autoboot`);
       }
       emit('currentSoftware', softwareMeta);
      
-      autoboot = getAutobootScript(softwareMeta, await fetchSoftwareCatalogue());
+      autoboot = getAutobootScript(softwareMeta, await requireCatalogue());
       if (!autoboot) {
-        console.warn(`Empty autoboot URL param specified but software ${softwareMeta.id} does not have autoboot app`)
+        emit('notice', {id: Notice.AUTOBOOT_NO_COMMANDS, params: {title: softwareMeta.title}});
       }
       if ('ff-ms' in softwareMeta && opts.fastForward == 0) {
         let ff = softwareMeta['ff-ms'];
@@ -247,13 +276,11 @@ async function loadMachineConfig(_opts=null) {
       if ('mouse-capture' in softwareMeta && opts.mouseCapture == null) {
         opts.mouseCapture = softwareMeta['mouse-capture'];
       }
-    } else {
-      autoboot = opts.autoboot + '\n';
-    }
-    
-    if (autoboot == '') {
+    } else if (!opts.basic) {
       console.warn(`Empty autoboot URL specified`);
     }
+  } else if (opts.autoboot) {
+    autoboot = opts.autoboot + '\n';
   }
   console.log('Loading preset machine: ' + opts.preset);
   let builder = presetMachines[opts.preset]();
@@ -275,15 +302,16 @@ async function loadMachineConfig(_opts=null) {
     builder.dumpAudio(opts.dumpAudio);
   }
   if (opts.mouseCapture) {
-    if (MOUSE_CAPTURE_MODES.includes(opts.mouseCapture)) {
-      postMessage({type: 'EmulatorInput', func: 'setCaptureMode', params: [MOUSE_CAPTURE_MODES.indexOf(opts.mouseCapture)+1]});
+    if (Object.hasOwn(MOUSE_CAPTURE_MODES, opts.mouseCapture)) {
+      emit('mouseCapture', opts.mouseCapture);
     } else {
-      console.warn('Invalid value for mouse-capture parameter - must be one of: auto, force, never')
+      console.warn(`Invalid mouse-capture '${opts.mouseCapture}': it must be one of ${Object.keys(MOUSE_CAPTURE_MODES).join(', ')}`);
     }
   }
   emit('bootedToBasic', opts.basic);
 
   let machineConfig = builder.build();
+  currentOs = machineConfig.getOs();
   emit('updateConfigUI', machineConfig.getUIInfo());
   emit('currentMachine', {
     preset: machinePreset,

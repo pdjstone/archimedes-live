@@ -16,6 +16,9 @@
  * an argument can be called by the worker until the call settles, e.g. for
  * output as it arrives.
  *
+ * An error's `notice` field (see notices.js) goes across with its message,
+ * and is set on the Error the call rejects with.
+ *
  * Messages without an `rpc` field are left to other listeners.
  */
 
@@ -68,7 +71,7 @@ export function serve(port = self) {
       const [result, transfers] = unwrap(await fn(...args));
       port.postMessage({ rpc: 'reply', id, result }, transfers);
     } catch (e) {
-      port.postMessage({ rpc: 'reply', id, error: errorMessage(e) });
+      port.postMessage({ rpc: 'reply', id, error: errorMessage(e), notice: e?.notice });
     }
   });
 }
@@ -87,7 +90,7 @@ export function connect(worker) {
         const call = pending.get(data.id);
         pending.delete(data.id);
         if ('error' in data) {
-          call.reject(new Error(data.error));
+          call.reject(Object.assign(new Error(data.error), data.notice ? { notice: data.notice } : {}));
         } else {
           call.resolve(data.result);
         }

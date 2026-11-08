@@ -6,6 +6,9 @@
 import { putDataAtPath, putUrlAtPath } from './fsutil.js'
 import { CMOS_BOOT_HOSTFS, DEFAULT_CMOS } from './cmos.js'
 import { roDirname } from './hostfs.js'
+import { OS_NAMES } from '../shared/machines.js'
+import { emit } from '../shared/rpc.js'
+import { Notice, NoticeError, reasonFor } from '../shared/notices.js'
 
 const CLICK_ICON_BASIC = 'DQAKDd4gYiUgMTAyNA0AFCnImSAiV2ltcF9Jbml0aWFsaXNlIiwzMTAsJjRiNTM0MTU0LCIiDQAeCiFiJT0tMg0AKB/ImSAiV2ltcF9HZXRXaW5kb3dJbmZvIiwsYiUNADIN3iBtc2clIDIwDQA8E2ljb25ubyU9YiUhODgtMQ0ARgxtc2clITg9NA0AUA5tc2clITEyPS0yDQBaE21zZyUhMTY9aWNvbm5vJQ0AZCvImSAiV2ltcF9TZW5kTWVzc2FnZSIsNixtc2clLC0yLGljb25ubyUN/w==';
 
@@ -67,6 +70,8 @@ export function putCmosFile(machineConfig) {
       cmosData = Uint8Array.fromBase64(CMOS_BOOT_HOSTFS[cmosName]);
     }  else {
       console.warn("No autoboot CMOS for " + cmosName);
+      emit('notice', {id: Notice.AUTOBOOT_NEEDS_RISC_OS_3, params: {
+        machine: machineConfig.getMachineName(), os: OS_NAMES[machineConfig.getOs()] ?? machineConfig.getOs()}});
     }
   }
   //if (machineConfig.getMachineType() == 'a5000')
@@ -78,7 +83,11 @@ export function putCmosFile(machineConfig) {
 
 export async function loadRoms(machineConfig) {
   let romUrls = machineConfig.getRomUrls();
-  for (const [fsPath, romUrl] of Object.entries(romUrls)) {
-   await putUrlAtPath(romUrl, fsPath);
+  try {
+    for (const [fsPath, romUrl] of Object.entries(romUrls)) {
+      await putUrlAtPath(romUrl, fsPath);
+    }
+  } catch (e) {
+    throw new NoticeError(Notice.ROMS_FAILED, {machine: machineConfig.getMachineName(), reason: reasonFor(e)});
   }
 }
