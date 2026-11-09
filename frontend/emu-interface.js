@@ -101,11 +101,14 @@ document.getElementById('display-container').addEventListener('fullscreenchange'
 
 
 function fullscreen() {
+  // TODO: we probably don't want keyboard lock by default
+  // but it might be nice to have as an option
   //tryCapture();
-  document.getElementById('display-container').requestFullscreen({keyboardLock: 'browser'});
-  if ('keyboard' in navigator) {
-    navigator.keyboard.lock().then(() => console.log('keyboard locked'));
-  }
+  // document.getElementById('display-container').requestFullscreen({keyboardLock: 'browser'});
+  // if ('keyboard' in navigator) {
+  //   navigator.keyboard.lock().then(() => console.log('keyboard locked'));
+  // }
+  document.getElementById('display-container').requestFullscreen();
 }
 
 let screenshots = 0;
