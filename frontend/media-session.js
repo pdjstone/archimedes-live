@@ -42,6 +42,8 @@ export function initMediaSession({ pause, resume, changeTrack }) {
   let actions = [
     ['play', () => callbacks.resume()],
     ['pause', () => callbacks.pause()],
+    // The emulator can't stop, so this pauses it like the pause button
+    ['stop', () => callbacks.pause()],
     ['nexttrack', () => callbacks.changeTrack(1)],
     ['previoustrack', () => callbacks.changeTrack(-1)],
   ];
@@ -98,12 +100,25 @@ function endSession() {
   music = null;
   navigator.mediaSession.metadata = null;
   navigator.mediaSession.playbackState = 'none';
+  setPositionState();
   audioEl.pause();
 }
 
 function updateMetadata() {
   let title = music.title || music.filename?.replace(/^.*[.:]/, '') || 'Untitled';
   navigator.mediaSession.metadata = new MediaMetadata({ title, artist: music.author || '', album });
+  // A song plays for as long as the program likes, so it has no length
+  // (otherwise the controls show the looping <audio> element's 30 s)
+  setPositionState({ duration: Infinity });
+}
+
+/** Sets the controls' position state, or clears it with no argument */
+function setPositionState(state) {
+  try {
+    navigator.mediaSession.setPositionState?.(state);
+  } catch (e) {
+    console.log('MediaSession: can\'t set the position state', e);
+  }
 }
 
 /**
