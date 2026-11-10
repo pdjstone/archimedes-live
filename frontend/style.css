@@ -476,6 +476,10 @@ dd {
 @media screen and (max-width: 600px) {
   h1 { font-size: 20pt; margin: 0 .5em}
   
+  :root {
+    --emulator-padding: 0px;
+  }
+
   #logo h1::first-letter { 
     padding: 0 5px 0 0.5ex;
     background-size: 25pt 25pt;
@@ -501,7 +505,7 @@ dd {
   body { XXbackground-color: green;}
 
   #main { flex-direction: column; }
-  #canvas { width: 100%; padding: 0 }
+  #canvas { width: 100%; }
   #editor-container { 
     margin: 0; 
     width: 100%;
