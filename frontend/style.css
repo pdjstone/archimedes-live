@@ -210,8 +210,11 @@ body.audio-suspended #audio-warning {
   display: none;
   align-items: center;
   justify-content: center;
-  left:0; top: 0; width: 100% ;height: 100%;
-  background-color: rgba(0,0,0,.4);
+  left: var(--emulator-padding); 
+  top: var(--emulator-padding); 
+  width: calc(100% - var(--emulator-padding) * 2);
+  height: calc(100% - var(--emulator-padding) * 2);
+  background-color: rgba(0, 0, 0, 0.7);
 }
 
 body.emu-paused #pause-overlay { display: flex }
