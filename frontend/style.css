@@ -207,16 +207,52 @@ body.audio-suspended #audio-warning {
 
 #display-container .emulator-overlay {
   position: absolute;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   left:0; top: 0; width: 100% ;height: 100%;
   background-color: rgba(0,0,0,.4);
 }
 
-:not(body.emu-paused) #display-container .emulator-overlay { display: none }
+body.emu-paused #pause-overlay { display: flex }
 
-body.emu-paused #display-container .emulator-overlay { display: flex }
+/* Shown at once when a fast-forward starts (fast-forward-overlay.js). When it
+   ends, the bar fills (its 400ms transition), then the overlay fades out */
+#display-container #ff-overlay {
+  display: flex;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 300ms ease-in 400ms, visibility 0s 700ms;
+}
+
+body.emu-fast-forward #display-container #ff-overlay {
+  opacity: 1;
+  visibility: visible;
+  transition: none;
+}
+
+.ff-dialog {
+  width: 60%;
+  max-width: 320px;
+  color: white;
+  text-align: center;
+}
+
+.ff-progress {
+  box-sizing: border-box;
+  height: 18px;
+  padding: 0px;
+  border: 2px solid white;
+}
+
+.ff-progress-fill {
+  height: 100%;
+  width: 0;
+  background-color: white;
+  /* A bit longer than the gap between updates, so it doesn't stop between
+     them. #ff-overlay's fade out waits this long */
+  transition: width 400ms linear;
+}
 
 .resume-dialog { text-align: center;}
 

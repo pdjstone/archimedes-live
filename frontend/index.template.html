@@ -62,7 +62,13 @@
       -->
     </div>
     <div id="mouse-capture-info" class="canvas-dropdown"><p>Press <b>[Escape]</b> to release mouse cursor from emulator window</p></div>
-    <div class="emulator-overlay">
+    <div id="ff-overlay" class="emulator-overlay">
+      <div class="ff-dialog">
+        <p class="ff-text">Loading...</p>
+        <div class="ff-progress"><div class="ff-progress-fill"></div></div>
+      </div>
+    </div>
+    <div id="pause-overlay" class="emulator-overlay">
       <div class="resume-dialog"> 
         <button class="round-button" onclick="resumeEmulator()"><span class="play-button"></span></button>
         <p>Click to resume the emulator</p>

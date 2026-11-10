@@ -16,6 +16,7 @@ import { MOUSE_CAPTURE_MODES } from '../shared/input.js'
 import './jscli-worker.js'
 import './swi-hook.js'
 import { clearMusicInfo } from './qtm-info.js'
+import { arc_fast_forward } from './fast-forward.js'
 
 
 console.log('in arculator worker');
@@ -316,6 +317,7 @@ async function loadMachineConfig(_opts=null) {
   emit('currentMachine', {
     preset: machinePreset,
     softwareId: softwareMeta ? softwareMeta.id : null,
+    softwareTitle: softwareMeta ? softwareMeta.title : null,
     os: machineConfig.getOs(),
     cpu: machineConfig.getCpuName(),
     memory: machineConfig.getMemory()
@@ -364,11 +366,6 @@ function arc_load_config_and_reset(configName) {
 
 function arc_set_sound_filter(filter) {
   emulator.ccall('arc_set_sound_filter', null, ['number'], [filter]);
-}
-
-function arc_fast_forward(ms) {
-  console.log(`Fast-forwaring emulator to ${ms}ms`);
-  emulator.ccall('arc_fast_forward', null, ['number'], [ms]);
 }
 
 function arc_set_page_hidden(hidden) {

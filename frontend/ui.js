@@ -10,6 +10,7 @@ import { Notice, PARAM_HINTS } from './shared/notices.js'
 import { MOUSE_CAPTURE_MODES } from './shared/input.js'
 import { notify, notifyFailure } from './notify.js'
 import { initMediaSession, setMediaSessionAlbum, setMediaSessionPaused } from './media-session.js'
+import { initFastForwardOverlay } from './fast-forward-overlay.js'
 
 const DISPLAY_MODES = Object.freeze({
 		0: 'DISPLAY_MODE_NO_BORDERS',
@@ -26,7 +27,7 @@ let searchParams = new URLSearchParams(queryString);
 
 let firstBoot = true;
 let machinePreset = 'a3000';
-// Machine the worker last booted: {preset, softwareId, os, cpu, memory}
+// Machine the worker last booted: {preset, softwareId, softwareTitle, os, cpu, memory}
 let currentMachine = null;
 let fps = 0;
 let preload = null;
@@ -35,6 +36,7 @@ const offscreenCanvas = document.getElementById('canvas').transferControlToOffsc
 
 const emuAudio = new EmuAudio(searchParams.has('audiostats'));
 initMediaSession({pause: pauseEmulator, resume: resumeEmulator, changeTrack});
+initFastForwardOverlay(() => currentMachine?.softwareTitle);
 
 /*Branch-agnostic audio dump hook, used by selenium-scripts/fetch_audio_dump.py
   so that one script works against both the main and worker-refactor branches.
@@ -137,6 +139,13 @@ arculatorWorker.onmessageerror = (event) => {
 on('musicInfo', info => {
   musicInfo = info;
   window.dispatchEvent(new CustomEvent('arcmusicinfo', {detail: musicInfo}));
+});
+/*How far a fast-forward has got, as an 'arcfastforward' event on window.
+  Its detail is {startMs, currentMs, targetMs, fraction} (emulated times since
+  the last reset, and fraction from 0 to 1) when one starts and about three
+  times a second as it runs, then null when it ends (or a reset stops it).*/
+on('fastForward', status => {
+  window.dispatchEvent(new CustomEvent('arcfastforward', {detail: status}));
 });
 on('currentSoftware', setCurrentSoftware);
 on('updateConfigUI', updateConfigUI);
