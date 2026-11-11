@@ -43,13 +43,15 @@ Serve it with `testserver.py`; a plain `python -m http.server` won't work.
 
 ```sh
 # Emscripten must be on PATH (emsdk activated)
-make -C arculator-wasm -j8 wasm      # emulator -> arculator-wasm/build/wasm/arculator.{js,wasm}
-make                                 # everything -> build/
+make -j8                             # everything -> build/
+make -C arculator-wasm -j8 wasm      # just the emulator -> arculator-wasm/build/wasm/arculator.{js,wasm}
 ```
 
-`make` needs `jinja2` from `requirements-dev.txt`. If the venv's `jinja2`
+`make` hands the emulator, its extension ROM and nspark to their own builds
+every time, so C changes are picked up; give it `-j` for a parallel build.
+It needs `jinja2` from `requirements-dev.txt`. If the venv's `jinja2`
 script has a broken shebang, run `make` with `venv/bin` first on `PATH`, or
-invoke it as `venv/bin/python venv/bin/jinja2`.
+`make JINJA2="venv/bin/python venv/bin/jinja2"`.
 
 Each build goes in a new directory, so browsers never use a cached copy of an
 old one: a clean tree's is `v/<commit>-clean`, a dirty tree's adds the time, so
@@ -59,8 +61,8 @@ must load its files by URLs relative to itself (`import`,
 level (ROMs, the catalogue) comes from `frontend/shared/paths.js`.
 
 `make frontend` rebuilds only the page and its code (a new `v/` directory and
-`index.html`), with the emulator and nspark already built; it doesn't touch
-the ROMs or the catalogue.
+`index.html`), with the emulator and nspark already built (it doesn't run
+their builds); it doesn't touch the ROMs or the catalogue.
 
 For quick iteration you can skip `make` and copy the pieces into the current
 version (`testserver.py` makes the browser revalidate everything):

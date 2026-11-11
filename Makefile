@@ -1,10 +1,21 @@
 SHELL := /bin/bash
-BUILD_TAG_CMD := echo `git rev-parse --short HEAD`-`[[ -n $$(git status -s) ]] && echo 'dirty' || echo 'clean'`
 
-BUILD_TAG := $(shell ${BUILD_TAG_CMD})
-ARCULATOR_BUILD_TAG := $(shell cd arculator-wasm && ${BUILD_TAG_CMD})
-NSPARK_BUILD_TAG := $(shell cd nspark-wasm && ${BUILD_TAG_CMD})
-SOFTWARE_BUILD_TAG := $(shell cd arclive-software && ${BUILD_TAG_CMD})
+.PHONY: all frontend serve clean catalogue deploy FORCE
+
+JINJA2 ?= jinja2
+PYTHON ?= python3
+
+ARCULATOR_URL := https://b-em.bbcmicro.com/arculator/Arculator_V2.2_Linux.tar.gz
+SITE_BUCKET := s3://archi.medes.live
+FILES_BUCKET := s3://files-archi.medes.live
+
+# <short commit>-clean or <short commit>-dirty for the git checkout in $(1)
+git_tag = $(shell cd $(1) && echo $$(git rev-parse --short HEAD)-$$([ -n "$$(git status -s)" ] && echo dirty || echo clean))
+
+BUILD_TAG := $(call git_tag,.)
+ARCULATOR_BUILD_TAG := $(call git_tag,arculator-wasm)
+NSPARK_BUILD_TAG := $(call git_tag,nspark-wasm)
+SOFTWARE_BUILD_TAG := $(call git_tag,arclive-software)
 
 # Everything the page loads goes in build/v/<build tag>/, and index.html points
 # there. Modules, workers, the worklet and the wasm are all loaded by relative
@@ -19,34 +30,36 @@ V := build/$(VDIR)
 FRONTEND_FILES := $(shell find frontend -type f)
 # Pages that stay at the top level, beside index.html
 PAGES := $(filter-out frontend/index.template.html,$(wildcard frontend/*.html))
+CATALOGUE_FILES := $(shell find arclive-software/catalogue -type f)
 
-all: build/index.html build/emu build/emu/roms/arcrom_ext build/software/software.json
+JINJA_VARS := $(foreach v,VDIR BUILD_TAG ARCULATOR_BUILD_TAG NSPARK_BUILD_TAG SOFTWARE_BUILD_TAG,-D $(v)=$($(v)))
+
+ARCULATOR_JS := arculator-wasm/build/wasm/arculator.js
+NSPARK_JS := nspark-wasm/build/nspark.js
+
+all: build/index.html build/emu/roms/arcrom_ext build/software/software.json
 
 # Just the page and its code, using the emulator and nspark already built
 frontend: build/index.html
 
-.PHONY: all frontend serve clean catalogue deploy FORCE
-
 serve:
-	python3 testserver.py
+	$(PYTHON) testserver.py
 
 clean:
-	cd arculator-wasm && make clean && rm -rf emscripten_out
-	rm -rf nspark-wasm/build
-	rm -rf build
+	$(MAKE) -C arculator-wasm clean
+	rm -rf arculator-wasm/emscripten_out nspark-wasm/build build
 
-catalogue: build build/software/software.json
-
-build:
-	mkdir -p build
+catalogue: build/software/software.json
 
 build/index.html: $(V)/ui.js frontend/index.template.html $(PAGES)
-	jinja2 -D VDIR=${VDIR} -D BUILD_TAG=${BUILD_TAG} -D ARCULATOR_BUILD_TAG=${ARCULATOR_BUILD_TAG} -D NSPARK_BUILD_TAG=${NSPARK_BUILD_TAG} -D SOFTWARE_BUILD_TAG=${SOFTWARE_BUILD_TAG} frontend/index.template.html < /dev/null > $@
+	$(JINJA2) $(JINJA_VARS) frontend/index.template.html < /dev/null > $@
 	cp $(PAGES) build
 	cp -r frontend/images build
 
-# Only one version is kept locally; deploying adds it to those already there
-$(V)/ui.js: $(FRONTEND_FILES) arculator-wasm/build/wasm/arculator.js nspark-wasm/build/nspark.js
+# Only one version is kept locally; deploying adds it to those already there.
+# images/ goes in both places: style.css loads it relative to itself, and the
+# top-level pages relative to themselves.
+$(V)/ui.js: $(FRONTEND_FILES) $(ARCULATOR_JS) $(NSPARK_JS)
 	rm -rf build/v
 	mkdir -p $(V)
 	cp -r frontend/* $(V)
@@ -62,38 +75,50 @@ endif
 	cp nspark-wasm/emscripten/*.js $(V)/worker/nspark
 	touch $@
 
-arculator-wasm/build/wasm/arculator.js:
-	cd arculator-wasm && make -j8 wasm
+# The emulator and nspark are always handed to their own builds, which know
+# when they're out of date; $(V) is only remade if their output changes.
+# `make frontend` skips them.
+ifeq (,$(filter frontend,$(MAKECMDGOALS)))
+$(ARCULATOR_JS): FORCE
+$(NSPARK_JS): FORCE
+endif
 
-nspark-wasm/build/nspark.js:
-	mkdir -p nspark-wasm/build
+$(ARCULATOR_JS):
+	$(MAKE) -C arculator-wasm wasm
+
+nspark-wasm/build/CMakeCache.txt:
 	emcmake cmake -S nspark-wasm -B nspark-wasm/build
+
+$(NSPARK_JS): nspark-wasm/build/CMakeCache.txt
 	emmake cmake --build nspark-wasm/build
 
 build/emu: dlcache/arculator22.tar.gz
-	mkdir -p build/emu
-	tar xzf dlcache/arculator22.tar.gz -C build/emu/ roms cmos
+	mkdir -p $@
+	tar xzf $< -C $@ roms cmos
 
 # Replace Arculator's extension ROM with the one built from arculator-wasm's
 # HostFS modules
-build/emu/roms/arcrom_ext: arculator-wasm/roms/arcrom_ext build/emu
+build/emu/roms/arcrom_ext: arculator-wasm/roms/arcrom_ext | build/emu
 	cp $< $@
 
 # Always ask the submodule, which knows when the ROM is out of date
 arculator-wasm/roms/arcrom_ext: FORCE
-	cd arculator-wasm && make extnrom
+	$(MAKE) -C arculator-wasm extnrom
 
 FORCE:
 
 dlcache/arculator22.tar.gz:
 	mkdir -p dlcache
-	curl -s https://b-em.bbcmicro.com/arculator/Arculator_V2.2_Linux.tar.gz --output dlcache/arculator22.tar.gz
+	curl -fsSL $(ARCULATOR_URL) -o $@.tmp
+	mv $@.tmp $@
 
-build/software/software.json:
+build/software/software.json: $(CATALOGUE_FILES) arclive-software/toml2json.py
 	arclive-software/toml2json.py arclive-software/catalogue/ build/software/
 
+S3SYNC := s3cmd sync --no-mime-magic --guess-mime-type
+
 deploy: all
-	s3cmd sync -m application/wasm --exclude '*.txt' build/emu/roms s3://files-archi.medes.live/
-	cd build && s3cmd sync --no-mime-magic --guess-mime-type software s3://files-archi.medes.live
-	cd build && s3cmd sync --no-mime-magic --guess-mime-type --add-header='Cache-Control: public, max-age=31536000, immutable' v s3://archi.medes.live/
-	cd build && s3cmd sync --no-mime-magic --guess-mime-type --add-header='Cache-Control: no-cache' --exclude 'emu/*' --exclude 'software/*' --exclude 'v/*' --exclude 'survey/*' --exclude 'audio-dumps/*' . s3://archi.medes.live
+	s3cmd sync -m application/octet-stream --exclude '*.txt' build/emu/roms $(FILES_BUCKET)/
+	cd build && $(S3SYNC) software $(FILES_BUCKET)
+	cd build && $(S3SYNC) --add-header='Cache-Control: public, max-age=31536000, immutable' v $(SITE_BUCKET)/
+	cd build && $(S3SYNC) --add-header='Cache-Control: no-cache' --exclude 'emu/*' --exclude 'software/*' --exclude 'v/*' --exclude 'survey/*' --exclude 'audio-dumps/*' . $(SITE_BUCKET)
