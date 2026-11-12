@@ -85,11 +85,26 @@ var rom_list = [
   'arthur120_a500/A500_Arthur_ROM.rom',
   'riscos200_a500/ROM200.A500Build',
   'riscos310_a500/a500_riscos310',
-  'A4 5th Column.rom',
-  'arcrom_ext'
+  'A4 5th Column.rom'
 ];
 Object.freeze(rom_list);
 
+
+/*The modules that can go in the support ROM (roms/arcrom_ext), which the
+  worker builds for each machine (putExtnRom in worker/machine-setup.js), in
+  the order they go in it. Their files are built by arculator-wasm and copied
+  to worker/extnrom/. A module that needs another doesn't bring it with it,
+  so list both (as DEFAULT_SUPPORT_MODULES does)*/
+export const SUPPORT_MODULES = Object.freeze({
+  hostfs:      {file: 'hostfs,ffa'},
+  hostfsfiler: {file: 'hostfsfiler,ffa'},
+  // Only for scripts (the JSCLI page hooks), so only with #jscli
+  jscli:       {file: 'jscli,ffa'},
+  jscliwimp:   {file: 'jscliwimp,ffa'},
+});
+// What every machine has; supportModules() adds to it
+const DEFAULT_SUPPORT_MODULES = Object.freeze(['hostfs', 'hostfsfiler']);
+export const JSCLI_SUPPORT_MODULES = Object.freeze(['jscli', 'jscliwimp']);
 
 // Configurations available in the Machine Config dialog
 export const presetMachines = {
@@ -173,7 +188,7 @@ class MachineConfigBuilder {
     fpa_type: 1,
     rom_set: 'riscos311',
     fdc_type: 1,
-    support_rom: 1,
+    support_modules: DEFAULT_SUPPORT_MODULES,
     disc: '',
     autoboot: false,
     fast_forward: 0,
@@ -236,11 +251,19 @@ class MachineConfigBuilder {
     return this;
   }
 
-  supportRom(supportRom = true) { 
-    if (!supportRom)
-      supportRom = false;
+  /** Add modules (SUPPORT_MODULES) to the support ROM */
+  supportModules(...names) {
+    for (let name of names) {
+      if (!Object.hasOwn(SUPPORT_MODULES, name))
+        throw new Error(`Unknown support module '${name}'`);
+    }
+    this.params['support_modules'] = [...this.params['support_modules'], ...names];
+    return this;
+  }
 
-    this.params['support_rom'] = supportRom;
+  /** Leave the support ROM out */
+  noSupportRom() {
+    this.params['support_modules'] = [];
     return this;
   }
 
@@ -352,11 +375,19 @@ class MachineConfig {
     if (romUrls.length == 0) {
       console.warn("Did not find ROM path for " + romSet);
     }
-    if (this.configParams['support_rom'])
-      romUrls['roms/arcrom_ext'] = ROM_BASE + 'arcrom_ext';
     if (this.configParams['machine'] == 'a4')
       romUrls['roms/A4 5th Column.rom'] = ROM_BASE + 'A4 5th Column.rom';
     return romUrls;
+  }
+
+  /**
+   * The modules for the support ROM, in ROM order (SUPPORT_MODULES), each
+   * once. Empty for no support ROM
+   * @returns {string[]}
+   */
+  getSupportModules() {
+    let wanted = new Set(this.configParams['support_modules']);
+    return Object.keys(SUPPORT_MODULES).filter(name => wanted.has(name));
   }
 
   getArcConfigFile() {
@@ -374,7 +405,7 @@ disc_noise_gain = 0
   getMachineConfigFile() {
     let c = this.configParams;
     let fpaEnabled = c['fpa_enabled'] ? 1 : 0;
-    let supportRom = c['support_rom'] ? 1 : 0;
+    let supportRom = this.getSupportModules().length ? 1 : 0;
     return `
   machine = ${c['machine']}
   disc_name_0 = ${c['disc']}

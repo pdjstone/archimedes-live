@@ -4,7 +4,7 @@ Firefox) and check each one: whether JSCLI keeps responding, audio glitches,
 JavaScript errors, and screenshots of what it was doing. Writes results.json
 and an HTML report to look through.
 
-For each title the page is loaded with #disc=ID&autoboot, as the software
+For each title the page is loaded with #disc=ID&autoboot&jscli, as the software
 browser does. Once the boot fast-forward has ended (and --settle seconds more),
 it records for --duration seconds:
   - JSCLI: every --probe-interval seconds arcCli('Echo ...') is run through
@@ -153,7 +153,8 @@ class Surveyor:
         meta = self.catalogue[sid]
         # The title's own boot commands, unless --params gives its own autoboot
         own_autoboot = any(p.split('=')[0] == 'autoboot' for p in a.params.split('&'))
-        hash_ = f'disc={sid}' + ('' if own_autoboot else '&autoboot') + (f'&{a.params}' if a.params else '')
+        hash_ = (f'disc={sid}' + ('' if own_autoboot else '&autoboot') + '&jscli'   # the JSCLI modules, for the probes
+                 + (f'&{a.params}' if a.params else ''))
         r = {'id': sid, 'title': meta.get('title', sid), 'tags': meta.get('tags', []),
              'hash': hash_, 'time': datetime.now().isoformat(timespec='seconds')}
         d.survey_errors.clear()

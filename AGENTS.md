@@ -30,8 +30,9 @@ description of the URL options.
 - `arculator-wasm/` - the emulator (git submodule, C compiled with Emscripten)
 - `build/` - what is served. Everything the browser loads comes from here.
   `index.html`, `emu/` (ROMs) and `software/` are at the top; the code
-  (frontend JS and CSS, `arculator.{js,wasm}`, `nspark/`) is in
-  `build/v/<build tag>/`, which `index.html` points to
+  (frontend JS and CSS, `arculator.{js,wasm}`, `nspark/`, and the support
+  ROM's modules in `worker/extnrom/`) is in `build/v/<build tag>/`, which
+  `index.html` points to
 - `testserver.py` - static server for `build/` with the COOP/COEP headers
 - `selenium-scripts/` - headless Firefox tools (audio dump, WAV compare)
 
@@ -153,7 +154,7 @@ All are read in `getPageBootParams()` in `frontend/ui.js`.
 | `dumpaudio` | `dur,delay` (seconds) | Record `dur` s of 48 kHz stereo audio, starting `delay` s of emulated time after boot (see below). |
 | `audiostats` | (flag) | Show audio stats over the display (`frontend/audio-stats-overlay.js`; tap for the full panel), and log `Audio stats: {...}` to the console every 5 s. Otherwise they're only logged when a glitch counter changes. |
 | `dbglatency` | (flag) | Visual mouse-latency debugging |
-| `jscli` | `ws://127.0.0.1:PORT/TOKEN` | Connect to `tools/arcterm.py` (below), a command line for RISC OS. Only loopback addresses are accepted |
+| `jscli` | (flag), or `ws://127.0.0.1:PORT/TOKEN` | Put the JSCLI modules in the support ROM, for the `arcCli`, `arcCliSession` and `arcType` hooks (below); they're left out otherwise. With a URL, also connect to `tools/arcterm.py` (below), a command line for RISC OS. Only loopback addresses are accepted |
 
 Examples:
 
@@ -192,7 +193,7 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
   worker's FS exists, so retry while booting. HostFS buffers writes, so a file
   RISC OS still has open (OPENOUT, `*Spool`) is only complete once closed.
 - **`window.arcType(text, {timeout})`** puts keys in the keyboard buffer
-  through JSCLI (OS_Byte 153), as if typed: `arcType('PRINT 6*7\r')`. `\r` is
+  through JSCLI (OS_Byte 153, so it needs `#jscli`), as if typed: `arcType('PRINT 6*7\r')`. `\r` is
   Return, `\x1b` Escape (it breaks into programs), and codes from `&80` are
   the function and cursor keys: F1-F9 are `&81`-`&89`, F10-F12 `&CA`-`&CC`
   (`'\xcc'` opens the desktop's command line). Characters are one byte each
@@ -255,8 +256,8 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
 - **`window.arcCli(command, {via, onOutput})`** runs a `*` command and resolves
   with `{output, raw, error}`: `raw` is the VDU stream it printed, `output` the
   same as plain text, `error` `{number, message}` or null. It uses helper
-  modules in the extension ROM (`arculator-wasm/src/jscli`), which only RISC
-  OS 3 loads; on RISC OS 2 they can be RMLoaded from a disc. JSCLIWimp needs
+  modules in the extension ROM (`arculator-wasm/src/jscli`), which are only
+  there with `#jscli` in the URL, and which only RISC OS 3 loads; on RISC OS 2 they can be RMLoaded from a disc. JSCLIWimp needs
   the TaskWindow module, which RISC OS 2 doesn't have in ROM. `via:
   'callback'` (the default) uses JSCLI, which runs the command from a transient
   callback. `via: 'wimp'` uses JSCLIWimp, which runs it in a TaskWindow, in the
@@ -448,6 +449,13 @@ than on main.
 - **Shared layouts:** the audio ring layout in `arculator-wasm/src/sound_ring.h`
   is mirrored in `frontend/shared/audio-ring.js`. Change both together;
   `checkRingLayout` reports a mismatch at startup.
+- **Support ROM:** the worker builds `roms/arcrom_ext` for each machine from
+  the modules it needs (`SUPPORT_MODULES` in `frontend/shared/machines.js`,
+  `putExtnRom` in `frontend/worker/machine-setup.js`), with
+  `frontend/worker/extnrom.js`, a port of the submodule's
+  `scripts/make_extnrom.py` (which still builds the native build's ROM).
+  `make check` tests they make the same ROM. A new module needs adding to
+  `SUPPORT_MODULES` and to `EXTNROM_MODULES` in the top-level Makefile.
 - **JSCLI protocol:** the `ArcEm_JSCLI` SWI in `arculator-wasm/src/jscli.c`
   is mirrored in `arculator-wasm/src/jscli/jscli-defs.s`, and its request
   kinds and error codes in `frontend/worker/jscli-worker.js`. Change them together.

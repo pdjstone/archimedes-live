@@ -67,8 +67,9 @@ const arculatorWorker = new Worker(new URL('worker/arculator-worker.js', import.
 const { emu, on } = connect(arculatorWorker);
 setCliEmu(emu);
 
-// A command line client on this machine (tools/arcterm.py) to connect to
-if (searchParams.has('jscli')) {
+// A command line client on this machine (tools/arcterm.py) to connect to.
+// #jscli on its own only puts the JSCLI modules in the support ROM
+if (searchParams.get('jscli')) {
   const { startJscliRemote } = await import('./jscli-remote.js');
   startJscliRemote(searchParams.get('jscli'));
 }
@@ -367,6 +368,10 @@ function getPageBootParams() {
     } else {
       invalidParam('dumpaudio');
     }
+  }
+  if (searchParams.has('jscli')) {
+    // The JSCLI modules, for the page hooks in jscli-page.js
+    opts.jscli = true;
   }
   if (searchParams.has('mouse-capture')) {
     let mouseVal = searchParams.get('mouse-capture');

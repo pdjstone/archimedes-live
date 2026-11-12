@@ -5,8 +5,8 @@ onerror = (message, filename, lineno, colno, error) => {
 
 
 import { default as ArculatorWasm } from './arculator.js';
-import { presetMachines, recommendMachinePreset, OS_NAMES } from '../shared/machines.js'
-import { getAutobootScript, putConfigFile, putCmosFile, loadRoms } from './machine-setup.js'
+import { presetMachines, recommendMachinePreset, OS_NAMES, JSCLI_SUPPORT_MODULES } from '../shared/machines.js'
+import { getAutobootScript, putConfigFile, putCmosFile, loadRoms, putExtnRom } from './machine-setup.js'
 import { loadSoftware, loadSoftwareFromUrl, loadFromSoftwareCatalogue, requireCatalogue, createHostfsBootFile, FILETYPE_DESKTOP, FILETYPE_COMMAND } from './hostfs.js'
 import { putDataAtPath } from './fsutil.js'
 import { emulator, ready, requireReady, setEmulator, setReady } from './emulator.js'
@@ -24,6 +24,8 @@ let canvas = null;
 
 
 let machinePreset = null;
+// The JSCLI modules go in every machine's support ROM (#jscli in the page's URL)
+let jscliModules = false;
 
 
 
@@ -55,6 +57,7 @@ let pageHidden = false;
 expose({
   // From ui.js at startup
   init: async ({ canvas, pageBootParams }) => {
+    jscliModules = !!pageBootParams.jscli;
     await ArculatorWasm({
       canvas: canvas,
       noInitialRun: true,
@@ -309,6 +312,9 @@ async function loadMachineConfig(_opts=null) {
       console.warn(`Invalid mouse-capture '${opts.mouseCapture}': it must be one of ${Object.keys(MOUSE_CAPTURE_MODES).join(', ')}`);
     }
   }
+  if (jscliModules) {
+    builder.supportModules(...JSCLI_SUPPORT_MODULES);
+  }
   emit('bootedToBasic', opts.basic);
 
   let machineConfig = builder.build();
@@ -325,6 +331,7 @@ async function loadMachineConfig(_opts=null) {
   putConfigFile(machineConfig);
   putCmosFile(machineConfig);
   await loadRoms(machineConfig);
+  await putExtnRom(machineConfig);
   
   if (opts.basic && opts.basicBoot) {
     console.log('UI: create BASIC !boot');

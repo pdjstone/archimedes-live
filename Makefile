@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: all frontend serve clean catalogue deploy FORCE
+.PHONY: all frontend serve clean catalogue check deploy FORCE
 
 JINJA2 ?= jinja2
 PYTHON ?= python3
@@ -36,8 +36,14 @@ JINJA_VARS := $(foreach v,VDIR BUILD_TAG ARCULATOR_BUILD_TAG NSPARK_BUILD_TAG SO
 
 ARCULATOR_JS := arculator-wasm/build/wasm/arculator.js
 NSPARK_JS := nspark-wasm/build/nspark.js
+# The RISC OS modules the worker builds support ROMs from (SUPPORT_MODULES in
+# frontend/shared/machines.js), in the order the submodule's ROM has them.
+# Building that ROM (for the native build) builds them
+EXTNROM := arculator-wasm/roms/arcrom_ext
+EXTNROM_MODULES := arculator-wasm/src/hostfs/hostfs,ffa arculator-wasm/src/hostfs/hostfsfiler,ffa \
+	arculator-wasm/src/jscli/jscli,ffa arculator-wasm/src/jscli/jscliwimp,ffa
 
-all: build/index.html build/emu/roms/arcrom_ext build/software/software.json
+all: build/index.html build/emu build/software/software.json
 
 # Just the page and its code, using the emulator and nspark already built
 frontend: build/index.html
@@ -59,7 +65,7 @@ build/index.html: $(V)/ui.js frontend/index.template.html $(PAGES)
 # Only one version is kept locally; deploying adds it to those already there.
 # images/ goes in both places: style.css loads it relative to itself, and the
 # top-level pages relative to themselves.
-$(V)/ui.js: $(FRONTEND_FILES) $(ARCULATOR_JS) $(NSPARK_JS)
+$(V)/ui.js: $(FRONTEND_FILES) $(ARCULATOR_JS) $(NSPARK_JS) $(EXTNROM)
 	rm -rf build/v
 	mkdir -p $(V)
 	cp -r frontend/* $(V)
@@ -73,6 +79,8 @@ ifdef DEBUG
 endif
 	cp nspark-wasm/build/*.{js,wasm} $(V)/worker/nspark
 	cp nspark-wasm/emscripten/*.js $(V)/worker/nspark
+	mkdir -p $(V)/worker/extnrom
+	cp $(EXTNROM_MODULES) $(V)/worker/extnrom
 	touch $@
 
 # The emulator and nspark are always handed to their own builds, which know
@@ -81,6 +89,7 @@ endif
 ifeq (,$(filter frontend,$(MAKECMDGOALS)))
 $(ARCULATOR_JS): FORCE
 $(NSPARK_JS): FORCE
+$(EXTNROM): FORCE
 endif
 
 $(ARCULATOR_JS):
@@ -96,14 +105,12 @@ build/emu: dlcache/arculator22.tar.gz
 	mkdir -p $@
 	tar xzf $< -C $@ roms cmos
 
-# Replace Arculator's extension ROM with the one built from arculator-wasm's
-# HostFS modules
-build/emu/roms/arcrom_ext: arculator-wasm/roms/arcrom_ext | build/emu
-	cp $< $@
-
-# Always ask the submodule, which knows when the ROM is out of date
-arculator-wasm/roms/arcrom_ext: FORCE
+$(EXTNROM):
 	$(MAKE) -C arculator-wasm extnrom
+
+# The worker's support ROM builder makes the same ROM as the submodule's script
+check: $(EXTNROM)
+	node --experimental-detect-module tools/check_extnrom.mjs $(EXTNROM) $(EXTNROM_MODULES)
 
 FORCE:
 

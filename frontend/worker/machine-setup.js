@@ -6,7 +6,8 @@
 import { putDataAtPath, putUrlAtPath } from './fsutil.js'
 import { canBootFrom, makeCmos, romYear } from './cmos.js'
 import { roDirname } from './hostfs.js'
-import { OS_NAMES } from '../shared/machines.js'
+import { buildExtnRom, EXTNROM_MAX_SIZE } from './extnrom.js'
+import { OS_NAMES, SUPPORT_MODULES } from '../shared/machines.js'
 import { emit } from '../shared/rpc.js'
 import { Notice, NoticeError, reasonFor } from '../shared/notices.js'
 
@@ -81,6 +82,31 @@ export async function loadRoms(machineConfig) {
     for (const [fsPath, romUrl] of Object.entries(romUrls)) {
       await putUrlAtPath(romUrl, fsPath);
     }
+  } catch (e) {
+    throw new NoticeError(Notice.ROMS_FAILED, {machine: machineConfig.getMachineName(), reason: reasonFor(e)});
+  }
+}
+
+/*Build the support ROM from the machine's modules (getSupportModules), which
+  come with the code in extnrom/, and put it where the emulator reads it at
+  every reset (rom_load_arc_support_extrom)*/
+export async function putExtnRom(machineConfig) {
+  let names = machineConfig.getSupportModules();
+  if (!names.length)
+    return;
+  try {
+    let modules = await Promise.all(names.map(async name => {
+      let url = new URL('extnrom/' + SUPPORT_MODULES[name].file, import.meta.url);
+      let response = await fetch(url);
+      if (!response.ok)
+        throw new Error(`${url}: ${response.status} ${response.statusText}`.trim());
+      return new Uint8Array(await response.arrayBuffer());
+    }));
+    let rom = buildExtnRom(modules);
+    if (rom.length > EXTNROM_MAX_SIZE)
+      throw new Error(`the support ROM is ${rom.length} bytes, more than ${EXTNROM_MAX_SIZE}`);
+    console.log(`support ROM: ${names.join(', ')} (${rom.length} bytes)`);
+    putDataAtPath(rom, 'roms/arcrom_ext');
   } catch (e) {
     throw new NoticeError(Notice.ROMS_FAILED, {machine: machineConfig.getMachineName(), reason: reasonFor(e)});
   }

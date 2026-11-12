@@ -20,7 +20,7 @@ const CLI_KINDS = Object.freeze({keys: 1, session: 2, input: 3, close: 4});
 // programs that are reading keep up with
 const CLI_MAX_DATA = Object.freeze({keys: 256, input: 32});
 const CLI_QUEUE_ERRORS = Object.freeze({
-  '-1': 'module not loaded',
+  '-1': 'module not loaded (it needs RISC OS 3, and #jscli in the page\'s URL)',
   '-2': 'too many commands queued',
   '-3': 'command too long (255 characters at most)',
   '-4': 'that module can\'t do that (keys need JSCLI, sessions JSCLIWimp)',
