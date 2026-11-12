@@ -6,6 +6,7 @@ import { initBasicEditor, showBasicEditor, wrapProg, setBootedToBasic, BASIC_RUN
 import { EmuAudio } from './emu-audio.js'
 import { setCliEmu } from './jscli-page.js'
 import { connect, transfer } from './shared/rpc.js'
+import { latin1Bytes, latin1String } from './shared/latin1.js'
 import { Notice, PARAM_HINTS } from './shared/notices.js'
 import { MOUSE_CAPTURE_MODES } from './shared/input.js'
 import { notify, notifyFailure } from './notify.js'
@@ -81,16 +82,9 @@ if (searchParams.get('jscli')) {
   incomplete, as HostFS buffers writes until it's closed.*/
 window.arcFS = {
   read: path => emu.fsRead(path),
-  // One character per byte. TextDecoder('latin1') is really Windows-1252
-  readText: async path => {
-    let bytes = await emu.fsRead(path);
-    let s = '';
-    for (let i = 0; i < bytes.length; i += 8192) {
-      s += String.fromCharCode(...bytes.subarray(i, i + 8192));
-    }
-    return s;
-  },
-  write: (path, data) => emu.fsWrite(path, typeof data == 'string' ? new TextEncoder().encode(data) : data),
+  // One character per byte, as RISC OS text is (shared/latin1.js)
+  readText: async path => latin1String(await emu.fsRead(path)),
+  write: (path, data) => emu.fsWrite(path, typeof data == 'string' ? latin1Bytes(data) : data),
   list: path => emu.fsList(path),
   unlink: path => emu.fsUnlink(path),
 };

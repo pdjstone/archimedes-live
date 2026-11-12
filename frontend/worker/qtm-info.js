@@ -14,6 +14,7 @@
  */
 import { addSwiHook, readMemory, readString } from './swi-hook.js'
 import { emit } from '../shared/rpc.js'
+import { latin1String } from '../shared/latin1.js'
 
 const QTM_LOAD = 0x47E40;
 const QTM_CLEAR = 0x47E44;
@@ -36,7 +37,7 @@ const AUTHOR_KEYWORDS = ['by', 'of', 'copyright', '(c)', '#', '/'];
 /** Latin-1 text of bytes, up to the first NUL, with other control characters as spaces (as QTM copies names) */
 function qtmText(bytes) {
   let end = bytes.indexOf(0);
-  return String.fromCharCode(...(end < 0 ? bytes : bytes.subarray(0, end)).map(c => c < 32 ? 32 : c));
+  return latin1String((end < 0 ? bytes : bytes.subarray(0, end)).map(c => c < 32 ? 32 : c));
 }
 
 /**
@@ -65,7 +66,7 @@ export function parseQtmHeader(hdr) {
 
   let tag = null, format = 'Sound Tracker compatible', origin = 0, channels = 4;
   if (samples === 31) {
-    tag = String.fromCharCode(...hdr.subarray(1080, 1084));
+    tag = latin1String(hdr.subarray(1080, 1084));
     if (UNSUPPORTED_TAGS.includes(tag))
       return null;
     // Any other tag (e.g. M!K!, or none) is played as 4 channel ProTracker

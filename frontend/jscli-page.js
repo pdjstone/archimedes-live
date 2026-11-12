@@ -2,6 +2,8 @@
   arcCliStatus, arcCliSession and arcType. They call the worker's cli*
   functions, in jscli-worker.js.*/
 
+import { latin1Bytes } from './shared/latin1.js'
+
 /*Run a RISC OS * command through one of the JSCLI helper modules in the
   extension ROM (arculator-wasm/src/jscli). `via` picks the module:
   'callback' (module JSCLI) runs the command from a transient callback and
@@ -56,7 +58,7 @@ window.arcCli = async function(command, {via = 'callback', onOutput = null, time
   Latin-1), a Uint8Array, or an array of numbers and strings, e.g. ['RUN', 13]*/
 function toBytes(data) {
   if (typeof data == 'string') {
-    return Uint8Array.from(data, c => c.charCodeAt(0) & 0xff);
+    return latin1Bytes(data);
   }
   if (data instanceof Uint8Array) {
     return data;

@@ -19,6 +19,8 @@
  * The checksum is the 32-bit sum of every word except the last three.
  */
 
+import { latin1Bytes } from '../shared/latin1.js'
+
 const PRODUCT_TYPE_EXTENSION_ROM = 0x0087;
 const MANUFACTURER_CODE = 0x0000;
 const COUNTRY_CODE = 0x00;
@@ -41,9 +43,7 @@ export function buildExtnRom(modules, description = 'ArcEm Support') {
     if (m.length > MAXIMUM_CHUNK_SIZE)
       throw new Error('extension ROM: module too large for a chunk directory entry');
   }
-  let descr = new Uint8Array(description.length + 1);
-  for (let i = 0; i < description.length; i++)
-    descr[i] = description.charCodeAt(i);
+  let descr = latin1Bytes(description + '\0');
 
   let chunks = [{osId: OS_ID_BYTE_DEVICE_DESCR, data: descr, prefix: false},
     ...modules.map(data => ({osId: OS_ID_BYTE_RISCOS_MODULE, data, prefix: true}))];
@@ -86,6 +86,6 @@ export function buildExtnRom(modules, description = 'ArcEm Support') {
   for (let i = 0; i < romSize - 12; i += 4)
     sum = (sum + v.getUint32(i, true)) >>> 0;
   v.setUint32(romSize - 12, sum, true);
-  rom.set([...'ExtnROM0'].map(ch => ch.charCodeAt(0)), romSize - 8);
+  rom.set(latin1Bytes('ExtnROM0'), romSize - 8);
   return rom;
 }

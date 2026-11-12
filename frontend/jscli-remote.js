@@ -28,6 +28,8 @@
   show its prompt. A session that ended meanwhile is listed once, with
   `ended` set.*/
 
+import { latin1String } from './shared/latin1.js'
+
 const LOOPBACK_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
 const STATUS_POLL_MS = 1000;
 const RETRY_MIN_MS = 1000;
@@ -38,15 +40,6 @@ const PAGE_ID = Math.random().toString(36).slice(2);
 // Close code from the client when another page has connected in our place
 const CLOSE_REPLACED = 4000;
 
-/*Bytes as a string, one character per byte. Not TextDecoder('latin1'), which
-  browsers treat as Windows-1252, so &80-&9F would come out as other characters*/
-function latin1(bytes) {
-  let s = '';
-  for (let i = 0; i < bytes.length; i += 8192) {
-    s += String.fromCharCode(...bytes.subarray(i, i + 8192));
-  }
-  return s;
-}
 
 let socket = null;
 let sessions = new Map();     // session id -> {s: arcCliSession, command, tail, unsent, ended, error}
@@ -78,14 +71,14 @@ async function handleRequest(req) {
   switch (req.op) {
   case 'cli': {
     let {raw, error} = await window.arcCli(req.command, {via: req.via || 'callback', timeout: req.timeout || 0});
-    return {output: latin1(raw), error};
+    return {output: latin1String(raw), error};
   }
   case 'open': {
     let id = nextSessionId++;
     let rec = {command: req.command || '', tail: '', unsent: '', ended: false, error: null};
     rec.s = window.arcCliSession(rec.command, {
       onOutput: raw => {
-        let data = latin1(raw);
+        let data = latin1String(raw);
         rec.tail = (rec.tail + data).slice(-TAIL_MAX);
         if (!send({event: 'output', session: id, data})) {
           rec.unsent = (rec.unsent + data).slice(-UNSENT_MAX);

@@ -7,6 +7,7 @@
  * audio dumps.
  */
 import { RING, CTRL, DUMP_STATE, SAMPLE_RATE, FILL_UNSET, checkRingLayout } from './shared/audio-ring.js';
+import { latin1Bytes } from './shared/latin1.js';
 
 const STATS_LOG_INTERVAL_MS = 5000;
 const DUMP_STATE_NAMES = ['off', 'waiting', 'recording', 'recording', 'error'];
@@ -160,7 +161,7 @@ export class EmuAudio {
   getDump() {
     if (this.dumpWav) {
       if (!this.dumpBase64)
-        this.dumpBase64 = arrayBufferToBase64(this.dumpWav);
+        this.dumpBase64 = this.dumpWav.toBase64();
       return { state: 'finished', size: this.dumpWav.length, base64: this.dumpBase64 };
     }
     if (!this.ctrl)
@@ -247,7 +248,7 @@ export class EmuAudio {
 function makeWav(samples, rate) {
   const bytes = new Uint8Array(44 + samples.length * 2);
   const view = new DataView(bytes.buffer);
-  const tag = (offset, text) => { for (let i = 0; i < 4; i++) bytes[offset + i] = text.charCodeAt(i); };
+  const tag = (offset, text) => bytes.set(latin1Bytes(text), offset);
 
   tag(0, 'RIFF');
   view.setUint32(4, 36 + samples.length * 2, true);
@@ -267,11 +268,3 @@ function makeWav(samples, rate) {
   return bytes;
 }
 
-function arrayBufferToBase64(bytes) {
-  // Chunked, so that multi-megabyte audio dumps encode quickly
-  let binary = '';
-  const CHUNK = 0x8000;
-  for (let i = 0; i < bytes.length; i += CHUNK)
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
-  return btoa(binary);
-}

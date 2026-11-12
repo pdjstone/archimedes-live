@@ -11,6 +11,8 @@
  * (projects/mobiletests mediasession.html has the experiments).
  */
 
+import { latin1Bytes } from './shared/latin1.js'
+
 const NOISE_SECONDS = 30;
 const NOISE_RATE = 8000;
 const NOISE_LEVEL = 0.0005;
@@ -144,7 +146,7 @@ function playAudio() {
 function noiseWav() {
   let frames = NOISE_SECONDS * NOISE_RATE;
   let view = new DataView(new ArrayBuffer(44 + frames * 2));
-  let text = (offset, s) => [...s].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
+  let text = (offset, s) => new Uint8Array(view.buffer).set(latin1Bytes(s), offset);
   text(0, 'RIFF'); view.setUint32(4, 36 + frames * 2, true); text(8, 'WAVE');
   text(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
   view.setUint32(24, NOISE_RATE, true); view.setUint32(28, NOISE_RATE * 2, true);

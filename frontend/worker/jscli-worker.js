@@ -10,6 +10,7 @@
 
 import { emulator, ready } from './emulator.js'
 import { expose, transfer } from '../shared/rpc.js'
+import { latin1Bytes, latin1String } from '../shared/latin1.js'
 
 const CLI_CHANNELS = Object.freeze({callback: 0, wimp: 1});
 const CLI_KINDS = Object.freeze({keys: 1, session: 2, input: 3, close: 4});
@@ -91,7 +92,7 @@ function cliClose(session) {
     return;
   }
   if (emulator.ccall('arc_cli_cancel', 'number', ['number'], [s.cmdId]) == 1) {
-    self.jscliDone(s.cmdId, 1, 0, new TextEncoder().encode('Closed before it started'));
+    self.jscliDone(s.cmdId, 1, 0, latin1Bytes('Closed before it started'));
     return;
   }
   return cliStart({ label: 'arcCliSession close', via: 'wimp',
@@ -178,6 +179,6 @@ self.jscliDone = (cmdId, failed, errnum, msg) => {
     raw.set(c, pos);
     pos += c.length;
   }
-  let error = failed ? { number: errnum, message: String.fromCharCode(...msg) } : null;
+  let error = failed ? { number: errnum, message: latin1String(msg) } : null;
   req.resolve(transfer({ raw, error }, [raw.buffer]));
 };

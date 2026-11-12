@@ -1,4 +1,5 @@
 import { ZipReader, Uint8ArrayReader, Uint8ArrayWriter } from './zip.js';
+import { latin1String } from '../shared/latin1.js'
 
 class ExtensibleZipReader extends ZipReader {
 
@@ -68,10 +69,7 @@ const ZIP_ID_ARC0 = 0x30435241; // 'ARC0'
 function decodeRiscOsText(bytes, encoding) {
     if (encoding && encoding.toLowerCase() == 'utf-8')
         return undefined;
-    let str = '';
-    for (const b of bytes)
-        str += String.fromCharCode(b);
-    return str;
+    return latin1String(bytes);
 }
 
 export class RiscOsUnzip extends ExtensibleZipReader 

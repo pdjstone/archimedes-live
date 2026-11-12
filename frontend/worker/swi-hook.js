@@ -14,6 +14,7 @@
  */
 
 import { emulator, ready, onReady } from './emulator.js'
+import { latin1String } from '../shared/latin1.js'
 
 // The most SWIs the emulator watches at once (SWIHOOK_MAX in swihook.c)
 const SWI_HOOK_MAX = 32;
@@ -93,5 +94,5 @@ export function readMemory(addr, len) {
 export function readString(addr, maxLen = 256) {
   let bytes = readMemory(addr, maxLen);
   let end = bytes.findIndex(b => b < 32);
-  return String.fromCharCode(...(end < 0 ? bytes : bytes.subarray(0, end)));
+  return latin1String(end < 0 ? bytes : bytes.subarray(0, end));
 }
