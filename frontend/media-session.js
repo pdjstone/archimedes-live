@@ -12,6 +12,7 @@
  */
 
 import { latin1Bytes } from './shared/latin1.js'
+import { GESTURE_EVENTS } from './emu-audio.js';
 
 const NOISE_SECONDS = 30;
 const NOISE_RATE = 8000;
@@ -132,13 +133,15 @@ function playAudio() {
     return;
   audioEl.play().catch(() => {
     const retry = () => {
-      removeEventListener('pointerdown', retry, true);
-      removeEventListener('keydown', retry, true);
-      if (music && !paused)
-        audioEl.play().catch(e => console.log('MediaSession: <audio> won\'t play', e));
+      if (!audioEl.paused || !music || paused) {
+        GESTURE_EVENTS.forEach(e => removeEventListener(e, retry, true));
+        return;
+      }
+      audioEl.play().then(
+        () => GESTURE_EVENTS.forEach(e => removeEventListener(e, retry, true)),
+        e => console.log('MediaSession: <audio> won\'t play yet', e));
     };
-    addEventListener('pointerdown', retry, true);
-    addEventListener('keydown', retry, true);
+    GESTURE_EVENTS.forEach(e => addEventListener(e, retry, true));
   });
 }
 

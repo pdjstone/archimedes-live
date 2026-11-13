@@ -10,6 +10,11 @@ import { RING, CTRL, DUMP_STATE, SAMPLE_RATE, FILL_UNSET, checkRingLayout } from
 import { latin1Bytes } from './shared/latin1.js';
 
 const STATS_LOG_INTERVAL_MS = 5000;
+/* Events that let a page start audio. A touch only counts as a gesture when
+   the finger is lifted (pointerup), so on touch screens pointerdown is too
+   early; Firefox for Android is strict about this. pointerdown is kept so a
+   mouse click starts audio without waiting for the button to come up. */
+export const GESTURE_EVENTS = ['pointerdown', 'pointerup', 'keydown'];
 const DUMP_STATE_NAMES = ['off', 'waiting', 'recording', 'recording', 'error'];
 
 export class EmuAudio {
@@ -86,15 +91,12 @@ export class EmuAudio {
 
     // Browsers won't let audio start until the user has interacted with the page
     const resume = () => {
-      if (ctx.state === 'running') {
-        removeEventListener('pointerdown', resume, true);
-        removeEventListener('keydown', resume, true);
-      } else {
+      if (ctx.state === 'running')
+        GESTURE_EVENTS.forEach(e => removeEventListener(e, resume, true));
+      else
         ctx.resume().catch(() => {});
-      }
     };
-    addEventListener('pointerdown', resume, true);
-    addEventListener('keydown', resume, true);
+    GESTURE_EVENTS.forEach(e => addEventListener(e, resume, true));
 
     this.updateState();
     setInterval(() => this.logStats(), STATS_LOG_INTERVAL_MS);
