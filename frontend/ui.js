@@ -323,7 +323,7 @@ function getPageBootParams() {
       opts.preset = preset;
       machinePreset = preset;
     } else {
-      notify({id: Notice.PRESET_UNKNOWN, params: {preset, machine: presetMachines[machinePreset]().configName}});
+      notify({id: Notice.PRESET_UNKNOWN, params: {preset, machine: machinePreset}});
     }
   }
   if (searchParams.has('autoboot')) {

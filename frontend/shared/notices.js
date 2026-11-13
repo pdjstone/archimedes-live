@@ -18,7 +18,7 @@ export const NOTICES = {
   // Files the user dropped on the page or chose with the upload button
   DISC_INSERTED:                { level: 'success', text: 'Inserted {file} into drive :0' },
   DISC_INSERTED_FROM_ZIP:       { level: 'success', text: 'Inserted {disc} from {file} into drive :0' },
-  DISC_INSERTED_FROM_MULTI_ZIP: { level: 'success', text: 'Inserted {disc} from {file} into drive :0 (the first of its {count} disc images)' },
+  DISC_INSERTED_FROM_MULTI_ZIP: { level: 'success', text: 'Inserted {disc} from {file} into drive :0 (the 1st of {count} disc images)' },
   UNPACKED:                     { level: 'success', text: 'Unpacked {count} files from {file} onto HostFS' },
   COPIED_TO_HOSTFS:             { level: 'success', text: 'Copied {file} onto HostFS as {name}' },
   HOSTFS_NEEDS_RISC_OS_3:       { level: 'warning', text: "{file} is on HostFS, but {os} can't see HostFS. Switch to a RISC OS 3 machine to use it" },
@@ -28,21 +28,21 @@ export const NOTICES = {
   ZIP_NOT_RISC_OS:              { level: 'error', text: '{file} has no disc image or RISC OS files in it' },
   UNPACK_FAILED:                { level: 'error', text: "Couldn't unpack {file}: {reason}" },
   DISC_FAILED:                  { level: 'error', text: "Couldn't insert {file}: {reason}" },
-  DOWNLOAD_FAILED:              { level: 'error', text: "Couldn't download {url}: {reason}" },
+  DOWNLOAD_FAILED:              { level: 'error', text: "Couldn't fetch {url}: {reason}" },
 
   // The software catalogue
-  CATALOGUE_ID_UNKNOWN:         { level: 'error', text: "There's nothing called '{id}' in the software catalogue" },
+  CATALOGUE_ID_UNKNOWN:         { level: 'error', text: "Item '{id}' not in the software catalogue" },
   CATALOGUE_UNAVAILABLE:        { level: 'error', text: "Couldn't load the software catalogue" },
   AUTOBOOT_NO_COMMANDS:         { level: 'warning', text: "{title} has no boot commands, so it won't start by itself" },
 
   // Booting
-  AUTOBOOT_NEEDS_RISC_OS_3:     { level: 'warning', text: "autoboot needs RISC OS 3, and the {machine} has {os}" },
+  AUTOBOOT_NEEDS_RISC_OS_3:     { level: 'warning', text: "'autoboot' needs RISC OS 3, and the {machine} has {os}" },
   ROMS_FAILED:                  { level: 'error', text: "Couldn't load the ROMs for the {machine}: {reason}" },
 
   // URL parameters
-  PRESET_UNKNOWN:               { level: 'warning', text: "There's no machine called '{preset}', so it's using the {machine}" },
-  DISC_WITH_BASIC:              { level: 'warning', text: "disc and basic can't be used together, so basic is ignored" },
-  PARAM_INVALID:                { level: 'warning', text: 'Ignored {param}={value}: {hint}' },
+  PRESET_UNKNOWN:               { level: 'warning', text: "No machine preset '{preset}' - using '{machine}'" },
+  DISC_WITH_BASIC:              { level: 'warning', text: "'disc' and 'basic' can't be used together, so 'basic' is ignored" },
+  PARAM_INVALID:                { level: 'warning', text: 'Ignoring {param}={value}: {hint}' },
 };
 
 /**
@@ -64,9 +64,9 @@ export const Notice = new Proxy(Object.freeze(Object.fromEntries(Object.keys(NOT
 
 // The {hint} for PARAM_INVALID, for each parameter
 export const PARAM_HINTS = {
-  ff: 'it should be a number of milliseconds',
-  soundfilter: 'it should be 0 (the original), 1 or 2 (the least filtering)',
-  dumpaudio: 'it should be duration,delay in seconds',
+  'ff': 'it should be a number of milliseconds',
+  'soundfilter': 'it should be 0 (the original), 1 or 2 (the least filtering)',
+  'dumpaudio': 'it should be duration,delay in seconds',
   'mouse-capture': 'it should be auto, force or never',
 };
 
