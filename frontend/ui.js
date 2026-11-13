@@ -178,7 +178,7 @@ initSoftwareBrowser({
   showModal,
   closeModal,
   changeMachine,
-  loadSoftware: softwareId => emu.loadSoftware(softwareId).catch(notifyFailure),
+  loadSoftware: softwareId => emu.loadSoftware(softwareId).then(resumeIfPaused, notifyFailure),
   loadFile,
   getCurrentMachine: () => currentMachine,
   getCurrentSoftwareId: () => currentMachine?.softwareId
@@ -268,8 +268,7 @@ function resumeEmulator() {
   does that, as in the Bitshifters Django demos. Keys are held for 100 ms so
   the program sees them.*/
 function changeTrack(dir) {
-  if (document.body.classList.contains('emu-paused'))
-    resumeEmulator();
+  resumeIfPaused();
   let emu = getEmuInput();
   emu.simulateKey(dir > 0 ? 'ArcArrowDown' : 'ArcArrowUp', 0, 100);
   emu.simulateKey('ArcReturn', 200, 100);
@@ -409,12 +408,20 @@ async function showBooleanDialog(title, text, trueText='OK', falseText='Cancel')
   return val;
 }
 
+/** Resume if the user paused, after something that should start it running again */
+function resumeIfPaused() {
+  if (document.body.classList.contains('emu-paused'))
+    resumeEmulator();
+}
+
 /**
  * Reset the emulator with a new configuration. opts are as for
- * getPageBootParams (e.g. {preset}, or {disc, autoboot})
+ * getPageBootParams (e.g. {preset}, or {disc, autoboot}). It runs straight
+ * away, even if it was paused. The worker does it with the emulator stopped
+ * (whilePaused), so resume only once it's done
  */
 function changeMachine(opts) {
-  return emu.changeMachine(opts).catch(notifyFailure);
+  return emu.changeMachine(opts).then(resumeIfPaused, notifyFailure);
 }
 
 function sleep(ms) {
