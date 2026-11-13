@@ -8,7 +8,7 @@ import { default as ArculatorWasm } from './arculator.js';
 import { presetMachines, recommendMachinePreset, OS_NAMES, JSCLI_SUPPORT_MODULES } from '../shared/machines.js'
 import { getAutobootScript, putConfigFile, putCmosFile, loadRoms, putExtnRom } from './machine-setup.js'
 import { loadSoftware, loadSoftwareFromUrl, loadFromSoftwareCatalogue, requireCatalogue, createHostfsBootFile, FILETYPE_DESKTOP, FILETYPE_COMMAND } from './hostfs.js'
-import { putDataAtPath } from './fsutil.js'
+import { putDataAtPath, emptyDir } from './fsutil.js'
 import { emulator, ready, requireReady, setEmulator, setReady } from './emulator.js'
 import { expose, emit, serve, transfer } from '../shared/rpc.js'
 import { Notice } from '../shared/notices.js'
@@ -235,6 +235,13 @@ async function loadMachineConfig(_opts=null) {
         discFile = (await loadSoftwareFromUrl(opts.disc, false)).disc;
       } else { // assume it's an ID from the software catalog
         console.log(`UI: Load software ID ${opts.disc}`);
+        if (opts.autoboot === true) {
+          // Launch it on an empty HostFS, as a fresh page load does. Apps left
+          // from an earlier title would otherwise be booted by the Filer when
+          // the boot commands open HostFS:$, slowing the boot (NewLook's
+          // !Boot can outlast the title's fast-forward)
+          emptyDir('/hostfs');
+        }
         discFile = await loadFromSoftwareCatalogue(opts.disc, false);
         softwareMeta = (await requireCatalogue())[opts.disc];
         let recommendedPreset = recommendMachinePreset(softwareMeta);

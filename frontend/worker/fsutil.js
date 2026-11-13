@@ -56,3 +56,17 @@ export async function putUrlAtPath(url, path) {
   console.log(`putting URL ${url} at FS path ${path}`);
   putDataAtPath(data, path);
 }
+/** Delete everything in a directory, leaving the directory itself */
+export function emptyDir(dir) {
+  for (let name of emulator.FS.readdir(dir)) {
+    if (name == '.' || name == '..')
+      continue;
+    let path = dir + '/' + name;
+    if (emulator.FS.isDir(emulator.FS.stat(path).mode)) {
+      emptyDir(path);
+      emulator.FS.rmdir(path);
+    } else {
+      emulator.FS.unlink(path);
+    }
+  }
+}
