@@ -241,7 +241,8 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
   id from the `Notice` enum there, returning `{id: Notice.UNPACKED, params}`
   or throwing `new NoticeError(Notice.UNPACK_FAILED, params)` (whose
   `notice` crosses from the worker with the error), and `frontend/notify.js`
-  formats and dispatches it. Errors without a notice only go to the console.
+  formats and dispatches it, and shows it as a toast over the bottom of the
+  display (click to dismiss). Errors without a notice only go to the console.
 - **`window.arcMusicInfo()`** gives the song a program has loaded into the
   QTMTracker module, or null (`frontend/worker/qtm-info.js`, a SWI hook on
   `QTM_Load`, so it works while a demo has interrupts off). It's

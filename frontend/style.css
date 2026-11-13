@@ -605,3 +605,55 @@ body.dbg-keypress #display-container.fullscreen, body.dbg-keypress { background-
 #audio-stats-overlay th { text-align: left; font-weight: normal; color: #999; padding: 0 8px 0 0; vertical-align: top; white-space: nowrap; }
 #audio-stats-overlay td { padding: 0; }
 #audio-stats-overlay button { font: inherit; margin: 4px 0 2px; padding: 2px 10px; }
+
+/* -- Notices (notify.js) ------------------------------------------------- */
+
+#notice-toasts {
+  position: absolute;
+  /* over the bottom of the picture, inside the canvas's padding */
+  left: var(--emulator-padding);
+  right: var(--emulator-padding);
+  bottom: calc(var(--emulator-padding) + 8px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+#display-container.fullscreen #notice-toasts {
+  left: 0;
+  right: 0;
+  bottom: 16px;
+}
+
+.notice-toast {
+  max-width: min(90%, 600px);
+  box-sizing: border-box;
+  padding: 7px 14px 7px 12px;
+  border-left: 5px solid #888;
+  border-radius: 4px;
+  background: rgba(17, 17, 17, 0.92);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  color: #eee;
+  font: 10pt sans-serif;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  pointer-events: auto;
+  animation: notice-in 200ms ease-out;
+  transition: opacity 250ms, transform 250ms;
+}
+
+.notice-toast.success { border-left-color: #3fae5a; }
+.notice-toast.warning { border-left-color: rgb(220, 130, 20); }
+.notice-toast.error   { border-left-color: #e0443a; }
+
+.notice-toast.leaving {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+@keyframes notice-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
