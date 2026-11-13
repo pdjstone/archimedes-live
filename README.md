@@ -48,7 +48,7 @@ There are a few Python packages required to build the code. Jinja is required fo
 
 After cloning, ensure that the git submodules are initialised and updated using `git submodule update --init`. Once done, the `arculator-wasm`, `arclive-software` and `nspark-wasm` directories should contain the source code for those projects.
 
-Ensure Emscripten is [installed and activated](https://emscripten.org/docs/getting_started/downloads.html). Once done you should have `emsdk` in your path. Tested with Emscripten 3.1.29.
+Ensure Emscripten is [installed and activated](https://emscripten.org/docs/getting_started/downloads.html). Once done you should have `emsdk` in your path. The build needs the Emscripten version set in `arculator-wasm/emscripten.mk` (currently 7.0.0): `emsdk install 7.0.0 && emsdk activate 7.0.0`. `make` stops if `emcc` is a different version; set `ALLOW_ANY_EMCC=1` to build with it anyway.
 
 ```
 make

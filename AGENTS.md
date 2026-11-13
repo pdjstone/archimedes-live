@@ -48,6 +48,10 @@ make -j8                             # everything -> build/
 make -C arculator-wasm -j8 wasm      # just the emulator -> arculator-wasm/build/wasm/arculator.{js,wasm}
 ```
 
+The Emscripten version is pinned by `EMSCRIPTEN_VERSION` in
+`arculator-wasm/emscripten.mk` (shared by both Makefiles): the wasm and
+nspark builds stop if `emcc -dumpversion` differs, unless `ALLOW_ANY_EMCC=1`.
+
 `make` hands the emulator, its extension ROM and nspark to their own builds
 every time, so C changes are picked up; give it `-j` for a parallel build.
 It needs `jinja2` from `requirements-dev.txt`. If the venv's `jinja2`

@@ -45,6 +45,9 @@ EXTNROM_MODULES := arculator-wasm/src/hostfs/hostfs,ffa arculator-wasm/src/hostf
 
 all: build/index.html build/emu build/software/software.json
 
+# EMSCRIPTEN_VERSION and check-emcc, shared with the emulator's build
+include arculator-wasm/emscripten.mk
+
 # Just the page and its code, using the emulator and nspark already built
 frontend: build/index.html
 
@@ -95,10 +98,10 @@ endif
 $(ARCULATOR_JS):
 	$(MAKE) -C arculator-wasm wasm
 
-nspark-wasm/build/CMakeCache.txt:
+nspark-wasm/build/CMakeCache.txt: | check-emcc
 	emcmake cmake -S nspark-wasm -B nspark-wasm/build
 
-$(NSPARK_JS): nspark-wasm/build/CMakeCache.txt
+$(NSPARK_JS): nspark-wasm/build/CMakeCache.txt | check-emcc
 	emmake cmake --build nspark-wasm/build
 
 build/emu: dlcache/arculator22.tar.gz
