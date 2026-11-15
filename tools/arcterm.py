@@ -1,4 +1,11 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.13"
+# dependencies = [
+#     "prompt-toolkit>=3.0.53",
+#     "websockets>=17.4",
+# ]
+# ///
 """A command line for RISC OS in Archimedes Live, through JSCLI.
 
 The page can't listen for connections, so this is the WebSocket server, and
