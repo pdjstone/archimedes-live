@@ -15,7 +15,9 @@ git_tag = $(shell cd $(1) && echo $$(git rev-parse --short HEAD)-$$([ -n "$$(git
 BUILD_TAG := $(call git_tag,.)
 ARCULATOR_BUILD_TAG := $(call git_tag,arculator-wasm)
 NSPARK_BUILD_TAG := $(call git_tag,nspark-wasm)
-SOFTWARE_BUILD_TAG := $(call git_tag,arclive-software)
+# A hash of the catalogue, which index.html gives the page to fetch it with
+# (software.json?v=...). Expanded when index.html is made, after software.json
+SOFTWARE_BUILD_TAG = $(shell sha256sum build/software/software.json 2>/dev/null | cut -c1-12)
 
 # Everything the page loads goes in build/v/<build tag>/, and index.html points
 # there. Modules, workers, the worklet and the wasm are all loaded by relative
@@ -32,7 +34,7 @@ FRONTEND_FILES := $(shell find frontend -type f)
 PAGES := $(filter-out frontend/index.template.html,$(wildcard frontend/*.html))
 CATALOGUE_FILES := $(shell find arclive-software/catalogue -type f)
 
-JINJA_VARS := $(foreach v,VDIR BUILD_TAG ARCULATOR_BUILD_TAG NSPARK_BUILD_TAG SOFTWARE_BUILD_TAG,-D $(v)=$($(v)))
+JINJA_VARS = $(foreach v,VDIR BUILD_TAG ARCULATOR_BUILD_TAG NSPARK_BUILD_TAG SOFTWARE_BUILD_TAG,-D $(v)=$($(v)))
 
 ARCULATOR_JS := arculator-wasm/build/wasm/arculator.js
 NSPARK_JS := nspark-wasm/build/nspark.js
@@ -59,6 +61,12 @@ clean:
 	rm -rf arculator-wasm/emscripten_out nspark-wasm/build build
 
 catalogue: build/software/software.json
+
+# A new catalogue needs a new index.html for its hash, but `make frontend`
+# leaves the catalogue alone and uses the hash of the one already built
+ifeq (,$(filter frontend,$(MAKECMDGOALS)))
+build/index.html: build/software/software.json
+endif
 
 build/index.html: $(V)/ui.js frontend/index.template.html $(PAGES)
 	$(JINJA2) $(JINJA_VARS) frontend/index.template.html < /dev/null > $@

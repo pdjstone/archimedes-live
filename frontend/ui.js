@@ -6,6 +6,7 @@ import { initBasicEditor, showBasicEditor, wrapProg, setBootedToBasic, BASIC_RUN
 import { EmuAudio } from './emu-audio.js'
 import { setCliEmu } from './jscli-page.js'
 import { connect, transfer } from './shared/rpc.js'
+import { catalogueTag } from './shared/software-catalogue.js'
 import { latin1Bytes, latin1String } from './shared/latin1.js'
 import { Notice, PARAM_HINTS } from './shared/notices.js'
 import { MOUSE_CAPTURE_MODES } from './shared/input.js'
@@ -63,7 +64,10 @@ if (searchParams.has('audiostats')) {
   startAudioStatsOverlay(emuAudio);
 }
 
-const arculatorWorker = new Worker(new URL('worker/arculator-worker.js', import.meta.url), { type: 'module' });
+// The worker reads the catalogue's tag from its URL (shared/software-catalogue.js)
+const arculatorWorker = new Worker(
+  new URL('worker/arculator-worker.js#sw=' + encodeURIComponent(catalogueTag), import.meta.url),
+  { type: 'module' });
 // emu's methods call the worker's functions; on() listens for its events
 const { emu, on } = connect(arculatorWorker);
 setCliEmu(emu);
