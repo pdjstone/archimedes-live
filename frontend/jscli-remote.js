@@ -13,8 +13,15 @@
                                        {event: 'ended', session, error}
     {id, op: 'input', session, data}, {id, op: 'close', session}
     {id, op: 'type', data}
-    {id, op: 'status'}, {id, op: 'screenshot'} -> result: PNG as base64
-  and gets {id, result} or {id, error: message} back. The page sends
+    {id, op: 'status'}
+    {id, op: 'load', name} + bytes   -> result: the notices shown (arcLoadFile)
+    {id, op: 'screenshot'}           -> result: PNG bytes
+  and gets {id, result} or {id, error: message} back.
+
+  Bytes that aren't text (files, screenshots) go in binary messages: a
+  4-byte little-endian length, that many bytes of JSON (the message, as
+  above), then the bytes. In a request they're the op's data, and in a reply
+  they're the result. Everything else is a text message of JSON. The page sends
   {event: 'status', status} when it connects and whenever arcCliStatus()'s
   callback or wimp changes, so the client knows when the modules are there.
 
@@ -47,13 +54,33 @@ let nextSessionId = 1;
 let lastStatus = null;
 let badge = null;
 
-/*Send msg if connected. Returns whether it was sent*/
-function send(msg) {
+/*Send msg if connected, with `bytes` (a Blob) after it in a binary message
+  if given. Returns whether it was sent*/
+function send(msg, bytes = null) {
   if (socket && socket.readyState == WebSocket.OPEN) {
-    socket.send(JSON.stringify(msg));
+    socket.send(bytes ? binaryMessage(msg, bytes) : JSON.stringify(msg));
     return true;
   }
   return false;
+}
+
+function binaryMessage(msg, bytes) {
+  let json = new TextEncoder().encode(JSON.stringify(msg));
+  let length = new Uint8Array(4);
+  new DataView(length.buffer).setUint32(0, json.length, true);
+  return new Blob([length, json, bytes]);
+}
+
+/*A message from the client, from a text or binary (Blob) message. A binary
+  message's bytes are its `data`, as a Blob*/
+async function parseMessage(data) {
+  if (!(data instanceof Blob)) {
+    return JSON.parse(data);
+  }
+  let length = new DataView(await data.slice(0, 4).arrayBuffer()).getUint32(0, true);
+  let msg = JSON.parse(await data.slice(4, 4 + length).text());
+  msg.data = data.slice(4 + length);
+  return msg;
 }
 
 function setConnected(connected) {
@@ -115,8 +142,10 @@ async function handleRequest(req) {
     return null;
   case 'status':
     return await window.arcCliStatus();
+  case 'load':
+    return await window.arcLoadFile(req.name, req.data);
   case 'screenshot':
-    return await window.arcScreenshot({base64: true});
+    return await window.arcScreenshot();
   }
   throw new Error(`Unknown op '${req.op}'`);
 }
@@ -154,8 +183,13 @@ function connect(url, retryMs) {
   socket.onmessage = async event => {
     let req;
     try {
-      req = JSON.parse(event.data);
-      send({id: req.id, result: await handleRequest(req)});
+      req = await parseMessage(event.data);
+      let result = await handleRequest(req);
+      if (result instanceof Blob) {
+        send({id: req.id}, result);
+      } else {
+        send({id: req.id, result});
+      }
     } catch (e) {
       send({id: req?.id, error: String(e.message || e)});
     }

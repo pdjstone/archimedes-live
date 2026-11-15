@@ -24,6 +24,11 @@ Modes:
   -c CMD     Run * commands, print what they print, and exit (status 1 if
              one fails). Handy for scripts.
 
+--load FILE (or a URL) loads a disc image or archive once the page connects,
+as if it was dropped on the page: a disc image goes in drive 0, and a RISC OS
+archive is unpacked to HostFS. It's sent from here, so a URL needn't allow
+the page to fetch it (CORS).
+
 Sessions belong to the page, so they carry on if the connection drops or
 arcterm is restarted: it picks its session up again, or takes over the
 newest one. Only one page can be connected; when another connects, the old
@@ -31,15 +36,16 @@ one stops trying to reconnect.
 """
 import argparse
 import asyncio
-import base64
 import codecs
 import collections
 import json
 import os
 import secrets
+import struct
 import sys
+import urllib.request
 from http import HTTPStatus
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from websockets.asyncio.server import serve
 from websockets.exceptions import ConnectionClosed
@@ -69,6 +75,50 @@ RAW_QUIT = (0x04, 0x1d)     # Ctrl-D, Ctrl-]
 
 class BridgeError(Exception):
     pass
+
+
+def binary_message(msg, data):
+    """A binary message: msg as JSON, after its length, then data (as in
+    jscli-remote.js)"""
+    header = json.dumps(msg).encode()
+    return struct.pack('<I', len(header)) + header + data
+
+
+def parse_binary_message(data):
+    """(msg, bytes) from a binary message"""
+    length, = struct.unpack_from('<I', data)
+    return json.loads(data[4:4 + length]), data[4 + length:]
+
+
+def read_source(source):
+    """(name, bytes) of a file, or of a URL's content, to load"""
+    url = urlsplit(source)
+    if url.scheme in ('http', 'https'):
+        name = os.path.basename(unquote(url.path)) or 'download'
+        try:
+            with urllib.request.urlopen(source, timeout=60) as response:
+                return name, response.read()
+        except OSError as e:
+            raise BridgeError(f'Could not download {source}: {e}')
+    try:
+        with open(source, 'rb') as f:
+            return os.path.basename(source), f.read()
+    except OSError as e:
+        raise BridgeError(f'Could not read {source}: {e.strerror}')
+
+
+async def load(bridge, source, say):
+    """Load a disc image or archive (a file or URL) into the page, and say
+    what happened. Returns whether it loaded"""
+    name, data = await asyncio.to_thread(read_source, source)
+    try:
+        notices = await bridge.request('load', data, name=name)
+    except BridgeError as e:
+        say(str(e), 'ansired')
+        return False
+    for n in notices:
+        say(n['text'], 'ansired' if n['level'] == 'error' else 'ansiyellow')
+    return all(n['level'] != 'error' for n in notices)
 
 
 def latin1(data):
@@ -140,6 +190,7 @@ class Bridge:
         self.origins = origins
         self.ws = None
         self.status = None
+        self.connected = asyncio.Event()
         self.ready = asyncio.Event()        # JSCLI or JSCLIWimp is loaded
         self.pending = {}
         self.next_id = 1
@@ -163,14 +214,20 @@ class Bridge:
         self.ws = ws
         self.status = None
         self.ready.clear()
+        self.connected.set()
         self.on_connection(True)
         try:
-            async for text in ws:
+            async for data in ws:
                 try:
-                    self.message(json.loads(text))
+                    if isinstance(data, bytes):
+                        msg, result = parse_binary_message(data)
+                        msg['result'] = result
+                    else:
+                        msg = json.loads(data)
+                    self.message(msg)
                 except Exception as e:
                     # A bad message shouldn't cost the connection
-                    print(f'arcterm: bad message from Archimedes Live ({e!r}): {text[:200]}', file=sys.stderr)
+                    print(f'arcterm: bad message from Archimedes Live ({e!r}): {data[:200]!r}', file=sys.stderr)
         except ConnectionClosed:
             pass        # e.g. the page closed without saying so: 'disconnected' covers it
         except Exception as e:
@@ -179,6 +236,7 @@ class Bridge:
             if self.ws is ws:
                 self.ws = None
                 self.status = None
+                self.connected.clear()
                 self.ready.clear()
                 for fut in self.pending.values():
                     if not fut.done():
@@ -198,14 +256,17 @@ class Bridge:
             if fut and not fut.done():
                 fut.set_result(msg)
 
-    async def request(self, op, **args):
+    async def request(self, op, data=None, **args):
+        """Make a request of the page, with bytes `data` for it if given
+        (sent as a binary message), and return its result"""
         if not self.ws:
             raise BridgeError("Archimedes Live isn't connected")
         req_id = self.next_id
         self.next_id += 1
         fut = asyncio.get_running_loop().create_future()
         self.pending[req_id] = fut
-        await self.ws.send(json.dumps({'id': req_id, 'op': op, **args}))
+        msg = {'id': req_id, 'op': op, **args}
+        await self.ws.send(json.dumps(msg) if data is None else binary_message(msg, data))
         msg = await fut
         if 'error' in msg:
             raise BridgeError(msg['error'])
@@ -285,6 +346,7 @@ class LineTerm:
   \close        end the session; lines then run as * commands
   \status       which JSCLI modules are loaded
   \shot [FILE]  save a screenshot (default arcterm-N.png)
+  \load FILE    load a disc image or archive (a file or URL), as if dropped on the page
   \quit         quit (or press Ctrl-D)"""
 
     def __init__(self, bridge, args):
@@ -451,8 +513,13 @@ class LineTerm:
             path = rest or f'arcterm-{self.shots}.png'
             png = await self.bridge.request('screenshot')
             with open(path, 'wb') as f:
-                f.write(base64.b64decode(png))
+                f.write(png)
             self.say(f'Saved {path}')
+        elif name == 'load':
+            if not rest:
+                self.say('\\load needs a file or URL', 'ansired')
+            else:
+                await load(self.bridge, rest, self.say)
         else:
             self.say(f'Unknown command \\{name}: \\help lists them', 'ansired')
 
@@ -516,8 +583,9 @@ class RawTerm:
         bridge.on_event = self.on_event
         bridge.on_connection = self.on_connection
 
-    def say(self, text):
-        sys.stdout.write(f'\r\n\x1b[33m[arcterm] {text}\x1b[0m\r\n')
+    def say(self, text, style='ansiyellow'):
+        colour = 31 if style == 'ansired' else 33
+        sys.stdout.write(f'\r\n\x1b[{colour}m[arcterm] {text}\x1b[0m\r\n')
         sys.stdout.flush()
 
     def on_connection(self, connected):
@@ -641,8 +709,33 @@ class RawTerm:
             sys.stdout.write('\x1b[0m\n')
 
 
-async def run_commands(bridge, commands, via, timeout):
-    """-c: run each command, print its output, stop at the first error"""
+def say_stderr(text, style=None):
+    print(f'arcterm: {text}', file=sys.stderr)
+
+
+async def load_all(bridge, sources, say):
+    """--load: load each once the page connects. Returns whether they all loaded"""
+    await bridge.connected.wait()
+    ok = True
+    for source in sources:
+        try:
+            ok = await load(bridge, source, say) and ok
+        except BridgeError as e:
+            say(str(e), 'ansired')
+            ok = False
+    return ok
+
+
+async def run_commands(bridge, commands, via, timeout, loads):
+    """-c: load the --load files, run each command, print its output, stop
+    at the first error"""
+    if loads:
+        try:
+            if not await asyncio.wait_for(load_all(bridge, loads, say_stderr), timeout):
+                return 1
+        except asyncio.TimeoutError:
+            print(f'arcterm: Archimedes Live did not connect within {timeout} s', file=sys.stderr)
+            return 2
     try:
         await asyncio.wait_for(bridge.ready.wait(), timeout)
     except asyncio.TimeoutError:
@@ -671,6 +764,9 @@ async def main():
     parser.add_argument('--cli', action='store_true',
                         help='run each line as a * command, without a session')
     parser.add_argument('--raw', action='store_true', help='send every key straight to the session')
+    parser.add_argument('--load', action='append', default=[], metavar='FILE',
+                        help='load disc image or archive FILE (or a URL) when the page connects, '
+                             'as if it was dropped on the page (can be repeated)')
     parser.add_argument('-c', dest='commands', action='append', metavar='CMD',
                         help='run * command CMD and exit (can be repeated)')
     parser.add_argument('--wimp', action='store_true', help='with -c, run the commands in TaskWindows')
@@ -688,9 +784,15 @@ async def main():
               f'e.g. http://127.0.0.1:8000/#preset=a3000&ff=14400&jscli=ws://{host}:{args.port}/{token}',
               file=sys.stderr)
         if args.commands:
-            return await run_commands(bridge, args.commands, 'wimp' if args.wimp else 'callback', args.timeout)
+            return await run_commands(bridge, args.commands, 'wimp' if args.wimp else 'callback',
+                                      args.timeout, args.load)
         term = RawTerm(bridge, args) if args.raw else LineTerm(bridge, args)
-        await term.run()
+        loader = asyncio.ensure_future(load_all(bridge, args.load, term.say)) if args.load else None
+        try:
+            await term.run()
+        finally:
+            if loader:
+                loader.cancel()
     return 0
 
 

@@ -9,6 +9,7 @@ import { formatNotice, noticeLevel } from './shared/notices.js'
 
 const notices = [];
 
+/*Show a notice, and return it as {id, params, level, text}*/
 export function notify(notice) {
   let n = { id: notice.id, params: notice.params ?? {}, level: noticeLevel(notice), text: formatNotice(notice) };
   notices.push(n);
@@ -16,6 +17,7 @@ export function notify(notice) {
   log(`Notice (${n.level}): ${n.text}`);
   showToast(n);
   window.dispatchEvent(new CustomEvent('arcnotice', { detail: n }));
+  return n;
 }
 
 // How long a toast stays, by level (ms). Hovering over it keeps it.

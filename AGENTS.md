@@ -204,6 +204,12 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
   (Latin-1); an array of numbers and strings, or a Uint8Array, works too. Resolves once
   all are in the buffer; long text waits for the program to read some.
   Unlike `simulateKey`, nothing is dropped on a slow host.
+- **`window.arcLoadFile(name, data)`** loads a disc image or archive as if
+  it was dropped on the page: `data` is a Blob, ArrayBuffer or typed array,
+  and `name` is used to tell what kind of file it is. It shows the usual
+  toasts and resolves with their notices (as `arcNotices()` gives them), or
+  rejects with the reason it couldn't be loaded (the error's `notice` holds
+  the notice). It waits until the emulator has started.
 - **`window.arcScreenshot({base64})`** resolves with a PNG of the next frame
   the emulator presents: a `Blob`, or a base64 string with `base64: true`. It's
   the size the canvas shows (double-scanned modes have their lines doubled, so
@@ -330,6 +336,7 @@ given its URL in the `jscli` parameter, and reconnects if it restarts:
 venv/bin/python tools/arcterm.py              # prints the jscli=... to put in the hash
 venv/bin/python tools/arcterm.py --raw        # every key straight to RISC OS
 venv/bin/python tools/arcterm.py -c 'Cat' -c 'Show Sys$Year'   # run and exit
+venv/bin/python tools/arcterm.py --load qtm.zip -c 'Cat HostFS:$'  # load, then run
 ```
 
 - In the desktop, the default line mode runs an `arcCliSession` TaskWindow.
@@ -337,10 +344,20 @@ venv/bin/python tools/arcterm.py -c 'Cat' -c 'Show Sys$Year'   # run and exit
   locally and their echo is dropped. Ctrl-C sends Escape and Ctrl-D quits.
   Outside the desktop, each line runs as an `arcCli` command. Lines starting
   with `\` are arcterm commands (`\help`): `\cli`, `\wimp`, `\type`,
-  `\open BASIC`, `\close`, `\status` and `\shot file.png`.
+  `\open BASIC`, `\close`, `\status`, `\shot file.png` and `\load FILE`.
 - `--raw` passes each key through, with cursor and function keys mapped
   and VDU codes turned into ANSI. Ctrl-D or Ctrl-] quits. A TaskWindow has no cursor
   editing, so cursor keys reach programs as key codes.
+- `--load FILE` (repeatable) and `\load FILE` load a disc image or archive
+  as if it was dropped on the page (`arcLoadFile`): a disc goes in drive 0,
+  a RISC OS archive is unpacked to HostFS, and the notices are printed.
+  FILE can be an http(s) URL, which arcterm downloads, so the site needn't
+  allow CORS. `--load` waits for the page to connect, not for JSCLI, and the
+  page holds the file until the emulator has started; with `-c`, the
+  commands run after it, and a failed load exits with 1.
+- Files and screenshots go over the WebSocket as binary messages (a 4-byte
+  length, a JSON header, then the bytes), as described in
+  `frontend/jscli-remote.js`.
 - `-c` runs commands through JSCLI (or TaskWindows with `--wimp`), prints
   their output and exits: 0 OK, 1 a command failed, 2 no connection within
   `--timeout`.

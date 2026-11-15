@@ -53,6 +53,12 @@ function reportFailure(e) {
 }
 // The page can't be seen, so the emulator doesn't draw (sendPageHidden in ui.js)
 let pageHidden = false;
+// Settles once the first machine has booted (or failed to), so software
+// loaded before then, e.g. by tools/arcterm.py as soon as the page connects,
+// doesn't go into an FS or emulator that isn't there yet
+let startedOk, startFailed;
+const started = new Promise((resolve, reject) => { startedOk = resolve; startFailed = reject; });
+started.catch(() => {});
 
 expose({
   // From ui.js at startup
@@ -77,7 +83,11 @@ expose({
           if (machineConfig.dumpAudio) {
               arc_dump_audio(machineConfig.dumpAudio.delay, machineConfig.dumpAudio.duration);
           }
-          }).catch(reportFailure);
+          startedOk();
+          }).catch(e => {
+            startFailed(new Error("The emulator didn't start"));
+            reportFailure(e);
+          });
       },
       preRun: [function(module) {
           console.log('preRun');
@@ -119,16 +129,19 @@ expose({
     }
   }),
   loadSoftware: softwareId => whilePaused(() => loadFromSoftwareCatalogue(softwareId)),
-  // A File from the software browser's upload button or drag and drop.
-  // Resolves with the notices to show (shared/notices.js)
-  loadFile: file => whilePaused(async () => {
-    let { notice, hostfs } = await loadSoftware(file.name, file);
-    let notices = [notice];
-    if (hostfs && !currentOs?.startsWith('riscos3')) {
-      notices.push({id: Notice.HOSTFS_NEEDS_RISC_OS_3, params: {file: file.name, os: OS_NAMES[currentOs] ?? currentOs}});
-    }
-    return notices;
-  }),
+  // A File from the software browser's upload button, drag and drop or
+  // arcLoadFile. Resolves with the notices to show (shared/notices.js)
+  loadFile: async file => {
+    await started;
+    return whilePaused(async () => {
+      let { notice, hostfs } = await loadSoftware(file.name, file);
+      let notices = [notice];
+      if (hostfs && !currentOs?.startsWith('riscos3')) {
+        notices.push({id: Notice.HOSTFS_NEEDS_RISC_OS_3, params: {file: file.name, os: OS_NAMES[currentOs] ?? currentOs}});
+      }
+      return notices;
+    });
+  },
 
   fsRead: path => {
     let bytes = fsCall(path, () => emulator.FS.readFile(path, { encoding: 'binary' }));

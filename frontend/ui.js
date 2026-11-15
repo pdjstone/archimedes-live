@@ -192,6 +192,25 @@ function loadFile(file) {
   return emu.loadFile(file).then(notices => notices.forEach(notify), notifyFailure);
 }
 
+/*Load a disc image or archive as if it was dropped on the page, for scripts
+  and tools/arcterm.py. `data` is a Blob, ArrayBuffer or typed array, and
+  `name` its file name, which is used to tell what it is. Resolves with the
+  notices shown ({id, params, level, text}, as from arcNotices()), or rejects
+  with the reason it couldn't be loaded. Waits for the emulator to start.*/
+window.arcLoadFile = async function(name, data) {
+  let notices;
+  try {
+    notices = await emu.loadFile(new File([data], name));
+  } catch (e) {
+    if (e?.notice) {
+      let n = notify(e.notice);
+      throw Object.assign(new Error(n.text), {notice: n});
+    }
+    throw e;
+  }
+  return notices.map(notify);
+};
+
 // ui.js is a module, so its functions aren't globals. Expose the ones
 // called from inline event handlers in index.html and the classic scripts
 Object.assign(window, {
