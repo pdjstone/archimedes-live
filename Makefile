@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: all frontend serve clean catalogue check deploy FORCE
+.PHONY: all frontend serve clean catalogue check deploy deploy-prune FORCE
 
 JINJA2 ?= jinja2
 PYTHON ?= python3
@@ -8,6 +8,10 @@ PYTHON ?= python3
 ARCULATOR_URL := https://b-em.bbcmicro.com/arculator/Arculator_V2.2_Linux.tar.gz
 SITE_BUCKET := s3://archi.medes.live
 FILES_BUCKET := s3://files-archi.medes.live
+# Both buckets are in eu-west-2. s3cmd signs for us-east-1 unless told, and
+# though ls and sync recover from that, get and info fail with a bare 400.
+S3_REGION := eu-west-2
+S3CMD ?= s3cmd
 
 # <short commit>-clean or <short commit>-dirty for the git checkout in $(1)
 git_tag = $(shell cd $(1) && echo $$(git rev-parse --short HEAD)-$$([ -n "$$(git status -s)" ] && echo dirty || echo clean))
@@ -130,13 +134,31 @@ dlcache/arculator22.tar.gz:
 	curl -fsSL $(ARCULATOR_URL) -o $@.tmp
 	mv $@.tmp $@
 
+# Made afresh each time, so build/software holds only what the catalogue uses
 build/software/software.json: $(CATALOGUE_FILES) arclive-software/toml2json.py
+	rm -rf build/software
 	arclive-software/toml2json.py arclive-software/catalogue/ build/software/
 
-S3SYNC := s3cmd sync --no-mime-magic --guess-mime-type
+S3SYNC := $(S3CMD) --region $(S3_REGION) sync --no-mime-magic --guess-mime-type
 
+# The pages and catalogue that were live before the upload, so what they use
+# is kept for pages already open. Not in build/, which is uploaded.
+DEPLOY_LIVE := dlcache/deploy-live
+PRUNE := $(PYTHON) tools/prune_deploy.py --s3cmd '$(S3CMD) --region $(S3_REGION)' $(if $(DRY_RUN),--dry-run)
+
+# After uploading, deletes the files that neither the new build nor the one
+# it replaces uses: old software versions from the files bucket, and old v/
+# directories from the site. `make deploy-prune DRY_RUN=1` lists them.
 deploy: all
-	s3cmd sync -m application/octet-stream --exclude '*.txt' build/emu/roms $(FILES_BUCKET)/
+	rm -rf $(DEPLOY_LIVE) && mkdir -p $(DEPLOY_LIVE)
+	$(S3CMD) --region $(S3_REGION) get $(FILES_BUCKET)/software/software.json $(DEPLOY_LIVE)/software.json
+	$(S3CMD) --region $(S3_REGION) get $(SITE_BUCKET)/index.html $(DEPLOY_LIVE)/index.html
+	$(S3CMD) --region $(S3_REGION) sync -m application/octet-stream --exclude '*.txt' build/emu/roms $(FILES_BUCKET)/
 	cd build && $(S3SYNC) software $(FILES_BUCKET)
 	cd build && $(S3SYNC) --add-header='Cache-Control: public, max-age=31536000, immutable' v $(SITE_BUCKET)/
 	cd build && $(S3SYNC) --add-header='Cache-Control: no-cache' --exclude 'emu/*' --exclude 'software/*' --exclude 'v/*' --exclude 'survey/*' --exclude 'audio-dumps/*' . $(SITE_BUCKET)
+	$(MAKE) deploy-prune
+
+deploy-prune:
+	$(PRUNE) software $(FILES_BUCKET)/software/ build/software/software.json $(DEPLOY_LIVE)/software.json
+	$(PRUNE) versions $(SITE_BUCKET)/v/ build/index.html $(DEPLOY_LIVE)/index.html
