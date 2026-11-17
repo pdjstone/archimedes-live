@@ -134,10 +134,12 @@ dlcache/arculator22.tar.gz:
 	curl -fsSL $(ARCULATOR_URL) -o $@.tmp
 	mv $@.tmp $@
 
-# Made afresh each time, so build/software holds only what the catalogue uses
-build/software/software.json: $(CATALOGUE_FILES) arclive-software/toml2json.py
+# Made afresh each time, so build/software holds only what the catalogue uses.
+# make REFRESH=1 fetches every file again (toml2json.py --refresh), taking new
+# versions that check out, so it runs even if the catalogue hasn't changed
+build/software/software.json: $(CATALOGUE_FILES) arclive-software/toml2json.py $(if $(REFRESH),FORCE)
 	rm -rf build/software
-	arclive-software/toml2json.py arclive-software/catalogue/ build/software/
+	arclive-software/toml2json.py $(if $(REFRESH),--refresh) arclive-software/catalogue/ build/software/
 
 S3SYNC := $(S3CMD) --region $(S3_REGION) sync --no-mime-magic --guess-mime-type
 

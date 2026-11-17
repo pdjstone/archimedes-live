@@ -9,5 +9,6 @@ pillow
 selenium
 pycurl
 riscos-conv==0.0.3
+tqdm
 websockets
 prompt_toolkit

@@ -5,6 +5,7 @@ import { NSpark } from './nspark/nspark-helper.js'
 import { fetchSoftwareCatalogue } from '../shared/software-catalogue.js'
 import { SOFTWARE_BASE } from '../shared/paths.js'
 import { Notice, NoticeError, reasonFor } from '../shared/notices.js'
+import { latin1Bytes } from '../shared/latin1.js'
 
 const ROS_FileType_Map = Object.freeze({
   '.zip': 0xddc, // ZIP is 0xa91, but older SparkFS/SparkPlug recognises 0xddc for ZIP
@@ -373,6 +374,9 @@ export const FILETYPE_OBEY = 0xfeb // normal boot
 export const FILETYPE_COMMAND = 0xffe // basic boot
 export const FILETYPE_DESKTOP = 0xfea 
 
+/*Write the HostFS !Boot file: content is its text, one byte per character
+  (Latin-1, as RISC OS has it), not UTF-8, so e.g. a hard space in an
+  app-path is the one byte RISC OS expects*/
 export function createHostfsBootFile(content, fileType) {
   try {
     for (const filename of emulator.FS.readdir('/hostfs/')) {
@@ -383,7 +387,7 @@ export function createHostfsBootFile(content, fileType) {
   } catch (e) {
     console.log(e);
   }
-  putDataAtPath(content, '/hostfs/!Boot,' + fileType.toString(16));
+  putDataAtPath(latin1Bytes(content), '/hostfs/!Boot,' + fileType.toString(16));
 }
 
 export function roDirname(roFilepath) {
