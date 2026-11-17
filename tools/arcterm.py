@@ -51,11 +51,17 @@ import secrets
 import struct
 import sys
 import urllib.request
+from collections.abc import Callable
 from http import HTTPStatus
+from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
 
-from websockets.asyncio.server import serve
+from websockets.asyncio.server import ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
+from websockets.http11 import Request, Response
+
+if TYPE_CHECKING:
+    from prompt_toolkit.formatted_text import ANSI
 
 LOOPBACK_HOSTS = {'localhost', '127.0.0.1', '::1'}
 # Close code telling a page that another one has taken over, so it doesn't
@@ -79,25 +85,31 @@ KEY_CODES = {
 }
 RAW_QUIT = (0x04, 0x1d)     # Ctrl-D, Ctrl-]
 
+# A message to or from the page, as decoded from its JSON
+Message = dict[str, Any]
+# Shows a line of arcterm's own (not RISC OS's) output: say(text, style), with
+# a prompt_toolkit style such as 'ansired'
+Say = Callable[[str, str], None]
+
 
 class BridgeError(Exception):
     pass
 
 
-def binary_message(msg, data):
-    """A binary message: msg as JSON, after its length, then data (as in
-    jscli-remote.js)"""
+def binary_message(msg: Message, body: bytes) -> bytes:
+    """A binary message: msg as JSON, after its length, then the bytes of its
+    body (as in jscli-remote.js)"""
     header = json.dumps(msg).encode()
-    return struct.pack('<I', len(header)) + header + data
+    return struct.pack('<I', len(header)) + header + body
 
 
-def parse_binary_message(data):
-    """(msg, bytes) from a binary message"""
-    length, = struct.unpack_from('<I', data)
-    return json.loads(data[4:4 + length]), data[4 + length:]
+def parse_binary_message(message: bytes) -> tuple[Message, bytes]:
+    """(msg, body bytes) from a binary message"""
+    length, = struct.unpack_from('<I', message)
+    return json.loads(message[4:4 + length]), message[4 + length:]
 
 
-def read_source(source):
+def read_source(source: str) -> tuple[str, bytes]:
     """(name, bytes) of a file, or of a URL's content, to load"""
     url = urlsplit(source)
     if url.scheme in ('http', 'https'):
@@ -114,7 +126,7 @@ def read_source(source):
         raise BridgeError(f'Could not read {source}: {e.strerror}')
 
 
-async def load(bridge, source, say):
+async def load(bridge: 'Bridge', source: str, say: Say) -> bool:
     """Load a disc image or archive (a file or URL) into the page, and say
     what happened. Returns whether it loaded"""
     name, data = await asyncio.to_thread(read_source, source)
@@ -128,7 +140,7 @@ async def load(bridge, source, say):
     return all(n['level'] != 'error' for n in notices)
 
 
-def latin1(data):
+def latin1(data: str) -> str:
     """A str (which may have characters outside Latin-1) as JSCLI's bytes"""
     return data.encode('latin1', 'replace').decode('latin1')
 
@@ -139,13 +151,13 @@ class VduConverter:
     (for line mode, where the output scrolls past). Colours (VDU 17) become
     ANSI colours either way."""
 
-    def __init__(self, ansi):
+    def __init__(self, ansi: bool) -> None:
         self.ansi = ansi
-        self.code = None
-        self.params = []
+        self.code: int | None = None       # the control code taking parameters
+        self.params: list[int] = []
 
-    def feed(self, data):
-        out = []
+    def feed(self, data: bytes) -> str:
+        out: list[str] = []
         for b in data:
             if self.code is not None:
                 self.params.append(b)
@@ -165,7 +177,7 @@ class VduConverter:
                 out.append(self.control(b, []))
         return ''.join(out)
 
-    def control(self, code, params):
+    def control(self, code: int, params: list[int]) -> str:
         if code == 10:
             # TaskWindows drop CR from their output, so a newline is just LF,
             # which a terminal in raw mode doesn't take back to the left
@@ -192,19 +204,19 @@ class VduConverter:
 class Bridge:
     """The WebSocket server, and requests to the page connected to it"""
 
-    def __init__(self, token, origins):
+    def __init__(self, token: str, origins: set[str]) -> None:
         self.token = token
         self.origins = origins
-        self.ws = None
-        self.status = None
+        self.ws: ServerConnection | None = None
+        self.status: Message | None = None     # the page's arcCliStatus()
         self.connected = asyncio.Event()
         self.ready = asyncio.Event()        # JSCLI or JSCLIWimp is loaded
-        self.pending = {}
+        self.pending: dict[int, asyncio.Future[Message]] = {}
         self.next_id = 1
-        self.on_event = lambda msg: None
-        self.on_connection = lambda connected: None
+        self.on_event: Callable[[Message], None] = lambda msg: None
+        self.on_connection: Callable[[bool], None] = lambda connected: None
 
-    def check_request(self, connection, request):
+    def check_request(self, connection: ServerConnection, request: Request) -> Response | None:
         if request.path != '/' + self.token:
             return connection.respond(HTTPStatus.FORBIDDEN, 'Wrong token\n')
         origin = request.headers.get('Origin')
@@ -213,7 +225,7 @@ class Bridge:
             return connection.respond(HTTPStatus.FORBIDDEN, f'Origin {origin} not allowed\n')
         return None
 
-    async def handler(self, ws):
+    async def handler(self, ws: ServerConnection) -> None:
         if self.ws:
             # e.g. the page was reloaded, or opened in another tab: the new
             # one takes over, and the old one stops trying to reconnect
@@ -226,6 +238,7 @@ class Bridge:
         try:
             async for data in ws:
                 try:
+                    msg: Message
                     if isinstance(data, bytes):
                         msg, result = parse_binary_message(data)
                         msg['result'] = result
@@ -251,7 +264,7 @@ class Bridge:
                 self.pending.clear()
                 self.on_connection(False)
 
-    def message(self, msg):
+    def message(self, msg: Message) -> None:
         if 'event' in msg:
             if msg['event'] == 'status':
                 self.status = msg['status']
@@ -263,27 +276,30 @@ class Bridge:
             if fut and not fut.done():
                 fut.set_result(msg)
 
-    async def request(self, op, data=None, **args):
-        """Make a request of the page, with bytes `data` for it if given
-        (sent as a binary message), and return its result"""
+    async def request(self, op: str, body: bytes | None = None, /, **args: Any) -> Any:
+        """Make a request of the page and return its result. `args` are the
+        request's JSON fields (e.g. the `data` string of 'input' and
+        'type'); `body`, bytes for it if given (a file to load), goes after
+        them in a binary message"""
         if not self.ws:
             raise BridgeError("Archimedes Live isn't connected")
         req_id = self.next_id
         self.next_id += 1
-        fut = asyncio.get_running_loop().create_future()
+        fut: asyncio.Future[Message] = asyncio.get_running_loop().create_future()
         self.pending[req_id] = fut
         msg = {'id': req_id, 'op': op, **args}
-        await self.ws.send(json.dumps(msg) if data is None else binary_message(msg, data))
+        await self.ws.send(json.dumps(msg) if body is None else binary_message(msg, body))
         msg = await fut
         if 'error' in msg:
             raise BridgeError(msg['error'])
         return msg.get('result')
 
-    def wimp(self):
+    def wimp(self) -> bool:
         return bool(self.status and self.status.get('wimp'))
 
 
-def choose_session(page, session_id, msg):
+def choose_session(page: str | None, session_id: int | None,
+                   msg: Message) -> tuple[Message | None, str, bool]:
     """Which of the page's sessions to use, from the 'sessions' event it sends
     when it connects. The one we had, if the page still has it, with what it
     printed while we were disconnected; otherwise the newest one still
@@ -305,19 +321,19 @@ class EchoFilter:
     has already shown as typed. Gives up on a line at the first difference
     (a program that reads without echoing, or output that comes first)."""
 
-    def __init__(self):
-        self.lines = collections.deque()
+    def __init__(self) -> None:
+        self.lines: collections.deque[bytes] = collections.deque()
         self.pos = 0
         self.newlines = 0
 
-    def expect(self, line):
+    def expect(self, line: bytes) -> None:
         self.lines.append(line)
 
-    def clear(self):
+    def clear(self) -> None:
         self.lines.clear()
         self.pos = self.newlines = 0
 
-    def feed(self, data):
+    def feed(self, data: bytes) -> bytes:
         out = bytearray()
         for b in data:
             while self.lines:
@@ -356,37 +372,37 @@ class LineTerm:
   \load FILE    load a disc image or archive (a file or URL), as if dropped on the page
   \quit         quit (or press Ctrl-D)"""
 
-    def __init__(self, bridge, args):
+    def __init__(self, bridge: Bridge, args: argparse.Namespace) -> None:
         from prompt_toolkit import PromptSession
         self.bridge = bridge
-        self.session_command = args.session
-        self.want_session = not args.cli
-        self.session_id = None
-        self.page = None
+        self.session_command: str = args.session
+        self.want_session: bool = not args.cli
+        self.session_id: int | None = None
+        self.page: str | None = None
         self.opening = False
         self.partial = ''
         self.echo = EchoFilter()
         self.vdu = VduConverter(ansi=False)
         self.shots = 0
-        self.prompt = PromptSession()
+        self.prompt: PromptSession[str] = PromptSession()
         bridge.on_event = self.on_event
         bridge.on_connection = self.on_connection
 
-    def say(self, text, style='ansiyellow'):
+    def say(self, text: str, style: str = 'ansiyellow') -> None:
         from prompt_toolkit import print_formatted_text
         from prompt_toolkit.formatted_text import FormattedText
         print_formatted_text(FormattedText([(style, f'[arcterm] {text}')]))
 
-    def show(self, text):
+    def show(self, text: str) -> None:
         from prompt_toolkit import print_formatted_text
         from prompt_toolkit.formatted_text import ANSI
         print_formatted_text(ANSI(text), end='')
 
-    def refresh(self):
+    def refresh(self) -> None:
         if self.prompt.app.is_running:
             self.prompt.app.invalidate()
 
-    def message(self):
+    def message(self) -> 'ANSI':
         from prompt_toolkit.formatted_text import ANSI
         if not self.bridge.ws:
             return ANSI('\x1b[33m(not connected)\x1b[0m ')
@@ -396,12 +412,12 @@ class LineTerm:
             return ANSI('*')
         return ANSI(self.partial)
 
-    def on_connection(self, connected):
+    def on_connection(self, connected: bool) -> None:
         # The session carries on in the page, to pick up when it reconnects
         self.say('Archimedes Live connected' if connected else 'Archimedes Live disconnected')
         self.refresh()
 
-    def on_sessions(self, msg):
+    def on_sessions(self, msg: Message) -> None:
         had = self.session_id
         s, data, resumed = choose_session(self.page, self.session_id, msg)
         self.page = msg['page']
@@ -423,7 +439,7 @@ class LineTerm:
                 self.session_ended(s['error'])
         self.refresh()
 
-    def session_ended(self, error):
+    def session_ended(self, error: Message | None) -> None:
         self.session_id = None
         self.partial = ''
         self.say(f"Session ended{': ' + error['message'] if error else ''}")
@@ -433,7 +449,7 @@ class LineTerm:
             asyncio.ensure_future(self.ensure_session())
         self.refresh()
 
-    def on_event(self, msg):
+    def on_event(self, msg: Message) -> None:
         event = msg['event']
         if event == 'status':
             self.say(f"JSCLI: {'loaded' if msg['status'].get('callback') else 'not loaded'}, "
@@ -446,10 +462,10 @@ class LineTerm:
         elif event == 'ended' and msg['session'] == self.session_id:
             self.session_ended(msg.get('error'))
 
-    def output(self, data):
+    def output(self, data: bytes) -> None:
         text = self.partial + self.vdu.feed(self.echo.feed(data))
-        lines = []
-        line = []
+        lines: list[str] = []
+        line: list[str] = []
         for c in text:
             if c == '\n':
                 lines.append(''.join(line))
@@ -464,7 +480,7 @@ class LineTerm:
             self.show(''.join(l + '\x1b[0m\n' for l in lines))
         self.refresh()
 
-    async def ensure_session(self):
+    async def ensure_session(self) -> None:
         if not self.want_session or self.session_id is not None or self.opening or not self.bridge.wimp():
             return
         self.opening = True
@@ -480,7 +496,7 @@ class LineTerm:
             self.opening = False
             self.refresh()
 
-    async def run_cli(self, command, via='callback'):
+    async def run_cli(self, command: str, via: str = 'callback') -> None:
         r = await self.bridge.request('cli', command=latin1(command), via=via)
         text = VduConverter(ansi=False).feed(r['output'].encode('latin1'))
         if text:
@@ -488,7 +504,7 @@ class LineTerm:
         if r['error']:
             self.say(f"Error &{r['error']['number']:X}: {r['error']['message']}", 'ansired')
 
-    async def meta(self, line):
+    async def meta(self, line: str) -> None:
         name, _, rest = line.partition(' ')
         rest = rest.strip()
         if name in ('quit', 'exit', 'q'):
@@ -530,19 +546,19 @@ class LineTerm:
         else:
             self.say(f'Unknown command \\{name}: \\help lists them', 'ansired')
 
-    async def close_session(self):
+    async def close_session(self) -> None:
         # Forget it first, so its 'ended' event doesn't start another one
         session, self.session_id = self.session_id, None
         if session is not None:
             await self.bridge.request('close', session=session)
             self.say('Session closed')
 
-    async def send_escape(self):
+    async def send_escape(self) -> None:
         if self.session_id is not None:
             self.echo.clear()
             await self.bridge.request('input', session=self.session_id, data=ESCAPE)
 
-    async def line(self, line):
+    async def line(self, line: str) -> None:
         if line.startswith('\\'):
             await self.meta(line[1:])
         elif not self.bridge.ready.is_set():
@@ -555,7 +571,7 @@ class LineTerm:
         else:
             await self.run_cli(line.lstrip('*'))
 
-    async def run(self):
+    async def run(self) -> None:
         while True:
             try:
                 line = await self.prompt.prompt_async(self.message)
@@ -579,27 +595,27 @@ class RawTerm:
     """Raw mode: keys go to the session one at a time, and its output to the
     terminal with VDU codes turned into ANSI"""
 
-    def __init__(self, bridge, args):
+    def __init__(self, bridge: Bridge, args: argparse.Namespace) -> None:
         self.bridge = bridge
-        self.session_command = args.session
-        self.session_id = None
-        self.page = None
+        self.session_command: str = args.session
+        self.session_id: int | None = None
+        self.page: str | None = None
         self.vdu = VduConverter(ansi=True)
-        self.keys = asyncio.Queue()
+        self.keys: asyncio.Queue[str] = asyncio.Queue()     # Latin-1, for 'input'
         self.quit = asyncio.Event()
         bridge.on_event = self.on_event
         bridge.on_connection = self.on_connection
 
-    def say(self, text, style='ansiyellow'):
+    def say(self, text: str, style: str = 'ansiyellow') -> None:
         colour = 31 if style == 'ansired' else 33
         sys.stdout.write(f'\r\n\x1b[{colour}m[arcterm] {text}\x1b[0m\r\n')
         sys.stdout.flush()
 
-    def on_connection(self, connected):
+    def on_connection(self, connected: bool) -> None:
         # The session carries on in the page, to pick up when it reconnects
         self.say('Archimedes Live connected' if connected else 'Archimedes Live disconnected')
 
-    def on_sessions(self, msg):
+    def on_sessions(self, msg: Message) -> None:
         had = self.session_id
         s, data, resumed = choose_session(self.page, self.session_id, msg)
         self.page = msg['page']
@@ -616,7 +632,7 @@ class RawTerm:
             if s['ended']:
                 self.session_ended(s['error'])
 
-    def session_ended(self, error):
+    def session_ended(self, error: Message | None) -> None:
         self.session_id = None
         self.say(f"Session ended{': ' + error['message'] if error else ''}")
         if not error:
@@ -624,11 +640,12 @@ class RawTerm:
             self.session_command = ''
             asyncio.ensure_future(self.ensure_session())
 
-    def show(self, data):
+    def show(self, data: str) -> None:
+        """Shows output from the page (a Latin-1 string of VDU codes)"""
         sys.stdout.write(self.vdu.feed(data.encode('latin1')))
         sys.stdout.flush()
 
-    def on_event(self, msg):
+    def on_event(self, msg: Message) -> None:
         event = msg['event']
         if event == 'status':
             asyncio.ensure_future(self.ensure_session())
@@ -639,7 +656,7 @@ class RawTerm:
         elif event == 'ended' and msg['session'] == self.session_id:
             self.session_ended(msg.get('error'))
 
-    async def ensure_session(self):
+    async def ensure_session(self) -> None:
         if self.session_id is not None:
             return
         if not self.bridge.wimp():
@@ -650,7 +667,7 @@ class RawTerm:
         except BridgeError as e:
             self.say(f'Could not start a session: {e}')
 
-    def read_keys(self):
+    def read_keys(self) -> None:
         data = os.read(sys.stdin.fileno(), 1024)
         out = bytearray()
         i = 0
@@ -688,7 +705,7 @@ class RawTerm:
         if out:
             self.keys.put_nowait(out.decode('latin1'))
 
-    async def send_keys(self):
+    async def send_keys(self) -> None:
         while True:
             keys = await self.keys.get()
             if self.session_id is not None:
@@ -697,7 +714,7 @@ class RawTerm:
                 except BridgeError as e:
                     self.say(str(e))
 
-    async def run(self):
+    async def run(self) -> None:
         import termios
         import tty
         fd = sys.stdin.fileno()
@@ -716,11 +733,11 @@ class RawTerm:
             sys.stdout.write('\x1b[0m\n')
 
 
-def say_stderr(text, style=None):
+def say_stderr(text: str, style: str | None = None) -> None:
     print(f'arcterm: {text}', file=sys.stderr)
 
 
-async def load_all(bridge, sources, say):
+async def load_all(bridge: Bridge, sources: list[str], say: Say) -> bool:
     """--load: load each once the page connects. Returns whether they all loaded"""
     await bridge.connected.wait()
     ok = True
@@ -733,7 +750,8 @@ async def load_all(bridge, sources, say):
     return ok
 
 
-async def run_commands(bridge, commands, via, timeout, loads):
+async def run_commands(bridge: Bridge, commands: list[str], via: str, timeout: float,
+                       loads: list[str]) -> int:
     """-c: load the --load files, run each command, print its output, stop
     at the first error"""
     if loads:
@@ -758,7 +776,7 @@ async def run_commands(bridge, commands, via, timeout, loads):
     return 0
 
 
-async def main():
+async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--host', default='127.0.0.1', help='address to listen on (default 127.0.0.1)')
     parser.add_argument('--port', type=int, default=8765, help='port to listen on (default 8765)')

@@ -14,14 +14,15 @@
     {id, op: 'input', session, data}, {id, op: 'close', session}
     {id, op: 'type', data}
     {id, op: 'status'}
-    {id, op: 'load', name} + bytes   -> result: the notices shown (arcLoadFile)
-    {id, op: 'screenshot'}           -> result: PNG bytes
+    {id, op: 'load', name} + body    -> result: the notices shown (arcLoadFile)
+    {id, op: 'screenshot'}           -> result: PNG bytes, as the reply's body
   and gets {id, result} or {id, error: message} back.
 
   Bytes that aren't text (files, screenshots) go in binary messages: a
   4-byte little-endian length, that many bytes of JSON (the message, as
-  above), then the bytes. In a request they're the op's data, and in a reply
-  they're the result. Everything else is a text message of JSON. The page sends
+  above), then the bytes: the message's body. In a request the body is the
+  op's file, and in a reply it's the result. It's kept apart from the JSON's
+  fields, so `data` is always a Latin-1 string. Everything else is a text message of JSON. The page sends
   {event: 'status', status} when it connects and whenever arcCliStatus()'s
   callback or wimp changes, so the client knows when the modules are there.
 
@@ -54,33 +55,32 @@ let nextSessionId = 1;
 let lastStatus = null;
 let badge = null;
 
-/*Send msg if connected, with `bytes` (a Blob) after it in a binary message
+/*Send msg if connected, with `body` (a Blob) after it in a binary message
   if given. Returns whether it was sent*/
-function send(msg, bytes = null) {
+function send(msg, body = null) {
   if (socket && socket.readyState == WebSocket.OPEN) {
-    socket.send(bytes ? binaryMessage(msg, bytes) : JSON.stringify(msg));
+    socket.send(body ? binaryMessage(msg, body) : JSON.stringify(msg));
     return true;
   }
   return false;
 }
 
-function binaryMessage(msg, bytes) {
+function binaryMessage(msg, body) {
   let json = new TextEncoder().encode(JSON.stringify(msg));
   let length = new Uint8Array(4);
   new DataView(length.buffer).setUint32(0, json.length, true);
-  return new Blob([length, json, bytes]);
+  return new Blob([length, json, body]);
 }
 
-/*A message from the client, from a text or binary (Blob) message. A binary
-  message's bytes are its `data`, as a Blob*/
-async function parseMessage(data) {
-  if (!(data instanceof Blob)) {
-    return JSON.parse(data);
+/*A message from the client, as {msg, body}, from a text or binary (Blob)
+  message. A binary message's body is a Blob; a text message has none*/
+async function parseMessage(message) {
+  if (!(message instanceof Blob)) {
+    return {msg: JSON.parse(message), body: null};
   }
-  let length = new DataView(await data.slice(0, 4).arrayBuffer()).getUint32(0, true);
-  let msg = JSON.parse(await data.slice(4, 4 + length).text());
-  msg.data = data.slice(4 + length);
-  return msg;
+  let length = new DataView(await message.slice(0, 4).arrayBuffer()).getUint32(0, true);
+  let msg = JSON.parse(await message.slice(4, 4 + length).text());
+  return {msg, body: message.slice(4 + length)};
 }
 
 function setConnected(connected) {
@@ -94,7 +94,7 @@ function setConnected(connected) {
   badge.classList.toggle('connected', connected);
 }
 
-async function handleRequest(req) {
+async function handleRequest(req, body) {
   switch (req.op) {
   case 'cli': {
     let {raw, error} = await window.arcCli(req.command, {via: req.via || 'callback', timeout: req.timeout || 0});
@@ -143,7 +143,10 @@ async function handleRequest(req) {
   case 'status':
     return await window.arcCliStatus();
   case 'load':
-    return await window.arcLoadFile(req.name, req.data);
+    if (!body) {
+      throw new Error('load: no file in the message');
+    }
+    return await window.arcLoadFile(req.name, body);
   case 'screenshot':
     return await window.arcScreenshot();
   }
@@ -183,8 +186,9 @@ function connect(url, retryMs) {
   socket.onmessage = async event => {
     let req;
     try {
-      req = await parseMessage(event.data);
-      let result = await handleRequest(req);
+      let {msg, body} = await parseMessage(event.data);
+      req = msg;
+      let result = await handleRequest(req, body);
       if (result instanceof Blob) {
         send({id: req.id}, result);
       } else {
