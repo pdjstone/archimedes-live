@@ -9,8 +9,8 @@ upload, so pages that were already open can still load what they need.
       build/software/software.json live/software.json
   prune_deploy.py versions s3://archi.medes.live/v/ build/index.html live/index.html
 
-`software` keeps software.json, each title's disc or archive, its icon and its
-screenshots. `versions` keeps the v/<tag>/ directories the pages load from.
+`software` keeps software.json, each title's disc or archive, its icon, its
+screenshots and its full description. `versions` keeps the v/<tag>/ directories the pages load from.
 Everything else under the prefix is deleted. --dry-run lists what would go.
 """
 
@@ -28,7 +28,7 @@ def software_keep(catalogues):
         with open(path) as f:
             catalogue = json.load(f)
         for software_id, meta in catalogue.items():
-            for key in ('disc', 'archive'):
+            for key in ('disc', 'archive', 'full-description'):
                 if key in meta:
                     keep.add(meta[key])
             keep.add(f'icons/{software_id}-icon.png')

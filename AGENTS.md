@@ -69,9 +69,12 @@ level (ROMs, the catalogue) comes from `frontend/shared/paths.js`.
 `index.html`), with the emulator and nspark already built (it doesn't run
 their builds); it doesn't touch the ROMs or the catalogue.
 
-The catalogue (`build/software/`) is made by `arclive-software/toml2json.py`,
-which keeps downloads in `dlcache/` and each file's hash in a `-hashes.toml`
-beside its TOML; a file whose hash has changed stops the build.
+The catalogue (`build/software/`) is made by `arclive-software/toml2json.py`
+from `.toml` files and `.md` files (one title each: TOML front matter between
+`+++` lines, the H1 as the title, and Markdown after it as the description).
+It keeps downloads in `dlcache/` and each file's hash in one hash file per
+directory, named after it (`jaspp/jaspp-hashes.toml`); a file whose hash has
+changed stops the build, and hashes of titles no longer there are dropped.
 `make REFRESH=1` (or `make catalogue REFRESH=1`) fetches every file again
 and takes a changed one if riscos-conv can read it and it holds its
 `app-path`, updating `dlcache/` and the hash file. A URL that won't

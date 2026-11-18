@@ -46,7 +46,8 @@ function showSoftware(softwareId) {
 
   if ('description' in meta) {
     details.querySelector('.description').style.display = 'block';
-    details.querySelector('.description').textContent = meta['description'];
+    // HTML, made from Markdown by arclive-software/toml2json.py
+    details.querySelector('.description').innerHTML = meta['description'];
   } else {
     details.querySelector('.description').style.display = 'none';
   }
