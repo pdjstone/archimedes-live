@@ -54,9 +54,9 @@ nspark builds stop if `emcc -dumpversion` differs, unless `ALLOW_ANY_EMCC=1`.
 
 `make` hands the emulator, its extension ROM and nspark to their own builds
 every time, so C changes are picked up; give it `-j` for a parallel build.
-It needs `jinja2` from `requirements-dev.txt`. If the venv's `jinja2`
-script has a broken shebang, run `make` with `venv/bin` first on `PATH`, or
-`make JINJA2="venv/bin/python venv/bin/jinja2"`.
+It runs `jinja2` (jinja2-cli) with `uvx`, so it needs
+[uv](https://docs.astral.sh/uv/) on `PATH`, not a venv; `make JINJA2=...`
+uses another one.
 
 Each build goes in a new directory, so browsers never use a cached copy of an
 old one: a clean tree's is `v/<commit>-clean`, a dirty tree's adds the time, so

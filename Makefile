@@ -2,7 +2,8 @@ SHELL := /bin/bash
 
 .PHONY: all frontend serve clean catalogue check deploy deploy-prune FORCE
 
-JINJA2 ?= jinja2
+# Run through uv, so no venv is needed
+JINJA2 ?= uvx --from jinja2-cli==1.0.1 jinja2
 PYTHON ?= python3
 
 ARCULATOR_URL := https://b-em.bbcmicro.com/arculator/Arculator_V2.2_Linux.tar.gz
@@ -11,7 +12,7 @@ FILES_BUCKET := s3://files-archi.medes.live
 # Both buckets are in eu-west-2. s3cmd signs for us-east-1 unless told, and
 # though ls and sync recover from that, get and info fail with a bare 400.
 S3_REGION := eu-west-2
-S3CMD ?= s3cmd
+S3CMD ?= uvx s3cmd==2.4.0
 
 # <short commit>-clean or <short commit>-dirty for the git checkout in $(1)
 git_tag = $(shell cd $(1) && echo $$(git rev-parse --short HEAD)-$$([ -n "$$(git status -s)" ] && echo dirty || echo clean))
