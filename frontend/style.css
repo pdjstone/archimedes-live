@@ -298,6 +298,74 @@ body.emu-fast-forward #display-container #ff-overlay {
 }
 
 
+/* -- Quick Start panel (quickstart.js) ---------------------------- */
+
+#controls a[hidden], #quickstart[hidden] { display: none; }
+
+#quickstart {
+  flex: 0 1 36ch;
+  align-self: stretch;
+  box-sizing: border-box;
+  max-height: calc(512px + var(--emulator-padding) * 2);
+  overflow-y: auto;
+  margin: var(--emulator-padding) 1em var(--emulator-padding) 0;
+  padding: 0 1em 1em;
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 11pt;
+  line-height: 1.4;
+}
+
+#quickstart .quickstart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .6em;
+  position: sticky;
+  top: 0;
+  padding-top: .5em;
+  background-color: #2a2a2a;
+}
+
+#quickstart .quickstart-header h3 { flex: 1; }
+
+#quickstart .quickstart-icon {
+  flex: none;
+  max-height: 34px;
+  max-width: 90px;
+  margin: .5em 0;
+  image-rendering: pixelated;
+}
+#quickstart .quickstart-icon[hidden] { display: none; }
+
+#quickstart .quickstart-close {
+  border: none;
+  background: none;
+  cursor: pointer;
+  flex: none;
+  font-size: 16pt;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+#quickstart .quickstart-content :is(h3, h4, h5, h6) { margin: 1em 0 .3em; font-size: 1.05em; }
+#quickstart ul { padding-left: 1.2em; }
+#quickstart p { margin: .5em 0; }
+
+#quickstart kbd {
+  display: inline-block;
+  min-width: 1.2em;
+  padding: 0 .35em;
+  border: 1px solid #777;
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background-color: #3a3a3a;
+  font: 10pt monospace;
+  text-align: center;
+  white-space: nowrap;
+}
+
 /* -- Editor ------------------------------------------------------- */
 #editor-container {
   /* Editor is hidden by default */
@@ -510,6 +578,13 @@ dd {
     margin: 0; 
     width: 100%;
     max-width: 100%;
+  }
+
+  #quickstart {
+    flex: none;
+    align-self: stretch;
+    max-height: none;
+    margin: .5em .5em 3em;  /* clear of #machine-status */
   }
 }
 

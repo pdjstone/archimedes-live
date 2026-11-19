@@ -20,6 +20,7 @@
     <a role="button" onclick="showBasicEditor()" tabindex="0">Open BASIC editor</a>
     <a role="button" onclick="showMachinePicker()" class="dropdown-button" tabindex="0">Choose Machine</a>
     <a role="button" onclick="showSoftwareBrowser()" class="dropdown-button" tabindex="0">Load Software</a>
+    <a role="button" id="quickstart-button" onclick="showQuickstart()" tabindex="0" hidden>Quick start</a>
   
     <button onclick="fullscreen()" tabindex="0">Fullscreen</button>
     <a role="button" onclick="showModal('about-box')" tabindex="0">About</a>
@@ -76,6 +77,16 @@
       </div>
     </div>
   </div>
+
+  <!-- Quick Start for the title that's running (quickstart.js) -->
+  <aside id="quickstart" hidden>
+    <div class="quickstart-header">
+      <img class="quickstart-icon" alt="" hidden>
+      <h3 class="quickstart-title"></h3>
+      <button class="quickstart-close" onclick="closeQuickstart()" title="Close" aria-label="Close">×</button>
+    </div>
+    <div class="quickstart-content"></div>
+  </aside>
 </div>
 
 

@@ -13,6 +13,7 @@ import { MOUSE_CAPTURE_MODES } from './shared/input.js'
 import { notify, notifyFailure } from './notify.js'
 import { initMediaSession, setMediaSessionAlbum, setMediaSessionPaused } from './media-session.js'
 import { initFastForwardOverlay } from './fast-forward-overlay.js'
+import { setQuickstartSoftware, showQuickstart, closeQuickstart } from './quickstart.js'
 
 const DISPLAY_MODES = Object.freeze({
 		0: 'DISPLAY_MODE_NO_BORDERS',
@@ -220,7 +221,8 @@ window.arcLoadFile = async function(name, data) {
 Object.assign(window, {
   showModal, closeModal, pauseEmulator, resumeEmulator,
   showMachinePicker, previewMachine, bootSelected,
-  showSoftwareBrowser, filterSoftware, loadFile, getEmuInput
+  showSoftwareBrowser, filterSoftware, loadFile, getEmuInput,
+  showQuickstart, closeQuickstart
 });
 
 initEmuInterface({
@@ -248,6 +250,7 @@ if (searchParams.has('showsoftwarebrowser')) {
 function setCurrentSoftware(softwareMeta) {
     document.title = `${softwareMeta.title} - Archimedes Live!`;
     setMediaSessionAlbum(softwareMeta.title);
+    setQuickstartSoftware(softwareMeta);
 }
 
 let scriptTriggeredHashChange = false;
