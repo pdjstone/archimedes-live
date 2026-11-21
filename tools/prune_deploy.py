@@ -31,7 +31,8 @@ def software_keep(catalogues):
             for key in ('disc', 'archive', 'full-description'):
                 if key in meta:
                     keep.add(meta[key])
-            keep.add(f'icons/{software_id}-icon.png')
+            # Catalogues before the icon field named them <id>-icon.png
+            keep.add(meta.get('icon', f'icons/{software_id}-icon.png'))
             for shot in meta.get('screenshots', []):
                 keep.add(f'screenshots/{shot}')
     return lambda key: key in keep
