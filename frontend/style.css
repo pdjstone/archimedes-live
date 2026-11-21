@@ -324,6 +324,7 @@ body.emu-fast-forward #display-container #ff-overlay {
   gap: .6em;
   position: sticky;
   top: 0;
+  z-index: 1;           /* above the keycaps, which are positioned */
   padding-top: .5em;
   background-color: #2a2a2a;
 }
@@ -353,18 +354,6 @@ body.emu-fast-forward #display-container #ff-overlay {
 #quickstart ul { padding-left: 1.2em; }
 #quickstart p { margin: .5em 0; }
 
-#quickstart kbd {
-  display: inline-block;
-  min-width: 1.2em;
-  padding: 0 .35em;
-  border: 1px solid #777;
-  border-bottom-width: 2px;
-  border-radius: 3px;
-  background-color: #3a3a3a;
-  font: 10pt monospace;
-  text-align: center;
-  white-space: nowrap;
-}
 
 /* -- Editor ------------------------------------------------------- */
 #editor-container {

@@ -1,0 +1,93 @@
+/* From mobiletests (kbd-a3000-simple.css, with a3k-didact.woff2 beside it).
+ * Acorn A3000 keycaps for <kbd>, simplified: static keys with large, centred legends.
+ * For the full version (top-left legends, LEDs, front legends, pressed keys, wells) see
+ * kbd-a3000.css; the two use the same class names, so either can be swapped in.
+ *
+ *   <kbd class="a3k">A</kbd>                      cream key
+ *   <kbd class="a3k dark">Shift</kbd>             grey key
+ *   <kbd class="a3k red">F1</kbd>                 red function key
+ *   <kbd class="a3k">!<br>1</kbd>                 two legends, one above the other
+ *
+ * Or put class="a3k" on a container and every plain <kbd> inside becomes a key; a <kbd>
+ * that only wraps other <kbd>s (a key combination) is left alone. Sizes scale with
+ * font-size. A key is square for a single character and otherwise as wide as its
+ * legend; set a width directly for anything else (e.g. a space bar).
+ *
+ * Seen slightly from the front: a scooped top inset from the base (the padding box,
+ * shaded by ::before under the legend), with the sides and taller front skirt below it
+ * (the borders, whose mitred corners make the trapezoids).
+ */
+
+/* The legends: Didact Gothic, which matches their geometric letters (round Q, splayed M,
+   plain J hook, K's arms meeting at the stem), made wider and restroked at one weight with
+   round ends, like the printed ones, by make_key_font.py. */
+@font-face {
+  font-family: "A3K Didact";
+  src: url("a3k-didact.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+kbd.a3k,
+.a3k kbd:not(:has(kbd)) {
+  --key: #dcd6c4;                 /* the top's colour; the faces are mixed from it */
+  --ink: #34322d;
+
+  box-sizing: border-box;
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.4em;
+  height: 2.4em;
+  margin: 0 .1em .12em;
+  padding: 0 .65em;
+  vertical-align: middle;
+
+  font: 400 .85em/.95 "A3K Didact", "Didact Gothic", "Century Gothic", system-ui, sans-serif;
+  color: var(--ink);
+  text-align: center;
+  text-shadow: none;
+  white-space: nowrap;
+
+  border-style: solid;
+  border-width: .15em .26em .48em;
+  border-color:
+    color-mix(in oklab, var(--key) 86%, #fff)       /* back: catches the light */
+    color-mix(in oklab, var(--key) 80%, #000)       /* right: in shade */
+    color-mix(in oklab, var(--key) 88%, #000)       /* front: faces the viewer */
+    color-mix(in oklab, var(--key) 84%, #000);      /* left */
+  border-radius: .27em .27em .34em .34em;
+  background: var(--key) padding-box;
+  box-shadow:
+    0 .05em 0 color-mix(in oklab, var(--key) 55%, #000),   /* base's bottom edge */
+    0 .12em .2em rgb(0 0 0 / .4);                         /* drop shadow */
+}
+
+/* The top: matte, scooped side to side so both edges fall into shade. */
+kbd.a3k::before,
+.a3k kbd:not(:has(kbd))::before {
+  content: "";
+  position: absolute;
+  inset: -.03em -.05em -.04em;
+  z-index: -1;
+  border-radius: .2em;
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / .24), transparent 30%,
+      transparent 85%, rgb(0 0 0 / .05)),
+    linear-gradient(to right, rgb(0 0 0 / .1), rgb(0 0 0 / .02) 25%, rgb(255 255 255 / .07) 55%,
+      rgb(0 0 0 / .02) 80%, rgb(0 0 0 / .12)),
+    var(--key);
+  box-shadow:
+    inset 0 .055em .04em rgb(255 255 255 / .55),
+    inset 0 -.03em .04em rgb(0 0 0 / .1),
+    0 0 .06em .015em color-mix(in oklab, var(--key) 88%, #000);
+}
+
+kbd.a3k.dark,
+.a3k kbd.dark:not(:has(kbd)) { --key: #a8a294; --ink: #2b2925; }
+
+kbd.a3k.red,
+.a3k kbd.red:not(:has(kbd)) { --key: #dd4f31; --ink: #2a1a15; }
