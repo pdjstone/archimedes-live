@@ -2,7 +2,7 @@ import { initSoftwareBrowser, showSoftwareBrowser, filterSoftware, removeAllChil
 import { presetMachines, machineInfo, CPU_DESCRIPTIONS, OS_NAMES, MEM_SIZE_NAMES } from "./shared/machines.js"
 import { getEmuInput } from "./emu_input.js";
 import { initEmuInterface } from './emu-interface.js'
-import { initBasicEditor, showBasicEditor, wrapProg, setBootedToBasic, BASIC_RUN_FAST_FORWARD } from './editor.js'
+import { initBasicEditor, showBasicEditor, setBootedToBasic } from './editor.js'
 import { EmuAudio } from './emu-audio.js'
 import { setCliEmu } from './jscli-page.js'
 import { connect, transfer } from './shared/rpc.js'
@@ -236,6 +236,7 @@ initBasicEditor({
   closeModal,
   showBooleanDialog,
   changeMachine,
+  runBasic,
   getMachinePreset: () => machinePreset
 });
 
@@ -336,10 +337,9 @@ function getPageBootParams() {
       let prog = searchParams.get('basic');
 
       showBasicEditor(prog);
-      // The page has no FS, so the worker writes the !Boot that types in the program
-      opts.basicBoot = wrapProg(prog);
+      // The page has no FS, so the worker writes the files that run the program
+      opts.basicProg = prog;
       opts.autoboot = true;
-      opts.fastForward = BASIC_RUN_FAST_FORWARD;
       opts.basic = true;
     }
   }
@@ -448,6 +448,11 @@ function resumeIfPaused() {
  */
 function changeMachine(opts) {
   return emu.changeMachine(opts).then(resumeIfPaused, notifyFailure);
+}
+
+/** Run a BASIC program from a quick reset, resuming if paused */
+function runBasic(prog) {
+  return emu.runBasic(prog).then(resumeIfPaused, notifyFailure);
 }
 
 function sleep(ms) {

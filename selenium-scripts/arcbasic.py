@@ -213,8 +213,8 @@ class ArcBasic:
 
     def boot(self, timeout=60):
         """(Re)load the page and wait until BASIC is ready for F1."""
-        # The page wraps this as *KEY1 *!boot|M, *basic, <this>, RUN.
-        # *Exec stops reading the !Boot before it gets to RUN.
+        # The page sets *KEY1 *!boot|M, then runs this with BASIC -chain.
+        # When it ends, BASIC is left at its prompt.
         boot = '*Create HostFS:$.Ready\n*Exec'
         hash_ = 'basic=' + quote(boot, safe='')
         if self.preset:

@@ -1,21 +1,14 @@
 /**
- * The BBC BASIC editor. Running a program writes a HostFS !Boot (a Command
- * file) that types it in, and either reboots into BASIC to run it or, once
- * booted into BASIC, presses F1, which *KEY1 has set to run the !Boot again.
+ * The BBC BASIC editor. Running a program always starts it on a clean
+ * machine: the worker reboots into it (worker/basic-launch.js), or once
+ * booted into BASIC, does a quick reset, which no program can block.
  */
-
-import { getEmuInput } from './emu_input.js'
-
-export const BASIC_RUN_FAST_FORWARD = 7500;
-
-// The !Boot the worker writes for BASIC (FILETYPE_COMMAND in worker/hostfs.js)
-const BASIC_BOOT_PATH = '/hostfs/!Boot,ffe';
 
 let ui = null;
 
 /**
  * @param uiFunctions - from ui.js: showModal, closeModal, showBooleanDialog,
- *   changeMachine and getMachinePreset
+ *   changeMachine, runBasic and getMachinePreset
  */
 export function initBasicEditor(uiFunctions) {
   ui = uiFunctions;
@@ -24,21 +17,6 @@ export function initBasicEditor(uiFunctions) {
     showBasicEditor, closeBasicEditor, runProgram, updateCharCount,
     showShareBox, tweetProg, copyProgAsURL
   });
-}
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function rerunProg() {
-  getEmuInput().simulateKey('ArcEscape');
-  await sleep(100);
-  getEmuInput().simulateKey('ArcF1');
-  document.getElementById('editor').focus();
-}
-
-export function wrapProg(prog) {
-  return '*KEY1 *!boot |M\n*basic\n' + prog + '\nRUN\n';
 }
 
 // Set by the worker each time the machine boots (setBootedToBasic)
@@ -57,14 +35,12 @@ async function runProgram() {
       'Reboot emulator to BASIC prompt?', 
       'Reboot', 'Cancel');
     if (reboot) {
-      // The worker writes the !Boot as it sets up the machine
       ui.changeMachine({preset: ui.getMachinePreset(), autoboot: true, basic: true,
-        basicBoot: wrapProg(prog), fastForward: BASIC_RUN_FAST_FORWARD});
+        basicProg: prog});
     }
   } else {
-    // Booted into BASIC by us, so the only !Boot is this one
-    await window.arcFS.write(BASIC_BOOT_PATH, wrapProg(prog));
-    await rerunProg();
+    await ui.runBasic(prog);
+    document.getElementById('editor').focus();
   }
 }
 
