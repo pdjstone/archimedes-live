@@ -2,7 +2,8 @@
  * Covers the display while the emulator fast-forwards (the arcfastforward
  * event, see fast-forward.js in the worker), which it does without drawing
  * anything. It shows a progress bar and "Loading..." or, for a boot
- * fast-forward of a software catalogue title, "Loading {title}...".
+ * fast-forward of a software catalogue title, "Loading {title}...". It stays
+ * away for quiet ones, such as launching a BASIC program.
  */
 
 let overlay, text, fill;
@@ -17,7 +18,7 @@ export function initFastForwardOverlay(getTitle) {
   text = overlay.querySelector('.ff-text');
   fill = overlay.querySelector('.ff-progress-fill');
   window.addEventListener('arcfastforward', ({detail: status}) => {
-    if (status) {
+    if (status && !status.quiet) {
       if (!active)
         start(status.startMs == 0 ? getTitle() : null);
       setFill(status.fraction);

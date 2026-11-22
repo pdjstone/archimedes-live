@@ -47,9 +47,9 @@ export function skipToProgram(getEmulationMs) {
     cancelSkipToProgram();
     let now = Number(getEmulationMs()); // a BigInt
     if (now < START_TIMEOUT_MS)
-      arc_fast_forward(Math.max(now, 1)); // 0 would mean no fast-forward
+      arc_fast_forward(Math.max(now, 1), {quiet: true}); // 0 would mean no fast-forward
   });
-  arc_fast_forward(START_TIMEOUT_MS);
+  arc_fast_forward(START_TIMEOUT_MS, {quiet: true});
 }
 
 /** Something else now says how far to fast-forward */

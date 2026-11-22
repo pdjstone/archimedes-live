@@ -141,9 +141,10 @@ on('musicInfo', info => {
   window.dispatchEvent(new CustomEvent('arcmusicinfo', {detail: musicInfo}));
 });
 /*How far a fast-forward has got, as an 'arcfastforward' event on window.
-  Its detail is {startMs, currentMs, targetMs, fraction} (emulated times since
-  the last reset, and fraction from 0 to 1) when one starts and about three
-  times a second as it runs, then null when it ends (or a reset stops it).*/
+  Its detail is {startMs, currentMs, targetMs, fraction, quiet} (emulated times
+  since the last reset, fraction from 0 to 1, and whether to hide the overlay)
+  when one starts and about three times a second as it runs, then null when it
+  ends (or a reset stops it).*/
 on('fastForward', status => {
   window.dispatchEvent(new CustomEvent('arcfastforward', {detail: status}));
 });

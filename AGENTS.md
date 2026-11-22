@@ -242,10 +242,11 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
   returns a Promise that rejects before the emulator is running.
 - **An `arcfastforward` window event** says how far a fast-forward (from
   `ff`, a catalogue title, the BASIC editor or `arcFastForward`) has got. Its
-  detail is `{startMs, currentMs, targetMs, fraction}`, in emulated time since
-  the last reset, when one starts and about three times a second while it
-  runs, then null when it ends. Moving the end point keeps `startMs`, so
-  `fraction` can go down. A reset ends a fast-forward (a machine change that
+  detail is `{startMs, currentMs, targetMs, fraction, quiet}`, in emulated time
+  since the last reset, when one starts and about three times a second while
+  it runs, then null when it ends. `quiet` is set while a BASIC program is
+  launched, so the progress overlay doesn't show. Moving the end point keeps
+  `startMs`, so `fraction` can go down. A reset ends a fast-forward (a machine change that
   wants one starts a new one from 0). The emulator reports it from its loop
   (`fast_forward_js_progress` in `emscripten_main.c`), and
   `frontend/worker/fast-forward.js` throttles it.
