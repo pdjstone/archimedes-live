@@ -10,8 +10,6 @@ import { arc_fast_forward } from './fast-forward.js'
 
 const OS_CLI = 0x05;
 const PROG_NAME = 'BasicProg';
-// F1 runs the !Boot again (selenium-scripts/arcbasic.py uses it)
-const SET_F1 = '*KEY1 *!boot |M\n';
 // The * command that starts the program
 const CHAIN = `BASIC -chain HostFS:$.${PROG_NAME}`;
 // Give up fast-forwarding by then, if the program hasn't started. The slowest
@@ -28,7 +26,7 @@ export function putBasicProgram(prog) {
   // Tabs are only allowed in strings, and the last line must end with a newline
   let text = lines.map(line => line.replace(/"[^"]*"?|\t/g, s => s === '\t' ? ' ' : s)).join('\n') + '\n';
   putHostfsFile(PROG_NAME, text, FILETYPE_BASIC_TEXT);
-  createHostfsBootFile(`${SET_F1}*${CHAIN}\n`, FILETYPE_COMMAND);
+  createHostfsBootFile(`*${CHAIN}\n`, FILETYPE_COMMAND);
 }
 
 let removeHook = null;

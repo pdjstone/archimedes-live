@@ -405,14 +405,15 @@ How it works, which is also how to do it by hand:
 
 - Boot with `#basic=`. The worker (`frontend/worker/basic-launch.js`) writes
   a HostFS `!Boot,ffe` (a Command file, run with `*Exec`) that does
-  `*KEY1 *!boot|M`, then `*BASIC -chain` of the text saved as `BasicProg`.
-  All of the text is program, so prompt-only commands such as `NEW` and
-  `AUTO` don't work there.
+  `*BASIC -chain` of the text saved as `BasicProg`. All of the text is
+  program, so prompt-only commands such as `NEW` and `AUTO` don't work there.
 - The editor's Run doesn't use F1. It puts the CMOS file back, does
   `arc_quick_reset` and boots into the new program, so nothing in RAM is kept.
-- To run more code without rebooting, write a new `/hostfs/!Boot,ffe` with
-  `arcFS.write` and press F1. Being *Exec'd, its lines are read as if typed,
-  so it can hold `*` commands and direct-mode lines too.
+- To run more code without rebooting, have that program set F1 with a line
+  `*KEY1 *!boot|M` (the page doesn't set it). Once it has ended, write a new
+  `/hostfs/!Boot,ffe` with `arcFS.write` and press F1. Being *Exec'd, its
+  lines are read as if typed, so it can hold `*` commands and direct-mode
+  lines too.
 - `*Spool HostFS:$.Output` before `RUN` and `*Spool` after it captures
   everything printed, including BASIC's error report, as a VDU stream (strip
   control codes and their parameter bytes). Then `*Create HostFS:$.Done` marks

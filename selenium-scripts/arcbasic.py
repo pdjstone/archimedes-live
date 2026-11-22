@@ -3,9 +3,9 @@
 what they print, any error, and optionally a screenshot.
 
 How it works:
-  - The page is booted once with the `basic` URL parameter. That makes a
-    HostFS !Boot (a Command file, so it's *Exec'd) which sets F1 to `*!boot`,
-    enters BASIC and creates a Ready marker file.
+  - The page is booted once with the `basic` URL parameter, giving it a
+    program that sets F1 to `*!boot`, creates a Ready marker file and leaves
+    BASIC at its prompt.
   - For each program, a new HostFS !Boot,ffe is written through the page's
     window.arcFS hook and F1 is pressed. The Exec file restarts BASIC, types
     the program in, then does:
@@ -213,9 +213,9 @@ class ArcBasic:
 
     def boot(self, timeout=60):
         """(Re)load the page and wait until BASIC is ready for F1."""
-        # The page sets *KEY1 *!boot|M, then runs this with BASIC -chain.
-        # When it ends, BASIC is left at its prompt.
-        boot = '*Create HostFS:$.Ready\n*Exec'
+        # The page runs this with BASIC -chain, and when it ends BASIC is
+        # left at its prompt, where F1 runs the !Boot that run() writes.
+        boot = '*KEY1 *!boot|M\n*Create HostFS:$.Ready\n*Exec'
         hash_ = 'basic=' + quote(boot, safe='')
         if self.preset:
             hash_ += '&preset=' + quote(self.preset)
