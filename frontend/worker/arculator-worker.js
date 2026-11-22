@@ -407,20 +407,21 @@ function arc_renderer_reset() {
   emulator.ccall('arc_renderer_reset', null, []);
 }
 
-function arc_do_reset() {
-  emulator.ccall('arc_do_reset', null, []);
-  clearMusicInfo();
+/*Every reset calls this after, to drop what the worker knows about the
+  machine that was running*/
+function afterReset() {
+  clearMusicInfo(); // RAM is wiped, and the song and QTM with it
 }
 
 function arc_quick_reset() {
   emulator.ccall('arc_quick_reset', null, []);
-  clearMusicInfo();
+  afterReset();
 }
 
 function arc_load_config_and_reset(configName) {
   console.log(`arc_load_config_and_reset ${configName}`);
   emulator.ccall('arc_load_config_and_reset', null, ['string'], [configName]);
-  clearMusicInfo();
+  afterReset();
 }
 
 function arc_set_sound_filter(filter) {
