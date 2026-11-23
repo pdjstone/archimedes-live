@@ -44,6 +44,10 @@ function end() {
   active = false;
   setFill(1);
   document.body.classList.remove('emu-fast-forward');
+  // A click on the overlay moves focus from the display to <body>, where keys
+  // don't reach the emulator
+  if (!document.activeElement || document.activeElement == document.body)
+    document.getElementById('canvas').focus();
 }
 
 function setFill(fraction) {

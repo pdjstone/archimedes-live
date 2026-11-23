@@ -275,8 +275,8 @@ function changeLocationHash(hash) {
   document.location.assign('#' + hash);
 }
 
-/*Pause the emulator, and its sound. The overlay's button or a click on the
-  display resumes it, as do the media controls (media-session.js).*/
+/*Pause the emulator, and its sound. A click on the overlay resumes it, as do
+  the media controls (media-session.js).*/
 function pauseEmulator() {
   emu.setPaused(true);
   emuAudio.setPaused(true);
@@ -289,6 +289,11 @@ function resumeEmulator() {
   emuAudio.setPaused(false);
   document.body.classList.remove('emu-paused');
   setMediaSessionPaused(false);
+  // Clicking the overlay leaves focus on it (or on <body> once it's hidden),
+  // where keys don't reach the emulator
+  let focused = document.activeElement;
+  if (!focused || focused == document.body || focused.closest('#pause-overlay'))
+    document.getElementById('canvas').focus();
 }
 
 /*Asks the program for the next (dir 1) or previous (-1) song, from the media
