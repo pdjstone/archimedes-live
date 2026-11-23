@@ -220,17 +220,21 @@ body.audio-suspended #audio-warning {
 body.emu-paused #pause-overlay { display: flex }
 
 /* Shown at once when a fast-forward starts (fast-forward-overlay.js). When it
-   ends, the bar fills (its 400ms transition), then the overlay fades out */
+   ends, the bar fills (its 400ms transition), then the overlay fades out.
+   Clicks go through it to the display as soon as it ends, or a click while it
+   fades would take focus from the display */
 #display-container #ff-overlay {
   display: flex;
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
   transition: opacity 300ms ease-in 400ms, visibility 0s 700ms;
 }
 
 body.emu-fast-forward #display-container #ff-overlay {
   opacity: 1;
   visibility: visible;
+  pointer-events: auto;
   transition: none;
 }
 
