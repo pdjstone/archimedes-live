@@ -303,7 +303,7 @@ body.emu-fast-forward #display-container #ff-overlay {
 #controls a[hidden], #quickstart[hidden] { display: none; }
 
 #quickstart {
-  flex: 0 1 36ch;
+  flex: 0 1 48ch;
   align-self: stretch;
   box-sizing: border-box;
   max-height: calc(512px + var(--emulator-padding) * 2);
