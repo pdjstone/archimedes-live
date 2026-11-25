@@ -161,7 +161,7 @@ All are read in `getPageBootParams()` in `frontend/ui.js`.
 | `preset` | `a310-arthur`, `a310-ro2`, `a3000` (default), `a5000`, `a3020`, `a540` | Machine configuration (`presetMachines` in `frontend/shared/machines.js`) |
 | `disc` | software catalogue ID (e.g. `lander`) or a URL | Disc images (`.adf`, zipped or not) go into drive 0. RISC OS archives (Spark/ArcFS zips) are unpacked to HostFS. A catalogue ID may also choose the preset, `ff`, sound filter and mouse mode, unless you set them. |
 | `autoboot` | Obey file text, or empty | Writes a HostFS `!Boot` that runs at startup (RISC OS 3 only). Leave it empty with a catalogue `disc` to use the title's own boot commands. Separate lines with `%0A`. |
-| `basic` | BASIC program text | Boots into BASIC, then types and runs the program. Can't be combined with `disc`. Fast-forwards through boot. |
+| `basic` | BASIC program text | Boots into BASIC and runs the program (RISC OS 3 only). Can't be combined with `disc`. Fast-forwards until the program starts, unless `ff` is given. |
 | `ff` | milliseconds | Fast-forward that much emulated time from boot, with no video or sound. `ff=14400` reaches the RISC OS 3 desktop. |
 | `soundfilter` | `0`, `1` or `2` | Low-pass filter: 0 is the original, 2 the least filtering |
 | `mouse-capture` | `auto`, `force` or `never` | Mouse handling mode |
@@ -242,10 +242,11 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
   returns a Promise that rejects before the emulator is running.
 - **An `arcfastforward` window event** says how far a fast-forward (from
   `ff`, a catalogue title, the BASIC editor or `arcFastForward`) has got. Its
-  detail is `{startMs, currentMs, targetMs, fraction}`, in emulated time since
-  the last reset, when one starts and about three times a second while it
-  runs, then null when it ends. Moving the end point keeps `startMs`, so
-  `fraction` can go down. A reset ends a fast-forward (a machine change that
+  detail is `{startMs, currentMs, targetMs, fraction, quiet}`, in emulated time
+  since the last reset, when one starts and about three times a second while
+  it runs, then null when it ends. `quiet` is set while a BASIC program is
+  launched, so the progress overlay doesn't show. Moving the end point keeps
+  `startMs`, so `fraction` can go down. A reset ends a fast-forward (a machine change that
   wants one starts a new one from 0). The emulator reports it from its loop
   (`fast_forward_js_progress` in `emscripten_main.c`), and
   `frontend/worker/fast-forward.js` throttles it.
@@ -402,12 +403,17 @@ session, which takes about 1 s per program after a ~5 s boot.
 
 How it works, which is also how to do it by hand:
 
-- Boot with `#basic=`. The page writes a HostFS `!Boot,ffe` (a Command file,
-  run with `*Exec`): `*KEY1 *!boot|M`, `*basic`, the text, `RUN`. Lines
-  are read as if typed, so the text can hold `*` commands and direct-mode
-  lines too. A line `*Exec` stops reading the file before the final `RUN`.
-- To run more code without rebooting, write a new `/hostfs/!Boot,ffe` with
-  `arcFS.write` and press F1.
+- Boot with `#basic=`. The worker (`frontend/worker/basic-launch.js`) writes
+  a HostFS `!Boot,ffe` (a Command file, run with `*Exec`) that does
+  `*BASIC -chain` of the text saved as `BasicProg`. All of the text is
+  program, so prompt-only commands such as `NEW` and `AUTO` don't work there.
+- The editor's Run doesn't use F1. It puts the CMOS file back, does
+  `arc_quick_reset` and boots into the new program, so nothing in RAM is kept.
+- To run more code without rebooting, have that program set F1 with a line
+  `*KEY1 *!boot|M` (the page doesn't set it). Once it has ended, write a new
+  `/hostfs/!Boot,ffe` with `arcFS.write` and press F1. Being *Exec'd, its
+  lines are read as if typed, so it can hold `*` commands and direct-mode
+  lines too.
 - `*Spool HostFS:$.Output` before `RUN` and `*Spool` after it captures
   everything printed, including BASIC's error report, as a VDU stream (strip
   control codes and their parameter bytes). Then `*Create HostFS:$.Done` marks

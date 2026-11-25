@@ -46,6 +46,7 @@
 
     <p class="editor-info">
       <span id="char-count">0 characters</span> | 
+      <span id="restore-prog" hidden><a role="button" tabindex="0" onclick="restorePreviousProgram()">Restore previous program</a> |</span>
       <a href="http://www.riscos.com/support/developers/basicv/index.htm">BBC BASIC V Guide</a> |
       <a href="http://www.riscos.com/support/developers/bbcbasic/index.html">BBC BASIC V Reference Manual</a>
     </p>
@@ -71,9 +72,9 @@
         <div class="ff-progress"><div class="ff-progress-fill"></div></div>
       </div>
     </div>
-    <div id="pause-overlay" class="emulator-overlay">
-      <div class="resume-dialog"> 
-        <button class="round-button" onclick="resumeEmulator()"><span class="play-button"></span></button>
+    <div id="pause-overlay" class="emulator-overlay" onclick="resumeEmulator()">
+      <div class="resume-dialog">
+        <button class="round-button"><span class="play-button"></span></button>
         <p>Click to resume the emulator</p>
       </div>
     </div>

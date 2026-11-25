@@ -7,7 +7,7 @@ onerror = (message, filename, lineno, colno, error) => {
 import { default as ArculatorWasm } from './arculator.js';
 import { presetMachines, recommendMachinePreset, OS_NAMES, JSCLI_SUPPORT_MODULES } from '../shared/machines.js'
 import { getAutobootScript, putConfigFile, putCmosFile, loadRoms, putExtnRom } from './machine-setup.js'
-import { loadSoftware, loadSoftwareFromUrl, loadFromSoftwareCatalogue, requireCatalogue, createHostfsBootFile, FILETYPE_DESKTOP, FILETYPE_COMMAND } from './hostfs.js'
+import { loadSoftware, loadSoftwareFromUrl, loadFromSoftwareCatalogue, requireCatalogue, createHostfsBootFile, FILETYPE_DESKTOP } from './hostfs.js'
 import { putDataAtPath, emptyDir } from './fsutil.js'
 import { emulator, ready, requireReady, setEmulator, setReady } from './emulator.js'
 import { expose, emit, serve, transfer } from '../shared/rpc.js'
@@ -17,6 +17,7 @@ import './jscli-worker.js'
 import './swi-hook.js'
 import { clearMusicInfo } from './qtm-info.js'
 import { arc_fast_forward } from './fast-forward.js'
+import { putBasicProgram, skipToProgram, cancelSkipToProgram } from './basic-launch.js'
 
 
 console.log('in arculator worker');
@@ -51,6 +52,10 @@ function reportFailure(e) {
     console.error(e);
   }
 }
+// The machine's config if it booted into BASIC, for runBasic
+let basicMachineConfig = null;
+// Settles when the last change of machine has
+let machineChange = Promise.resolve();
 // The page can't be seen, so the emulator doesn't draw (sendPageHidden in ui.js)
 let pageHidden = false;
 // Settles once the first machine has booted (or failed to), so software
@@ -77,9 +82,7 @@ expose({
           this.callMain([fps.toString(), configName]);
           console.log('calling main done');
           arc_set_page_hidden(pageHidden);
-          if (machineConfig.fastForward) {
-              arc_fast_forward(machineConfig.fastForward);
-          }
+          startFastForward(machineConfig, pageBootParams);
           if (machineConfig.dumpAudio) {
               arc_dump_audio(machineConfig.dumpAudio.delay, machineConfig.dumpAudio.duration);
           }
@@ -117,17 +120,29 @@ expose({
   },
   fastForward: ms => {
     requireReady();
+    cancelSkipToProgram();
     arc_fast_forward(Number(arc_get_emulation_ms()) + ms);
   },
 
   // From the machine picker, software browser and BASIC editor
-  changeMachine: opts => whilePaused(async () => {
+  changeMachine: opts => machineChange = whilePaused(async () => {
     let machineConfig = await loadMachineConfig(opts);
     arc_load_config_and_reset(machineConfig.getMachineType());
-    if (machineConfig.fastForward) {
-      arc_fast_forward(machineConfig.fastForward); // the reset restarted emulation time
-    }
+    startFastForward(machineConfig, opts); // the reset restarted emulation time
   }),
+  // The BASIC editor's Run, once booted into BASIC: start again on a clean machine
+  runBasic: async prog => {
+    await started;
+    await machineChange.catch(() => {}); // whoever asked for it reports a failure
+    if (!basicMachineConfig)
+      throw new Error("The emulator hasn't booted into BASIC");
+    // The quick reset reloads this, undoing any *Configure
+    putCmosFile(basicMachineConfig);
+    arc_quick_reset();
+    // After the reset, which flushes and closes the files the old program had open
+    putBasicProgram(prog);
+    skipToProgram(arc_get_emulation_ms);
+  },
   loadSoftware: softwareId => whilePaused(() => loadFromSoftwareCatalogue(softwareId)),
   // A File from the software browser's upload button, drag and drop or
   // arcLoadFile. Resolves with the notices to show (shared/notices.js)
@@ -214,6 +229,8 @@ function screenshot() {
  * @returns
  */
 async function loadMachineConfig(_opts=null) {
+  cancelSkipToProgram();
+  basicMachineConfig = null;
   let opts = {
     pageBoot: false, // did these options come from the URL hash?
     autoboot: false,
@@ -353,15 +370,25 @@ async function loadMachineConfig(_opts=null) {
   await loadRoms(machineConfig);
   await putExtnRom(machineConfig);
   
-  if (opts.basic && opts.basicBoot) {
+  if (opts.basic) {
     console.log('UI: create BASIC !boot');
-    createHostfsBootFile(opts.basicBoot, FILETYPE_COMMAND);
+    putBasicProgram(opts.basicProg ?? '');
+    basicMachineConfig = machineConfig;
   } else if (autoboot && !opts.basic) {
     console.log('UI: create !boot:' + autoboot);
     createHostfsBootFile(autoboot, FILETYPE_DESKTOP);
   }
   //window.currentMachineConfig = machineConfig;
   return machineConfig;
+}
+
+/*Fast-forward a machine that has just been reset: as far as it was told to,
+  or if it's to run a BASIC program, until that starts*/
+function startFastForward(machineConfig, opts) {
+  if (opts.basic && opts.fastForward === undefined)
+    skipToProgram(arc_get_emulation_ms);
+  else if (machineConfig.fastForward)
+    arc_fast_forward(machineConfig.fastForward);
 }
 
 function arc_set_display_mode(display_mode) {
@@ -380,15 +407,21 @@ function arc_renderer_reset() {
   emulator.ccall('arc_renderer_reset', null, []);
 }
 
-function arc_do_reset() {
-  emulator.ccall('arc_do_reset', null, []);
-  clearMusicInfo();
+/*Every reset calls this after, to drop what the worker knows about the
+  machine that was running*/
+function afterReset() {
+  clearMusicInfo(); // RAM is wiped, and the song and QTM with it
+}
+
+function arc_quick_reset() {
+  emulator.ccall('arc_quick_reset', null, []);
+  afterReset();
 }
 
 function arc_load_config_and_reset(configName) {
   console.log(`arc_load_config_and_reset ${configName}`);
   emulator.ccall('arc_load_config_and_reset', null, ['string'], [configName]);
-  clearMusicInfo();
+  afterReset();
 }
 
 function arc_set_sound_filter(filter) {

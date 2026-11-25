@@ -373,21 +373,30 @@ async function loadDisc(filename, blob, insert=true) {
 export const FILETYPE_OBEY = 0xfeb // normal boot
 export const FILETYPE_COMMAND = 0xffe // basic boot
 export const FILETYPE_DESKTOP = 0xfea 
+export const FILETYPE_BASIC_TEXT = 0xfd1
 
-/*Write the HostFS !Boot file: content is its text, one byte per character
-  (Latin-1, as RISC OS has it), not UTF-8, so e.g. a hard space in an
-  app-path is the one byte RISC OS expects*/
+/*Write the HostFS !Boot file*/
 export function createHostfsBootFile(content, fileType) {
+  putHostfsFile('!Boot', content, fileType);
+}
+
+/*Write a text file in HostFS's root, replacing any of that name whatever its
+  type. content is one byte per character (Latin-1, as RISC OS has it), not
+  UTF-8, so e.g. a hard space in an app-path is the one byte RISC OS expects*/
+export function putHostfsFile(name, content, fileType) {
   try {
     for (const filename of emulator.FS.readdir('/hostfs/')) {
-      if (filename.toLowerCase().startsWith('!boot,')) {
-        emulator.FS.unlink('/hostfs/' + filename);
+      let path = '/hostfs/' + filename;
+      // A directory of that name (an unpacked !Boot app, say) is left
+      if (filename.toLowerCase().split(',')[0] === name.toLowerCase() &&
+          !emulator.FS.isDir(emulator.FS.stat(path).mode)) {
+        emulator.FS.unlink(path);
       }
     }
   } catch (e) {
     console.log(e);
   }
-  putDataAtPath(latin1Bytes(content), '/hostfs/!Boot,' + fileType.toString(16));
+  putDataAtPath(latin1Bytes(content), `/hostfs/${name},${fileType.toString(16)}`);
 }
 
 export function roDirname(roFilepath) {

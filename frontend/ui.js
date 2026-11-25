@@ -2,7 +2,7 @@ import { initSoftwareBrowser, showSoftwareBrowser, filterSoftware, removeAllChil
 import { presetMachines, machineInfo, CPU_DESCRIPTIONS, OS_NAMES, MEM_SIZE_NAMES } from "./shared/machines.js"
 import { getEmuInput } from "./emu_input.js";
 import { initEmuInterface } from './emu-interface.js'
-import { initBasicEditor, showBasicEditor, wrapProg, setBootedToBasic, BASIC_RUN_FAST_FORWARD } from './editor.js'
+import { initBasicEditor, showBasicEditor, setBootedToBasic } from './editor.js'
 import { EmuAudio } from './emu-audio.js'
 import { setCliEmu } from './jscli-page.js'
 import { connect, transfer } from './shared/rpc.js'
@@ -141,9 +141,10 @@ on('musicInfo', info => {
   window.dispatchEvent(new CustomEvent('arcmusicinfo', {detail: musicInfo}));
 });
 /*How far a fast-forward has got, as an 'arcfastforward' event on window.
-  Its detail is {startMs, currentMs, targetMs, fraction} (emulated times since
-  the last reset, and fraction from 0 to 1) when one starts and about three
-  times a second as it runs, then null when it ends (or a reset stops it).*/
+  Its detail is {startMs, currentMs, targetMs, fraction, quiet} (emulated times
+  since the last reset, fraction from 0 to 1, and whether to hide the overlay)
+  when one starts and about three times a second as it runs, then null when it
+  ends (or a reset stops it).*/
 on('fastForward', status => {
   window.dispatchEvent(new CustomEvent('arcfastforward', {detail: status}));
 });
@@ -236,6 +237,7 @@ initBasicEditor({
   closeModal,
   showBooleanDialog,
   changeMachine,
+  runBasic,
   getMachinePreset: () => machinePreset
 });
 
@@ -273,8 +275,8 @@ function changeLocationHash(hash) {
   document.location.assign('#' + hash);
 }
 
-/*Pause the emulator, and its sound. The overlay's button or a click on the
-  display resumes it, as do the media controls (media-session.js).*/
+/*Pause the emulator, and its sound. A click on the overlay resumes it, as do
+  the media controls (media-session.js).*/
 function pauseEmulator() {
   emu.setPaused(true);
   emuAudio.setPaused(true);
@@ -287,6 +289,11 @@ function resumeEmulator() {
   emuAudio.setPaused(false);
   document.body.classList.remove('emu-paused');
   setMediaSessionPaused(false);
+  // Clicking the overlay leaves focus on it (or on <body> once it's hidden),
+  // where keys don't reach the emulator
+  let focused = document.activeElement;
+  if (!focused || focused == document.body || focused.closest('#pause-overlay'))
+    document.getElementById('canvas').focus();
 }
 
 /*Asks the program for the next (dir 1) or previous (-1) song, from the media
@@ -336,10 +343,9 @@ function getPageBootParams() {
       let prog = searchParams.get('basic');
 
       showBasicEditor(prog);
-      // The page has no FS, so the worker writes the !Boot that types in the program
-      opts.basicBoot = wrapProg(prog);
+      // The page has no FS, so the worker writes the files that run the program
+      opts.basicProg = prog;
       opts.autoboot = true;
-      opts.fastForward = BASIC_RUN_FAST_FORWARD;
       opts.basic = true;
     }
   }
@@ -448,6 +454,11 @@ function resumeIfPaused() {
  */
 function changeMachine(opts) {
   return emu.changeMachine(opts).then(resumeIfPaused, notifyFailure);
+}
+
+/** Run a BASIC program from a quick reset, resuming if paused */
+function runBasic(prog) {
+  return emu.runBasic(prog).then(resumeIfPaused, notifyFailure);
 }
 
 function sleep(ms) {
