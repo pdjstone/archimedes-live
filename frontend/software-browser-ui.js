@@ -43,7 +43,7 @@ function showSoftware(softwareId) {
   if ('author' in meta) appendDl(dl, 'Author', meta['author']);
   if ('publisher' in meta) appendDl(dl, 'Publisher', meta['publisher']);
   if ('year' in meta) appendDl(dl, 'Year', meta['year'].toString());
-
+  if ('info-url' in meta) appendDl(dl, 'More Info', meta['info-url'], meta['info-url']);
   if ('description' in meta) {
     details.querySelector('.description').style.display = 'block';
     // HTML, made from Markdown by arclive-software/toml2json.py
@@ -258,11 +258,19 @@ export function removeAllChildNodes(parent) {
   }
 }
 
-function appendDl(dl, title, description) {
+function appendDl(dl, title, description, url = "") {
   let dt = document.createElement('dt');
   dt.textContent = title;
   let dd = document.createElement('dd');
-  dd.textContent = description;
+  if (url == "") {
+     dd.textContent = description;
+  } else {
+    let a = document.createElement('a');
+    a.href = url;
+    a.textContent = url;
+    dd.appendChild(a);
+  }
+ 
   dl.appendChild(dt);
   dl.appendChild(dd);
 }
