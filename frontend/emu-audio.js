@@ -25,17 +25,16 @@ const READ_OUTPUT_LATENCY = !navigator.userAgent.includes('Firefox/');
 
 export class EmuAudio {
   /**
-   * @param {boolean} alwaysLogStats - log the counters every interval, not just when they change
+   * @param {boolean} logStats - log the counters to the console every interval (#audiostats)
    */
-  constructor(alwaysLogStats = false) {
-    this.alwaysLogStats = alwaysLogStats;
+  constructor(logStats = false) {
+    this.logStatsEnabled = logStats;
     this.ctx = null;
     this.node = null;
     this.ctrl = null;
     this.running = false;
     this.paused = false;  // suspended because the emulator is paused
     this.hidden = false;  // the page can't be seen, so the worklet buffers more
-    this.lastLogged = null;
     this.dumpFrames = 0;  // size of the audio dump that's been asked for
     this.dumpWav = null;  // the finished dump, as a WAV file
     this.dumpBase64 = null;
@@ -105,7 +104,8 @@ export class EmuAudio {
     GESTURE_EVENTS.forEach(e => addEventListener(e, resume, true));
 
     this.updateState();
-    setInterval(() => this.logStats(), STATS_LOG_INTERVAL_MS);
+    if (this.logStatsEnabled)
+      setInterval(() => this.logStats(), STATS_LOG_INTERVAL_MS);
   }
 
   /**
@@ -239,16 +239,8 @@ export class EmuAudio {
     };
   }
 
-  /** Log the counters if any glitch counter has changed since last time */
   logStats() {
-    const s = this.stats();
-    const key = JSON.stringify([s.underruns, s.silentFrames, s.overflows, s.framesDropped,
-                                s.recordsDropped, s.eventsDropped, s.clips, s.ddUnderruns]);
-    if (this.alwaysLogStats || (key !== this.lastLogged && this.lastLogged !== null) ||
-        (this.lastLogged === null && key !== '[0,0,0,0,0,0,0,0]')) {
-      console.log('Audio stats:', JSON.stringify(s));
-    }
-    this.lastLogged = key;
+    console.log('Audio stats:', JSON.stringify(this.stats()));
   }
 }
 
