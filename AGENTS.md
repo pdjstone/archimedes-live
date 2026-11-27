@@ -167,7 +167,7 @@ All are read in `getPageBootParams()` in `frontend/ui.js`.
 | `mouse-capture` | `auto`, `force` or `never` | Mouse handling mode |
 | `showsoftwarebrowser` | (flag) | Open the software browser on load |
 | `dumpaudio` | `dur,delay` (seconds) | Record `dur` s of 48 kHz stereo audio, starting `delay` s of emulated time after boot (see below). |
-| `audiostats` | (flag) | Show audio stats over the display (`frontend/audio-stats-overlay.js`; tap for the full panel), and log `Audio stats: {...}` to the console every 5 s. Otherwise they're only logged when a glitch counter changes. |
+| `audiostats` | (flag) | Show audio stats over the display (`frontend/audio-stats-overlay.js`; tap for the full panel), and log `Audio stats: {...}` to the console every 5 s. Without it they aren't logged. |
 | `dbglatency` | (flag) | Visual mouse-latency debugging |
 | `jscli` | (flag), or `ws://127.0.0.1:PORT/TOKEN` | Put the JSCLI modules in the support ROM, for the `arcCli`, `arcCliSession` and `arcType` hooks (below); they're left out otherwise. With a URL, also connect to `tools/arcterm.py` (below), a command line for RISC OS. Only loopback addresses are accepted |
 
@@ -197,7 +197,8 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
   - Glitches: `underruns`, `silentFrames`, `overflows` (trims), `framesDropped`, `recordsDropped`, `eventsDropped`, `clips`, `ddUnderruns`.
   - Buffering: `minFillMs`, `maxFillMs`, `targetFillMs`, `trimFillMs`.
   - Emulator loop: `loopLate`, `loopGapMaxMs`, `runMaxMs`.
-  - AudioContext: `ctxState`, `sampleRate`, `baseLatencyMs`, `outputLatencyMs`.
+  - AudioContext: `ctxState`, `sampleRate`, `baseLatencyMs`, `outputLatencyMs`
+    (null in Firefox, where reading `outputLatency` can hang the tab).
   - Stream positions: `recordsWritten`/`recordsRead`, `ticksWritten`, `frameWatermark`/`framesRead`, `resets`, `events`, `ddBlocksWritten`/`ddBlocksPlayed`.
   - `resetFill=true` resets the min/max fill and loop-gap maxima after reading them.
 
