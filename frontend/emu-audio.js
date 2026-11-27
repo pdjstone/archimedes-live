@@ -16,6 +16,12 @@ const STATS_LOG_INTERVAL_MS = 5000;
    mouse click starts audio without waiting for the button to come up. */
 export const GESTURE_EVENTS = ['pointerdown', 'pointerup', 'keydown'];
 const DUMP_STATE_NAMES = ['off', 'waiting', 'recording', 'recording', 'error'];
+/* Firefox's AudioContext.outputLatency asks the audio server synchronously
+   while holding the graph's lock, and on Linux (PulseAudio or PipeWire) that
+   can deadlock: the tab's main thread hangs for good and the audio stops,
+   while the picture, drawn by the worker, carries on. It only caches a value
+   once it's non-zero, so any read can make the call. Don't read it there. */
+const READ_OUTPUT_LATENCY = !navigator.userAgent.includes('Firefox/');
 
 export class EmuAudio {
   /**
@@ -229,7 +235,7 @@ export class EmuAudio {
       ctxState: this.ctx ? this.ctx.state : null,
       sampleRate: this.ctx ? this.ctx.sampleRate : null,
       baseLatencyMs: this.ctx ? Math.round(this.ctx.baseLatency * 1000 * 10) / 10 : null,
-      outputLatencyMs: this.ctx && 'outputLatency' in this.ctx ? Math.round(this.ctx.outputLatency * 1000 * 10) / 10 : null
+      outputLatencyMs: this.ctx && READ_OUTPUT_LATENCY && 'outputLatency' in this.ctx ? Math.round(this.ctx.outputLatency * 1000 * 10) / 10 : null
     };
   }
 

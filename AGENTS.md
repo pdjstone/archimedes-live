@@ -197,7 +197,8 @@ Call these with `d.execute_script('return window.arcAudioStats()')` and similar.
   - Glitches: `underruns`, `silentFrames`, `overflows` (trims), `framesDropped`, `recordsDropped`, `eventsDropped`, `clips`, `ddUnderruns`.
   - Buffering: `minFillMs`, `maxFillMs`, `targetFillMs`, `trimFillMs`.
   - Emulator loop: `loopLate`, `loopGapMaxMs`, `runMaxMs`.
-  - AudioContext: `ctxState`, `sampleRate`, `baseLatencyMs`, `outputLatencyMs`.
+  - AudioContext: `ctxState`, `sampleRate`, `baseLatencyMs`, `outputLatencyMs`
+    (null in Firefox, where reading `outputLatency` can hang the tab).
   - Stream positions: `recordsWritten`/`recordsRead`, `ticksWritten`, `frameWatermark`/`framesRead`, `resets`, `events`, `ddBlocksWritten`/`ddBlocksPlayed`.
   - `resetFill=true` resets the min/max fill and loop-gap maxima after reading them.
 
